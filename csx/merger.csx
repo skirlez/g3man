@@ -9,10 +9,9 @@ using UndertaleModLib.Decompiler;
 
 EnsureDataLoaded();
 
-string runningDirectory = Path.GetDirectoryName(ScriptPath);
-
-string modloaderPatchesPath = Path.GetFullPath(Path.Combine(runningDirectory, "..", "patches"));
-string modloaderDataPath = Path.GetFullPath(Path.Combine(runningDirectory, "data.win"));
+string modloaderPatches = @"REPLACE_MODLOADER_PATCHES";
+string modsDirectory = "REPLACE_MODS_DIRECTORY";
+string modloaderDataPath = "REPLACE_MODLOADER_DATA_PATH";
 
 int stringListLength = Data.Strings.Count;
 
@@ -184,6 +183,7 @@ UndertaleGameObject cloneObject(UndertaleGameObject sourceObj, string newName) {
 
 // Changes the save location to nubby's forgery
 Data.GeneralInfo.Name = modloaderData.GeneralInfo.Name;
+
 enum PatchType {
 	WriteBefore,
 	WriteAfter,
@@ -195,6 +195,7 @@ Dictionary<string, PatchType> writeFunctionTypes = new Dictionary<string, PatchT
 	{"write_replace", PatchType.WriteReplace},
 	{"write_after", PatchType.WriteAfter}
 };
+
 class Patch {
 	public string text;
 	public bool critical;
@@ -218,8 +219,6 @@ settings.EmptyLineAroundBranchStatements = true;
 settings.EmptyLineBeforeSwitchCases = true;
 
 GlobalDecompileContext globalContext = new GlobalDecompileContext(Data);
-
-
 
 // Apply the patches
 applyPatches(modloaderPatchesPath);

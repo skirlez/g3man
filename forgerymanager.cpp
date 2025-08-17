@@ -9,6 +9,8 @@
 
 #include "patcher.h"
 #include "directories.h"
+#include "embeds.h"
+
 
 using namespace Gtk;
 namespace fs = std::filesystem;
@@ -225,6 +227,8 @@ ForgeryManager::ForgeryManager() {
 
 	load_settings();
 	load_mod_listing();
+
+	g_message("%s", embeds::get_merger_script_text().c_str());
 }
 
 ForgeryManager::~ForgeryManager() {}
