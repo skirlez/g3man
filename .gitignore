@@ -1,3 +1,10 @@
+# bear
 compile_commands.json
-.vscode
+# make
 out
+# nix flake output
+result
+
+.vscode
+
+csx/merger.csx.h

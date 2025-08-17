@@ -4,14 +4,20 @@ LDFLAGS = `pkg-config --libs gtkmm-4.0`
 
 SRC := $(shell find . -name '*.cpp')
 OBJ = $(patsubst %.cpp,out/%.o,$(SRC))
-TARGET = out/forgerymanager
+TARGET = out/forgery-manager
 
 all: $(TARGET)
+
+csx/merger.csx.h: csx/merger.csx
+	xxd -i $< > $@
+
+gmlp/superpatch.gmlp:
+	cat gmlp/*.gmlp > $@
 
 $(TARGET): $(OBJ)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
-out/%.o: %.cpp | out
+out/%.o: %.cpp csx/merger.csx.h | out
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 out:
@@ -19,3 +25,4 @@ out:
 
 clean:
 	rm -rf out
+	rm -f csx/merger.csx.h
