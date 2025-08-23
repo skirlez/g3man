@@ -15,7 +15,7 @@ public:
 	Patcher();
 	~Patcher() override;
 
-	std::string apply_mods(fs::path nubby_path, fs::path save_path);
+	std::string apply_mods(fs::path steam_directory, fs::path umc_path);
 private:
 	Label* thing_happening_now;
 };

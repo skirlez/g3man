@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++17 `pkg-config --cflags gtkmm-4.0` -Wall -Wextra -g
+CXXFLAGS = -std=c++17 `pkg-config --cflags gtkmm-4.0` -Wall -Wextra -Wpedantic -g
 LDFLAGS = `pkg-config --libs gtkmm-4.0`
 OBJCOPY ?= objcopy
 
@@ -32,7 +32,7 @@ out/forgery.win.o: win/forgery.win | out
 out/%.o: %.cpp | out
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-out/forgery-manager: out/forgery.win.o out/merger.csx.o out/superpatch.gmlp.o $(OBJ)
+out/forgery-manager: $(OBJ)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 

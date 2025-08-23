@@ -3,13 +3,12 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
-
+/*
 #include <gtkmm/alertdialog.h>
+#include <gtkmm/stacksidebar.h>
 #include "nlohmann/json.hpp"
+*/
 
-#include "patcher.h"
-#include "directories.h"
-#include "embeds.h"
 
 
 using namespace Gtk;
@@ -17,42 +16,26 @@ namespace fs = std::filesystem;
 
 
 ForgeryManager::ForgeryManager() {
-
-
-	
+	/*
 	mods_page = make_managed<Box>(Orientation::VERTICAL, 0);	
 	settings_page = make_managed<Box>(Orientation::VERTICAL, 0);
 	Box* about_page = make_managed<Box>(Orientation::VERTICAL, 0);
 
 	std::array<Widget*, 3> pages = {mods_page, settings_page, about_page};
-	std::array<std::string, 3> page_names = {"Mods", "Settings", "About"};
+	std::array<std::string, 3> page_names = {"mods", "settings", "about"};
+	std::array<std::string, 3> page_titles = {"Mods", "Settings", "About"};
 	page_stack = make_managed<Stack>();
 	page_stack->set_hexpand();
 
-	Box* page_buttons = make_managed<Box>(Orientation::VERTICAL, 0);	
-	page_buttons->set_valign(Align::CENTER);
-	page_buttons->set_halign(Align::CENTER);
-	page_buttons->set_margin(10);
+	StackSidebar* page_sidebar = make_managed<StackSidebar>();
+	page_sidebar->set_stack(*page_stack);
+	page_sidebar->set_valign(Align::FILL);
+	page_sidebar->set_vexpand(true);
 
 	for (size_t i = 0; i < page_names.size(); i++) {
-		Button* page_button = make_managed<Button>(page_names[i]);
-		page_button->set_margin(5);
-		page_button->signal_clicked().connect([pages, i, this]() {
-			this->switch_page(pages[i]); 
-		});
-		page_buttons->append(*page_button);
-		page_stack->add(*pages[i]);
+		page_stack->add(*pages[i], page_names[i], page_titles[i]);
 	}
 
-	/*
-	Box* page_box_spacer_left = make_managed<Box>(Orientation::HORIZONTAL);
-	page_box_spacer_left->set_margin(10);
-	page_box_spacer_left->set_hexpand(true);
-
-	Box* page_box_spacer_right = make_managed<Box>(Orientation::HORIZONTAL);
-	page_box_spacer_right->set_margin(10);
-	page_box_spacer_right->set_hexpand(true);
-	*/
 
 
 	Box* manage_mods_box = make_managed<Box>(Orientation::HORIZONTAL);
@@ -216,29 +199,31 @@ ForgeryManager::ForgeryManager() {
 
 
 	page_box = make_managed<Box>(Orientation::HORIZONTAL, 0);
-	page_box->append(*page_buttons);
+	page_box->append(*page_sidebar);
 	page_box->append(*page_stack);
 	page_box->set_vexpand(true);
 
 	page_box->set_homogeneous(false);
 	page_stack->set_visible_child(*mods_page);
+
 	
 	set_child(*page_box);
 
 	load_settings();
-	load_mod_listing();
+	//load_mod_listing();
+	*/
 
-	g_message("%s", embeds::get_merger_script_text().c_str());
+	
 }
 
 ForgeryManager::~ForgeryManager() {}
-
+/*
 void ForgeryManager::switch_page(Widget* page) {
 	this->page_stack->set_visible_child(*page);
 }
 
 void ForgeryManager::on_exit() {
-
+	free_mods_list_entries();
 }
 
 void ForgeryManager::reorder_button_pressed(const int direction) {
@@ -335,6 +320,8 @@ void ForgeryManager::free_mods_list_entries() {
 		ListBoxRow* row = (ListBoxRow*)widget;
 		forgery_mod* mod = (forgery_mod*)row->get_data("mod");
 		delete mod;
+		fs::path* path = (fs::path*)row->get_data("path");
+		delete path;
 		mods_list->remove(*row);
 		delete row;
 	}
@@ -371,13 +358,15 @@ std::string ForgeryManager::load_mod_listing() {
 	fs::path mods_directory = save_directory/"mods";
 	for (const fs::directory_entry& entry : fs::directory_iterator(mods_directory)) {
 		if (entry.is_directory()) {
-			std::optional<forgery_mod*> maybe_mod = read_mod_json(entry.path());
+			fs::path mod_directory = entry.path();
+			std::optional<forgery_mod*> maybe_mod = read_mod_json(mod_directory);
 			if (!maybe_mod.has_value())
 				continue;
 			forgery_mod* mod = *maybe_mod;
 
 			ListBoxRow* row = new ListBoxRow();
 			row->set_data("mod", mod);
+			row->set_data("path", new fs::path(mod_directory));
 			row->set_hexpand();
 			Label* label = make_managed<Label>(mod->display_name);
 			label->set_margin(10);
@@ -438,5 +427,7 @@ void ForgeryManager::apply_mods() {
 	patcher->set_transient_for(*this);
 	patcher->set_modal(true);
 	patcher->present();
+	std::string error = patcher->apply_mods(steam_directory, umc_path);
 	//patcher->apply_mods();
 }
+*/

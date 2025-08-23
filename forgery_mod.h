@@ -10,5 +10,7 @@ struct forgery_mod {
 	std::vector<std::string> credits;
 	std::string version;
 	unsigned int target_modloader_version;
+
+	std::string patches_path;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(forgery_mod, mod_id, display_name, description, credits, version, target_modloader_version);

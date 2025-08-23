@@ -1,4 +1,5 @@
 #include "patcher.h"
+#include "directories.h"
 
 using namespace Gtk;
 namespace fs = std::filesystem;
@@ -13,7 +14,7 @@ Patcher::Patcher() {
 Patcher::~Patcher() {}
 
 
-std::string Patcher::apply_mods(fs::path nubby_path, fs::path save_path) {
+std::string Patcher::apply_mods(fs::path steam_directory, fs::path umc_path) {
 	return "";
 }
 
