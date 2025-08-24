@@ -3,6 +3,8 @@
 #include <vector>
 #include "nlohmann/json.hpp"
 
+#include <filesystem>
+
 struct forgery_mod {
 	std::string mod_id;
 	std::string display_name;
@@ -13,4 +15,10 @@ struct forgery_mod {
 
 	std::string patches_path;
 };
+
+struct forgery_mod_entry {
+	forgery_mod mod;
+	std::filesystem::path path;
+};
+
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(forgery_mod, mod_id, display_name, description, credits, version, target_modloader_version);

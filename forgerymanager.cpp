@@ -3,20 +3,20 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
-/*
+
 #include <gtkmm/alertdialog.h>
 #include <gtkmm/stacksidebar.h>
 #include "nlohmann/json.hpp"
-*/
 
+#include "patcher.h"
+#include "directories.h"
+#include "embeds.h"
 
 
 using namespace Gtk;
 namespace fs = std::filesystem;
 
-
 ForgeryManager::ForgeryManager() {
-	/*
 	mods_page = make_managed<Box>(Orientation::VERTICAL, 0);	
 	settings_page = make_managed<Box>(Orientation::VERTICAL, 0);
 	Box* about_page = make_managed<Box>(Orientation::VERTICAL, 0);
@@ -36,8 +36,6 @@ ForgeryManager::ForgeryManager() {
 		page_stack->add(*pages[i], page_names[i], page_titles[i]);
 	}
 
-
-
 	Box* manage_mods_box = make_managed<Box>(Orientation::HORIZONTAL);
 	manage_mods_box->set_valign(Align::CENTER);
 	manage_mods_box->set_halign(Align::CENTER);
@@ -52,7 +50,7 @@ ForgeryManager::ForgeryManager() {
 	});
 	Button* refresh_mods_button = make_managed<Button>("Refresh");
 	refresh_mods_button->signal_clicked().connect([this]() {
-		this->load_mod_listing();
+		this->create_mods_directory_and_load_listing();
 	});
 	Button* install_from_zip_button = make_managed<Button>("Install from ZIP");
 	install_from_zip_button->signal_clicked().connect([this]() {
@@ -95,7 +93,7 @@ ForgeryManager::ForgeryManager() {
 		if (row == nullptr)
 			this->mod_information->set_text("");
 		else
-			this->update_mod_information((forgery_mod*)row->get_data("mod"));
+			this->update_mod_information((forgery_mod_entry*)row->get_data("mod_entry"));
 	});
 	
 	mods_list->set_hexpand();
@@ -109,63 +107,91 @@ ForgeryManager::ForgeryManager() {
 	mods_page->append(*bottom_box);
 	mods_page->set_homogeneous(false);
 
+	Label* nubby_directory_label = make_managed<Label>("Nubby install directory");
+	nubby_directory_label->set_halign(Align::START);
 
-
-	Label* steam_directory_label = make_managed<Label>("Steam directory");
-	steam_directory_label->set_halign(Align::START);
-
-
-	steam_directory_entry = make_managed<Entry>();
-	steam_directory_entry->signal_changed().connect([this]() {
-		this->update_steam_entry_status();
+	nubby_directory_entry = make_managed<Entry>();
+	nubby_directory_entry->signal_changed().connect([this]() {
+		this->update_nubby_directory_label();
 	});
-	steam_directory_entry->set_halign(Align::START);
-	steam_directory_entry->set_max_width_chars(75);
+	nubby_directory_entry->set_halign(Align::START);
+	nubby_directory_entry->set_max_width_chars(75);
 
-	Button* steam_directory_browse = make_managed<Button>("Browse");
-	steam_directory_browse->set_margin_end(10);
-	steam_directory_browse->signal_clicked().connect([this]() {
-		this->browse_button_clicked("Select the Steam folder", this->steam_directory_entry, true);
+	Button* nubby_directory_browse = make_managed<Button>("Browse");
+	nubby_directory_browse->set_margin_end(10);
+	nubby_directory_browse->signal_clicked().connect([this]() {
+		this->browse_button_clicked("Select the Nubby folder", this->nubby_directory_entry, true);
 	});
 
-	Box* steam_browse_and_directory_box = make_managed<Box>(Orientation::HORIZONTAL);
-	steam_browse_and_directory_box->append(*steam_directory_browse);
-	steam_browse_and_directory_box->append(*steam_directory_entry);
+	Box* nubby_browse_and_directory_box = make_managed<Box>(Orientation::HORIZONTAL);
+	nubby_browse_and_directory_box->append(*nubby_directory_browse);
+	nubby_browse_and_directory_box->append(*nubby_directory_entry);
 
-	steam_status_label = make_managed<Label>("");
-	steam_status_label->set_halign(Align::START);
+	nubby_directory_status_label = make_managed<Label>("");
+	nubby_directory_status_label->set_halign(Align::START);
 
-	Box* steam_directory_box = make_managed<Box>(Orientation::VERTICAL);
-	steam_directory_box->append(*steam_directory_label);
-	steam_directory_box->append(*steam_browse_and_directory_box);
-	steam_directory_box->append(*steam_status_label);
-	steam_directory_box->set_margin(10);
+	Box* nubby_directory_box = make_managed<Box>(Orientation::VERTICAL);
+	nubby_directory_box->append(*nubby_directory_label);
+	nubby_directory_box->append(*nubby_browse_and_directory_box);
+	nubby_directory_box->append(*nubby_directory_status_label);
+	nubby_directory_box->set_margin(10);
 
-	Label* umc_label = make_managed<Label>("UndertaleModCli executable path");
-	umc_label->set_halign(Align::START);
+	#ifdef REQUIRE_WINEPREFIX
+		Label* nubby_wineprefix_label = make_managed<Label>("Nubby wineprefix location");
+		nubby_wineprefix_label->set_halign(Align::START);
 
-	umc_path_entry = make_managed<Entry>();
-	umc_path_entry->set_halign(Align::START);
-	umc_path_entry->set_max_width_chars(75);
+		nubby_wineprefix_entry = make_managed<Entry>();
+		nubby_wineprefix_entry->signal_changed().connect([this]() {
+			this->update_nubby_directory_label();
+		});
+		nubby_wineprefix_entry->set_halign(Align::START);
+		nubby_wineprefix_entry->set_max_width_chars(75);
 
-	Button* umc_path_browse = make_managed<Button>("Browse");
-	umc_path_browse->set_margin_end(10);
-	umc_path_browse->signal_clicked().connect([this]() {
-		this->browse_button_clicked("Select the UndertaleModCli executable", this->umc_path_entry, false);
-	});
+		Button* nubby_wineprefix_browse = make_managed<Button>("Browse");
+		nubby_wineprefix_browse->set_margin_end(10);
+		nubby_wineprefix_browse->signal_clicked().connect([this]() {
+			this->browse_button_clicked("Select the Wineprefix with Nubby's save data", this->nubby_wineprefix_entry, true);
+		});
 
-	Box* umc_browse_and_path_box = make_managed<Box>(Orientation::HORIZONTAL);
-	umc_browse_and_path_box->append(*umc_path_browse);
-	umc_browse_and_path_box->append(*umc_path_entry);
+		Box* nubby_browse_and_wineprefix_box = make_managed<Box>(Orientation::HORIZONTAL);
+		nubby_browse_and_wineprefix_box->append(*nubby_wineprefix_browse);
+		nubby_browse_and_wineprefix_box->append(*nubby_wineprefix_entry);
+
+		nubby_wineprefix_status_label = make_managed<Label>("");
+		nubby_wineprefix_status_label->set_halign(Align::START);
+
+		Box* nubby_wineprefix_box = make_managed<Box>(Orientation::VERTICAL);
+		nubby_wineprefix_box->append(*nubby_wineprefix_label);
+		nubby_wineprefix_box->append(*nubby_browse_and_wineprefix_box);
+		nubby_wineprefix_box->append(*nubby_wineprefix_status_label);
+		nubby_wineprefix_box->set_margin(10);
+	#endif
+
+	#ifndef FORGERYMANAGER_UMC_PATH
+		Label* umc_label = make_managed<Label>("UndertaleModCli executable path");
+		umc_label->set_halign(Align::START);
 
 	
-	Box* umc_path_box = make_managed<Box>(Orientation::VERTICAL);
-	umc_path_box->append(*umc_label);
-	umc_path_box->append(*umc_browse_and_path_box);
-	umc_path_box->set_margin(10);
+		umc_path_entry = make_managed<Entry>();
+		umc_path_entry->set_halign(Align::START);
+		umc_path_entry->set_max_width_chars(75);
 
+		Button* umc_path_browse = make_managed<Button>("Browse");
+		umc_path_browse->set_margin_end(10);
+		umc_path_browse->signal_clicked().connect([this]() {
+			this->browse_button_clicked("Select the UndertaleModCli executable", this->umc_path_entry, false);
+		});
 
+		Box* umc_browse_and_path_box = make_managed<Box>(Orientation::HORIZONTAL);
+		umc_browse_and_path_box->append(*umc_path_browse);
+		umc_browse_and_path_box->append(*umc_path_entry);
 
+		
+		Box* umc_path_box = make_managed<Box>(Orientation::VERTICAL);
+		umc_path_box->append(*umc_label);
+		umc_path_box->append(*umc_browse_and_path_box);
+		umc_path_box->set_margin(10);
+	#endif
 
 	Box* isolate_save_box = make_managed<Box>(Orientation::VERTICAL);
 	isolate_save_check = make_managed<CheckButton>("Isolate save");
@@ -186,8 +212,13 @@ ForgeryManager::ForgeryManager() {
 	save_settings_button->set_vexpand(true);
 	save_settings_button->set_margin(20);
 
-	settings_page->append(*steam_directory_box);
-	settings_page->append(*umc_path_box);
+	settings_page->append(*nubby_directory_box);
+	#ifdef REQUIRE_WINEPREFIX
+		settings_page->append(*nubby_wineprefix_box);
+	#endif
+	#ifndef FORGERYMANAGER_UMC_PATH
+		settings_page->append(*umc_path_box);
+	#endif
 	settings_page->append(*isolate_save_box);
 	//settings_page->append(*theme_box);
 	settings_page->append(*save_settings_button);
@@ -205,19 +236,18 @@ ForgeryManager::ForgeryManager() {
 
 	page_box->set_homogeneous(false);
 	page_stack->set_visible_child(*mods_page);
-
-	
 	set_child(*page_box);
 
 	load_settings();
-	//load_mod_listing();
-	*/
+	create_mods_directory_and_load_listing();
 
-	
+	signal_hide().connect([this]() {
+		on_exit();
+	});
 }
 
 ForgeryManager::~ForgeryManager() {}
-/*
+
 void ForgeryManager::switch_page(Widget* page) {
 	this->page_stack->set_visible_child(*page);
 }
@@ -253,35 +283,65 @@ path_status file_path_exists_status(fs::path path) {
 	return {true, "File exists"};
 }
 
-path_status get_steam_directory_status(fs::path path) {
-	if (!fs::exists(path/"steamapps"/"common"))
-		return { false, "Couldn't find steamapps/common - this is likely not a Steam folder" };
-	if (!fs::exists(path/"steamapps"/"common"/"Nubby's Number Factory"))
-		return { false, "Couldn't find Nubby folder in steamapps/common\nIf it is installed on a different drive, paste the Steam folder from there" };
-	if (!fs::exists(path/"steamapps"/"common"/"Nubby's Number Factory"/"NNF_FULLVERSION.exe"))
-		return { false, "Found game folder, but could not find NNF_FULLVERSION.exe" };
+path_status get_nubby_directory_status(fs::path path) {
+	if (!fs::exists(path/"data.win"))
+		return {false, "Could not find data.win"};
+	if (!fs::exists(path/"NNF_FULLVERSION.exe"))
+		return {false, "Could not find NNF_FULLVERSION.exe"};
 	return {true, "Nubby game files found"};
 }
 
-void ForgeryManager::update_steam_entry_status() {
-	std::string steam_directory = steam_directory_entry->get_text();
-	if (steam_directory.empty()) {
-		steam_status_label->set_text("");
+path_status get_nubby_wineprefix_status(fs::path path) {
+	if (!fs::exists(path/"data.win"))
+		return {false, "Could not find data.win"};
+	if (!fs::exists(path/"NNF_FULLVERSION.exe"))
+		return {false, "Could not find NNF_FULLVERSION.exe"};
+	return {true, "Nubby game files found"};
+}
+
+void ForgeryManager::update_nubby_directory_label() {
+	std::string nubby_directory = nubby_directory_entry->get_text();
+	if (nubby_directory.empty()) {
+		nubby_directory_status_label->set_text("");
 		return;
 	}
-	fs::path path = steam_directory;
+	fs::path path = nubby_directory;
 
-	path_status status = get_steam_directory_status(path);
-	steam_status_label->set_text(status.text);
+	path_status status = get_nubby_directory_status(path);
+	nubby_directory_status_label->set_text(status.text);
 }
+
+
+#ifdef REQUIRE_WINEPREFIX
+	void ForgeryManager::update_nubby_wineprefix_label() {
+		std::string wineprefix_path = nubby_wineprefix_entry->get_text();
+		if (wineprefix_path.empty()) {
+			nubby_wineprefix_status_label->set_text("");
+			return;
+		}
+		fs::path path = wineprefix_path;
+
+		path_status status = get_nubby_directory_status(path);
+		nubby_directory_status_label->set_text(status.text);
+	}
+#endif
+
 
 
 void ForgeryManager::save_settings() {
 	fs::path config_file_path = directories::get_or_create_config_directory()/"settings.json";
 
 	nlohmann::json json = {
-		{"steam_directory", this->steam_directory_entry->get_text()},
+		{"nubby_install_directory", this->nubby_directory_entry->get_text()},
+
+		#ifndef FORGERYMANAGER_UMC_PATH
 		{"umc_path", this->umc_path_entry->get_text()},
+		#endif
+
+		#if REQUIRE_WINEPREFIX
+		{"wineprefix_directory", this->nubby_wineprefix_entry->get_text()},
+		#endif
+
 		{"isolate_save", this->isolate_save_check->get_active()}
 	};
 
@@ -291,23 +351,23 @@ void ForgeryManager::save_settings() {
 
 void ForgeryManager::load_settings() {
 	fs::path config_file_path = directories::get_config_directory()/"settings.json";
-	nlohmann::json json;
+	nlohmann::json json = nlohmann::json::object();
 
-	if (!fs::exists(config_file_path)) {
-		json = {
-			{"steam_directory", directories::try_guess_steam_directory()},
-			{"umc_path", ""},
-			{"isolate_save", true}
-		};
-	}
-	else {
+	if (fs::exists(config_file_path)) {
 		std::ifstream file = std::ifstream(config_file_path.string());
 		file >> json;
 	}
+	this->nubby_directory_entry->set_text(json.value("nubby_install_directory", directories::try_guess_nubby_install_directory().string()));
 
-	this->steam_directory_entry->set_text(json["steam_directory"].get<std::string>());
-	this->umc_path_entry->set_text(json["umc_path"].get<std::string>());
-	this->isolate_save_check->set_active(json["isolate_save"].get<bool>());
+	#ifndef FORGERYMANAGER_UMC_PATH
+	this->umc_path_entry->set_text(json.value("umc_path", ""));
+	#endif
+
+	#if REQUIRE_WINEPREFIX
+		this->nubby_wineprefix_entry->set_text(json.value("wineprefix_directory", directories::try_guess_nubby_wineprefix_directory().string()));
+	#endif
+
+	this->isolate_save_check->set_active(json.value("isolate_save", true));
 }
 
 
@@ -318,16 +378,14 @@ void ForgeryManager::free_mods_list_entries() {
 	std::vector<Widget*> children = mods_list->get_children();
 	for (Widget* widget : children) {
 		ListBoxRow* row = (ListBoxRow*)widget;
-		forgery_mod* mod = (forgery_mod*)row->get_data("mod");
+		forgery_mod_entry* mod = (forgery_mod_entry*)row->get_data("mod_entry");
 		delete mod;
-		fs::path* path = (fs::path*)row->get_data("path");
-		delete path;
 		mods_list->remove(*row);
 		delete row;
 	}
 }
 
-std::optional<forgery_mod*> read_mod_json(const fs::path& path) {
+std::optional<forgery_mod> read_mod_json(const fs::path& path) {
 	fs::path mod_json = path/"mod.json";
 	if (!fs::exists(mod_json))
 		return std::nullopt;
@@ -336,49 +394,48 @@ std::optional<forgery_mod*> read_mod_json(const fs::path& path) {
 		std::ifstream file = std::ifstream(mod_json.string());
 		file >> json;
 		forgery_mod mod = json.get<forgery_mod>();
-		return new forgery_mod(mod);
+		return mod;
 	}
 	catch (const char* e) {
 		return std::nullopt;
 	}
 }
 
-std::string ForgeryManager::load_mod_listing() {
-	std::variant<fs::path, std::string> maybe_save_directory =
-		directories::get_nubby_save_directory(fs::path(steam_directory_entry->get_text()), isolate_save_check->get_active());
-	
-	if (std::holds_alternative<std::string>(maybe_save_directory)) {
-		return std::get<std::string>(maybe_save_directory);
+void ForgeryManager::create_mods_directory_and_load_listing() {
+	fs::path nubby_directory = fs::path(nubby_directory_entry->get_text());
+	path_status status = get_nubby_directory_status(nubby_directory);
+	if (!status.ok) {
+		return;
 	}
-	fs::path save_directory = std::get<fs::path>(maybe_save_directory);
-	if (!fs::exists(save_directory/"mods"))
-		return std::string("Mods folder does not exist");
-
+	fs::path mods_directory = nubby_directory/"mods";
+	if (!fs::exists(mods_directory) && !fs::create_directory(mods_directory)) {
+		return;
+	}
 	free_mods_list_entries();
-	fs::path mods_directory = save_directory/"mods";
 	for (const fs::directory_entry& entry : fs::directory_iterator(mods_directory)) {
 		if (entry.is_directory()) {
 			fs::path mod_directory = entry.path();
-			std::optional<forgery_mod*> maybe_mod = read_mod_json(mod_directory);
+			std::optional<forgery_mod> maybe_mod = read_mod_json(mod_directory);
 			if (!maybe_mod.has_value())
 				continue;
-			forgery_mod* mod = *maybe_mod;
+			forgery_mod mod = *maybe_mod;
+
+			forgery_mod_entry* mod_entry = new forgery_mod_entry{mod, fs::path(mod_directory)};
 
 			ListBoxRow* row = new ListBoxRow();
-			row->set_data("mod", mod);
-			row->set_data("path", new fs::path(mod_directory));
+			row->set_data("mod_entry", mod_entry);
 			row->set_hexpand();
-			Label* label = make_managed<Label>(mod->display_name);
+			Label* label = make_managed<Label>(mod_entry->mod.display_name);
 			label->set_margin(10);
 			row->set_child(*label);
 			mods_list->append(*row);
 		}
 	}
-	return std::string();
 }
 
-void ForgeryManager::update_mod_information(forgery_mod* mod) {
-	this->mod_information->set_text(mod->display_name + "\n" + mod->description + "\n");
+void ForgeryManager::update_mod_information(forgery_mod_entry* mod_entry) {
+	forgery_mod& mod = mod_entry->mod;
+	this->mod_information->set_text(mod.display_name + "\n" + mod.description + "\n");
 }
 
 void ForgeryManager::browse_button_clicked(std::string title, Entry* entry, bool select_folder) {
@@ -407,27 +464,35 @@ void ForgeryManager::browse_button_clicked(std::string title, Entry* entry, bool
 }
 
 void ForgeryManager::apply_mods() {
-	fs::path steam_directory = fs::path(this->steam_directory_entry->get_text());
-	path_status steam_status = get_steam_directory_status(steam_directory);
-	if (!steam_status.ok) {
-		Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("Steam directory is invalid:\n" + steam_status.text);
+	fs::path nubby_directory = fs::path(this->nubby_directory_entry->get_text());
+	path_status nubby_status = get_nubby_directory_status(nubby_directory);
+	if (!nubby_status.ok) {
+		Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("Nubby install directory is invalid:\n" + nubby_status.text);
 		dialog->show(*this);
 		return;
 	}
 
-	fs::path umc_path = fs::path(umc_path_entry->get_text());
-	path_status umc_status = file_path_exists_status(umc_path);
-	if (!umc_status.ok) {
-		Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("UndertaleModCli path is invalid:\n" + umc_status.text);
-		dialog->show(*this);
-		return;
-	}
+	#ifndef FORGERYMANAGER_UMC_PATH
+		fs::path umc_path = fs::path(umc_path_entry->get_text());
+		path_status umc_status = file_path_exists_status(umc_path);
+		if (!umc_status.ok) {
+			Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("UndertaleModCli path is invalid:\n" + umc_status.text);
+			dialog->show(*this);
+			return;
+		}
+	#else
+		fs::path umc_path = fs::path(FORGERYMANAGER_UMC_PATH);
+	#endif
 
 	Patcher* patcher = make_managed<Patcher>();
 	patcher->set_transient_for(*this);
 	patcher->set_modal(true);
 	patcher->present();
-	std::string error = patcher->apply_mods(steam_directory, umc_path);
+
+	g_message("%s", umc_path.string().c_str());
+
+	std::vector<forgery_mod_entry*> mod_entries;
+	std::string error = patcher->apply_mods(mod_entries, umc_path);
+	g_message("%s", error.c_str());
 	//patcher->apply_mods();
 }
-*/

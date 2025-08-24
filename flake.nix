@@ -31,7 +31,11 @@
         # export XDG_DATA_DIRS=$XDG_DATA_DIRS:${pkgs.hicolor-icon-theme}/share:${pkgs.adwaita-icon-theme}/share
       '';
     };
-    packages.x86_64-linux.default = pkgs.stdenv.mkDerivation {
+    packages.x86_64-linux.default = 
+    let
+      undertaleModCli = "TODO";
+    in
+    pkgs.stdenv.mkDerivation {
         name = "forgery-manager";
         src = ./.;
         nativeBuildInputs = with pkgs; [
@@ -45,7 +49,7 @@
           nlohmann_json
         ];
         strictDeps = true;
-        buildPhase = "make";
+        buildPhase = "make nix FORGERYMANAGER_UMC_PATH=${undertaleModCli}";
         installPhase = ''
           mkdir -p $out/bin
           cp -r out/forgery-manager $out/bin/forgery-manager

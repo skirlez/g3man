@@ -5,26 +5,23 @@ namespace fs = std::filesystem;
 
 
 namespace directories {
-	/** 
-	 * On Windows, this function returns LOCALAPPDATA. 
-	 * On Linux, this will get the LOCALAPPDATA from Nubby's wineprefix from Steam.
-	 * This is why it requires steam_folder, but my hope is it will be optimized out on Windows */
-	std::variant<fs::path, std::string> get_local_appdata(const fs::path& steam_folder) {
-		#ifdef _WIN32
+
+	#if !REQUIRE_WINEPREFIX
+		std::variant<fs::path, std::string> get_local_appdata() {
+		#if defined(_WIN32)
 			char* local_appdata = std::getenv("LOCALAPPDATA");
 			if (!local_appdata) {
 				throw std::runtime_error("LOCALAPPDATA isn't set. Please have it set.");
 			}
 			return fs::path(local_appdata);
-		#elif __linux__
-			if (!fs::exists(steam_folder/"steamapps"/"compatdata")) {
-				return std::string("Steam folder is invalid: steamapps/compatdata not found");
-			}
-			fs::path compatdata = steam_folder/"steamapps"/"compatdata";
-			if (!fs::exists(compatdata/"3191030")) { 
-				return std::string("Nubby wineprefix not found in Steam folder - please select the Steam folder that contains Nubby, or run the game once if you haven't");
-			}
-			fs::path local_appdata = compatdata/"3191030"/"pfx"/"drive_c"/"users"/"steamuser"/"AppData"/"Local";
+		#else
+			throw std::logic_error("Critical code not written for this OS yet");
+		#endif
+	}
+	#else
+		std::variant<fs::path, std::string> get_local_appdata(const fs::path& wineprefix) {
+		#if defined(__linux__)
+			fs::path local_appdata = wineprefix/"drive_c"/"users"/"steamuser"/"AppData"/"Local";
 			if (!fs::exists(local_appdata)) {
 				return std::string("Nubby wineprefix is invalid. Please create an issue on the forgery-manager GitHub");
 			}
@@ -33,11 +30,10 @@ namespace directories {
 			throw std::logic_error("Critical code not written for this OS yet");
 		#endif
 	}
+	#endif
 
 	fs::path get_config_directory() {
-		#ifdef _WIN32
-			return get_local_appdata()/"forgery-manager";
-		#elif __linux__
+		#if defined(__linux__)
 			const char* xdg = std::getenv("XDG_CONFIG_HOME");
 			if (!xdg) {
 				const char* home = std::getenv("HOME");
@@ -47,6 +43,8 @@ namespace directories {
 				return fs::path(home)/".config"/"forgery-manager";
 			}
 			return fs::path(xdg)/"forgery-manager";
+		#elif defined(_WIN32)
+			return get_local_appdata()/"forgery-manager";
 		#else
 			throw std::logic_error("Critical code not written for this OS yet");
 		#endif
@@ -59,9 +57,7 @@ namespace directories {
 	}
 
 	fs::path try_guess_steam_directory() {
-		#ifdef _WIN32
-			// TODO
-		#elif __linux__
+		#if defined(__linux__)
 			const char* home = std::getenv("HOME");
 			if (!home)
 				return fs::path();
@@ -71,6 +67,8 @@ namespace directories {
 				return resolved_path;
 			}
 			return fs::path();
+		#elif defined(_WIN32)
+			// TODO
 		#else
 			g_message("%s", "If you're seeing this, you should probably implement this function for this OS")
 		#endif
@@ -87,6 +85,21 @@ namespace directories {
 		else
 			return fs::path();
 	}
+
+	#ifdef REQUIRE_WINEPREFIX
+		fs::path try_guess_nubby_wineprefix_directory() {
+			fs::path steam_folder = try_guess_steam_directory();
+			if (steam_folder.empty())
+				return steam_folder;
+			fs::path guess = steam_folder/"steamapps"/"compatdata"/"3191030"/"pfx";
+			if (!fs::exists(guess))
+				return fs::path();
+			if (!fs::exists(guess/"drive_c"/"users"/"steamuser"/"AppData"/"Local"))
+				return fs::path();
+			return guess;
+		}
+	#endif
+
 
 	std::variant<fs::path, std::string> get_nubby_save_directory(const fs::path& steam_folder, bool isolated) {
 		std::variant<fs::path, std::string> maybe_local_appdata = get_local_appdata(steam_folder);

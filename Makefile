@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++17 `pkg-config --cflags gtkmm-4.0` -Wall -Wextra -Wpedantic -g
+CXXFLAGS = -std=c++17 `pkg-config --cflags gtkmm-4.0` -Wall -Wextra -g
 LDFLAGS = `pkg-config --libs gtkmm-4.0`
 OBJCOPY ?= objcopy
 
@@ -8,8 +8,12 @@ OBJ = $(patsubst %.cpp,out/%.o,$(SRC))
 
 all: out/forgery-manager
 
-out:
+out: 
 	mkdir -p out
+
+nix: CXXFLAGS += -DFORGERYMANAGER_UMC_PATH=\"$(FORGERYMANAGER_UMC_PATH)\"
+nix: all
+
 
 # merger script to be embedded 
 out/merger.csx.o: csx/merger.csx | out
@@ -32,7 +36,7 @@ out/forgery.win.o: win/forgery.win | out
 out/%.o: %.cpp | out
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-out/forgery-manager: $(OBJ)
+out/forgery-manager: $(OBJ) out/merger.csx.o out/superpatch.gmlp.o out/forgery.win.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 
