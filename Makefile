@@ -1,18 +1,31 @@
-CXX = g++
-CXXFLAGS = -std=c++17 `pkg-config --cflags gtkmm-4.0` -Wall -Wextra -g
+CXX ?= g++
 LDFLAGS = `pkg-config --libs gtkmm-4.0`
 OBJCOPY ?= objcopy
 
+DEBUG_CXXFLAGS := -std=c++17 `pkg-config --cflags gtkmm-4.0` -Wall -Wextra -g
+RELEASE_CXXFLAGS := -std=c++17 `pkg-config --cflags gtkmm-4.0` -Ofast
+
+DEBUG_OBJ = $(patsubst %.cpp,out/debug/%.o,$(SRC)) 
+RELEASE_OBJ = $(patsubst %.cpp,out/release/%.o,$(SRC)) 
+
 SRC := $(shell find . -name '*.cpp')
-OBJ = $(patsubst %.cpp,out/%.o,$(SRC))
 
-all: out/forgery-manager
 
-out: 
-	mkdir -p out
+.PHONY: all debug release clean nix
 
-nix: CXXFLAGS += -DFORGERYMANAGER_UMC_PATH=\"$(FORGERYMANAGER_UMC_PATH)\"
-nix: all
+all: debug
+debug: out/debug/forgery-manager
+release: out/release/forgery-manager
+
+nix: RELEASE_CXXFLAGS += -DFORGERYMANAGER_UMC_PATH="$(FORGERYMANAGER_UMC_PATH)"
+nix: release
+
+out:
+	mkdir -p $@
+out/debug:
+	mkdir -p $@
+out/release:
+	mkdir -p $@
 
 
 # merger script to be embedded 
@@ -33,11 +46,19 @@ out/superpatch.gmlp.o: gmlp/superpatch.gmlp | out
 out/forgery.win.o: win/forgery.win | out
 	$(OBJCOPY) --input binary --output elf64-x86-64 $< $@
 
-out/%.o: %.cpp | out
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+out/debug/%.o: %.cpp | out/debug
+	$(CXX) $(DEBUG_CXXFLAGS) -c $< -o $@
 
-out/forgery-manager: $(OBJ) out/merger.csx.o out/superpatch.gmlp.o out/forgery.win.o
+out/debug/forgery-manager: $(DEBUG_OBJ) out/merger.csx.o out/superpatch.gmlp.o out/forgery.win.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
+
+
+out/release/%.o: %.cpp | out/release
+	$(CXX) $(RELEASE_CXXFLAGS) -c $< -o $@
+
+out/release/forgery-manager: $(RELEASE_OBJ) out/merger.csx.o out/superpatch.gmlp.o out/forgery.win.o
+	$(CXX) -o $@ $^ $(LDFLAGS)
+
 
 
 clean:

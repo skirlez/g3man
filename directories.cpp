@@ -5,33 +5,6 @@ namespace fs = std::filesystem;
 
 
 namespace directories {
-
-	#if !REQUIRE_WINEPREFIX
-		std::variant<fs::path, std::string> get_local_appdata() {
-		#if defined(_WIN32)
-			char* local_appdata = std::getenv("LOCALAPPDATA");
-			if (!local_appdata) {
-				throw std::runtime_error("LOCALAPPDATA isn't set. Please have it set.");
-			}
-			return fs::path(local_appdata);
-		#else
-			throw std::logic_error("Critical code not written for this OS yet");
-		#endif
-	}
-	#else
-		std::variant<fs::path, std::string> get_local_appdata(const fs::path& wineprefix) {
-		#if defined(__linux__)
-			fs::path local_appdata = wineprefix/"drive_c"/"users"/"steamuser"/"AppData"/"Local";
-			if (!fs::exists(local_appdata)) {
-				return std::string("Nubby wineprefix is invalid. Please create an issue on the forgery-manager GitHub");
-			}
-			return local_appdata;
-		#else
-			throw std::logic_error("Critical code not written for this OS yet");
-		#endif
-	}
-	#endif
-
 	fs::path get_config_directory() {
 		#if defined(__linux__)
 			const char* xdg = std::getenv("XDG_CONFIG_HOME");
@@ -44,7 +17,11 @@ namespace directories {
 			}
 			return fs::path(xdg)/"forgery-manager";
 		#elif defined(_WIN32)
-			return get_local_appdata()/"forgery-manager";
+			char* local_appdata = std::getenv("LOCALAPPDATA");
+			if (!local_appdata) {
+				throw std::runtime_error("LOCALAPPDATA isn't set. Please have it set.");
+			}
+			return fs::path(local_appdata)/"forgery-manager"
 		#else
 			throw std::logic_error("Critical code not written for this OS yet");
 		#endif
@@ -100,7 +77,7 @@ namespace directories {
 		}
 	#endif
 
-
+	/*
 	std::variant<fs::path, std::string> get_nubby_save_directory(const fs::path& steam_folder, bool isolated) {
 		std::variant<fs::path, std::string> maybe_local_appdata = get_local_appdata(steam_folder);
 		if (std::holds_alternative<std::string>(maybe_local_appdata)) {
@@ -119,4 +96,5 @@ namespace directories {
 		}
 		return local_appdata/"NNF_FULLVERSION";
 	}
+	*/
 }

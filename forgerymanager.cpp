@@ -136,41 +136,10 @@ ForgeryManager::ForgeryManager() {
 	nubby_directory_box->append(*nubby_directory_status_label);
 	nubby_directory_box->set_margin(10);
 
-	#ifdef REQUIRE_WINEPREFIX
-		Label* nubby_wineprefix_label = make_managed<Label>("Nubby wineprefix location");
-		nubby_wineprefix_label->set_halign(Align::START);
-
-		nubby_wineprefix_entry = make_managed<Entry>();
-		nubby_wineprefix_entry->signal_changed().connect([this]() {
-			this->update_nubby_directory_label();
-		});
-		nubby_wineprefix_entry->set_halign(Align::START);
-		nubby_wineprefix_entry->set_max_width_chars(75);
-
-		Button* nubby_wineprefix_browse = make_managed<Button>("Browse");
-		nubby_wineprefix_browse->set_margin_end(10);
-		nubby_wineprefix_browse->signal_clicked().connect([this]() {
-			this->browse_button_clicked("Select the Wineprefix with Nubby's save data", this->nubby_wineprefix_entry, true);
-		});
-
-		Box* nubby_browse_and_wineprefix_box = make_managed<Box>(Orientation::HORIZONTAL);
-		nubby_browse_and_wineprefix_box->append(*nubby_wineprefix_browse);
-		nubby_browse_and_wineprefix_box->append(*nubby_wineprefix_entry);
-
-		nubby_wineprefix_status_label = make_managed<Label>("");
-		nubby_wineprefix_status_label->set_halign(Align::START);
-
-		Box* nubby_wineprefix_box = make_managed<Box>(Orientation::VERTICAL);
-		nubby_wineprefix_box->append(*nubby_wineprefix_label);
-		nubby_wineprefix_box->append(*nubby_browse_and_wineprefix_box);
-		nubby_wineprefix_box->append(*nubby_wineprefix_status_label);
-		nubby_wineprefix_box->set_margin(10);
-	#endif
-
 	#ifndef FORGERYMANAGER_UMC_PATH
 		Label* umc_label = make_managed<Label>("UndertaleModCli executable path");
+		
 		umc_label->set_halign(Align::START);
-
 	
 		umc_path_entry = make_managed<Entry>();
 		umc_path_entry->set_halign(Align::START);
@@ -213,9 +182,6 @@ ForgeryManager::ForgeryManager() {
 	save_settings_button->set_margin(20);
 
 	settings_page->append(*nubby_directory_box);
-	#ifdef REQUIRE_WINEPREFIX
-		settings_page->append(*nubby_wineprefix_box);
-	#endif
 	#ifndef FORGERYMANAGER_UMC_PATH
 		settings_page->append(*umc_path_box);
 	#endif
@@ -291,13 +257,6 @@ path_status get_nubby_directory_status(fs::path path) {
 	return {true, "Nubby game files found"};
 }
 
-path_status get_nubby_wineprefix_status(fs::path path) {
-	if (!fs::exists(path/"data.win"))
-		return {false, "Could not find data.win"};
-	if (!fs::exists(path/"NNF_FULLVERSION.exe"))
-		return {false, "Could not find NNF_FULLVERSION.exe"};
-	return {true, "Nubby game files found"};
-}
 
 void ForgeryManager::update_nubby_directory_label() {
 	std::string nubby_directory = nubby_directory_entry->get_text();
@@ -312,22 +271,6 @@ void ForgeryManager::update_nubby_directory_label() {
 }
 
 
-#ifdef REQUIRE_WINEPREFIX
-	void ForgeryManager::update_nubby_wineprefix_label() {
-		std::string wineprefix_path = nubby_wineprefix_entry->get_text();
-		if (wineprefix_path.empty()) {
-			nubby_wineprefix_status_label->set_text("");
-			return;
-		}
-		fs::path path = wineprefix_path;
-
-		path_status status = get_nubby_directory_status(path);
-		nubby_directory_status_label->set_text(status.text);
-	}
-#endif
-
-
-
 void ForgeryManager::save_settings() {
 	fs::path config_file_path = directories::get_or_create_config_directory()/"settings.json";
 
@@ -336,10 +279,6 @@ void ForgeryManager::save_settings() {
 
 		#ifndef FORGERYMANAGER_UMC_PATH
 		{"umc_path", this->umc_path_entry->get_text()},
-		#endif
-
-		#if REQUIRE_WINEPREFIX
-		{"wineprefix_directory", this->nubby_wineprefix_entry->get_text()},
 		#endif
 
 		{"isolate_save", this->isolate_save_check->get_active()}
@@ -361,10 +300,6 @@ void ForgeryManager::load_settings() {
 
 	#ifndef FORGERYMANAGER_UMC_PATH
 	this->umc_path_entry->set_text(json.value("umc_path", ""));
-	#endif
-
-	#if REQUIRE_WINEPREFIX
-		this->nubby_wineprefix_entry->set_text(json.value("wineprefix_directory", directories::try_guess_nubby_wineprefix_directory().string()));
 	#endif
 
 	this->isolate_save_check->set_active(json.value("isolate_save", true));
@@ -435,7 +370,16 @@ void ForgeryManager::create_mods_directory_and_load_listing() {
 
 void ForgeryManager::update_mod_information(forgery_mod_entry* mod_entry) {
 	forgery_mod& mod = mod_entry->mod;
-	this->mod_information->set_text(mod.display_name + "\n" + mod.description + "\n");
+	
+	std::string credits;
+	if (mod.credits.size() > 0) {
+		credits = "By: " + mod.credits[0];
+		for (size_t i = 1; i < mod.credits.size(); i++) {
+			credits += ", " + mod.credits[i];
+		}
+	}
+
+	this->mod_information->set_text(mod.display_name + "\n" + mod.description + "\n" + credits);
 }
 
 void ForgeryManager::browse_button_clicked(std::string title, Entry* entry, bool select_folder) {
@@ -481,7 +425,10 @@ void ForgeryManager::apply_mods() {
 			return;
 		}
 	#else
-		fs::path umc_path = fs::path(FORGERYMANAGER_UMC_PATH);
+		// really stupid language
+		#define STRINGIFY(x) #x
+		#define EXPAND_AND_STRINGIFY(x) STRINGIFY(x)
+		fs::path umc_path = fs::path(EXPAND_AND_STRINGIFY(FORGERYMANAGER_UMC_PATH));
 	#endif
 
 	Patcher* patcher = make_managed<Patcher>();
@@ -491,8 +438,14 @@ void ForgeryManager::apply_mods() {
 
 	g_message("%s", umc_path.string().c_str());
 
-	std::vector<forgery_mod_entry*> mod_entries;
-	std::string error = patcher->apply_mods(mod_entries, umc_path);
-	g_message("%s", error.c_str());
-	//patcher->apply_mods();
+	std::vector<forgery_mod_entry> mod_entries;
+
+	std::vector<Widget*> children = mods_list->get_children();
+	for (Widget* widget : children) {
+		ListBoxRow* row = (ListBoxRow*)widget;
+		forgery_mod_entry* mod = (forgery_mod_entry*)row->get_data("mod_entry");
+		mod_entries.push_back(*mod);
+	}
+
+	patcher->apply_mods(mod_entries, nubby_directory, umc_path);
 }

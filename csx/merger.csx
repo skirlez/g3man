@@ -9,9 +9,8 @@ using UndertaleModLib.Decompiler;
 
 EnsureDataLoaded();
 
-string modloaderPatches = @"REPLACE_MODLOADER_PATCHES";
-string modsDirectory = "REPLACE_MODS_DIRECTORY";
-string modloaderDataPath = "REPLACE_MODLOADER_DATA_PATH";
+string patchDirectories = Environment.GetEnvironmentVariable("FORGERYMANAGER_PATCH_DIRECTORIES");
+string modloaderDataPath = Environment.GetEnvironmentVariable("FORGERYMANAGER_FORGERY_DATA_PATH");
 
 int stringListLength = Data.Strings.Count;
 
@@ -221,27 +220,31 @@ settings.EmptyLineBeforeSwitchCases = true;
 GlobalDecompileContext globalContext = new GlobalDecompileContext(Data);
 
 // Apply the patches
-applyPatches(modloaderPatchesPath);
+string[] directories = patchDirectories.Split(':');
+foreach (string directory in directories) {
+	executePatchFiles(directory);
+}
+applyPatches();
 
 ScriptMessage("Done! Nubby's Forgery has been merged, and patches applied");
 
 
-void applyPatches(string path) {
-	foreach (string file in Directory.GetFiles(modloaderPatchesPath, "*.gmlp", SearchOption.AllDirectories)) {
+void executePatchFiles(string path) {
+	foreach (string file in Directory.GetFiles(path, "*.gmlp", SearchOption.AllDirectories)) {
+		ScriptMessage("Applying patch: " + Path.GetRelativePath(path, file));
 		string patchfile = File.ReadAllText(file);
 		try {
 			executePatchFile(patchfile, "modloader");
 		}
 		catch (Exception e) {
-			string relativePath = Path.GetRelativePath(modloaderPatchesPath, file);
+			string relativePath = Path.GetRelativePath(path, file);
 			Console.WriteLine($"Error in file {relativePath}: {e.Message}");
 		}
 	}
-
+}
+void applyPatches() {
 	CodeImportGroup importGroup = new(Data, globalContext, settings);
-
 	foreach (string file in allPatches.Keys) {
-		ScriptMessage(file);
 		UndertaleCode codeFile = Data.Code.ByName(file);
 		string code = GetDecompiledText(codeFile, globalContext, settings);
 		string[] lines = code.Split('\n');
@@ -272,9 +275,13 @@ void applyPatches(string path) {
 		
 		string finalResult = string.Join("\n", lines);
 		importGroup.QueueReplace(file, finalResult);
-		importGroup.Import();
+		try {
+			importGroup.Import();
+		}
+		catch (Exception e) {
+			ScriptMessage(e.ToString());
+		}
 	}
-
 }
 
 

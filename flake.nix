@@ -33,7 +33,7 @@
     };
     packages.x86_64-linux.default = 
     let
-      undertaleModCli = "TODO";
+      undertaleModCli = "/home/david/Desktop/Apps/UndertaleModCli 0.8.0.0/UndertaleModCli";
     in
     pkgs.stdenv.mkDerivation {
         name = "forgery-manager";
@@ -49,10 +49,10 @@
           nlohmann_json
         ];
         strictDeps = true;
-        buildPhase = "make nix FORGERYMANAGER_UMC_PATH=${undertaleModCli}";
+        buildPhase = "make nix FORGERYMANAGER_UMC_PATH=\"${undertaleModCli}\"";
         installPhase = ''
           mkdir -p $out/bin
-          cp -r out/forgery-manager $out/bin/forgery-manager
+          cp -r out/release/forgery-manager $out/bin/forgery-manager
         '';
     };
   };

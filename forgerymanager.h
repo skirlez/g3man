@@ -12,8 +12,6 @@
 #include <gtkmm/filedialog.h>
 #include <gtkmm/filedialog.h>
 #include "forgery_mod.h"
-#include "macros.h"
-
 
 using namespace Gtk;
 
@@ -40,12 +38,6 @@ private:
 
 	#ifndef FORGERYMANAGER_UMC_PATH
 	Entry* umc_path_entry;
-	#endif
-
-	#ifdef REQUIRE_WINEPREFIX
-	Entry* nubby_wineprefix_entry;
-	Label* nubby_wineprefix_status_label;
-	void update_nubby_wineprefix_label();
 	#endif
 
 	DropDown* theme_selection;

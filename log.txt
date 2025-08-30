@@ -1,0 +1,41 @@
+Trying to load file: '/home/david/.local/share/Steam/steamapps/common/Nubby's Number Factory/clean_forgery_data.win'
+/tmp/nix-shell.5GwLSW/forgery-manager/modloader_patches:/home/david/.local/share/Steam/steamapps/common/Nubby's Number Factory/mods/nubbys-forgery-example-mod/:/home/david/.local/share/Steam/steamapps/common/Nubby's Number Factory/mods/old-balogna-glass/
+Applying patch: superpatch.gmlp
+Applying patch: patch/test_patch.gmlp
+Applying patch: patch/folder/test_patch_2.gmlp
+Done! Nubby's Forgery has been merged, and patches applied
+[MESSAGE]: Writing chunk FORM
+[MESSAGE]: Writing chunk GEN8
+[MESSAGE]: Writing chunk OPTN
+[MESSAGE]: Writing chunk LANG
+[MESSAGE]: Writing chunk EXTN
+[MESSAGE]: Writing chunk SOND
+[MESSAGE]: Writing chunk AGRP
+[MESSAGE]: Writing chunk SPRT
+[MESSAGE]: Writing chunk BGND
+[MESSAGE]: Writing chunk PATH
+[MESSAGE]: Writing chunk SCPT
+[MESSAGE]: Writing chunk GLOB
+[MESSAGE]: Writing chunk SHDR
+[MESSAGE]: Writing chunk FONT
+[MESSAGE]: Writing chunk TMLN
+[MESSAGE]: Writing chunk OBJT
+[MESSAGE]: Writing chunk FEDS
+[MESSAGE]: Writing chunk ACRV
+[MESSAGE]: Writing chunk SEQN
+[MESSAGE]: Writing chunk TAGS
+[MESSAGE]: Writing chunk ROOM
+[MESSAGE]: Writing chunk DAFL
+[MESSAGE]: Writing chunk EMBI
+[MESSAGE]: Writing chunk PSEM
+[MESSAGE]: Writing chunk PSYS
+[MESSAGE]: Writing chunk TPAG
+[MESSAGE]: Writing chunk TGIN
+[MESSAGE]: Writing chunk CODE
+[MESSAGE]: Writing chunk VARI
+[MESSAGE]: Writing chunk FUNC
+[MESSAGE]: Writing chunk FEAT
+[MESSAGE]: Writing chunk STRG
+[MESSAGE]: Writing chunk TXTR
+[MESSAGE]: Writing chunk AUDO
+[MESSAGE]: Flushing remaining buffer data...
