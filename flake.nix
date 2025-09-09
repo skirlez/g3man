@@ -22,6 +22,7 @@
         gtkmm4
         fontconfig
         nlohmann_json
+        libzip
       ];
       strictDeps = true;
       shellHook = ''
@@ -47,6 +48,7 @@
         buildInputs = with pkgs; [
           gtkmm4
           nlohmann_json
+          libzip
         ];
         strictDeps = true;
         buildPhase = "make nix FORGERYMANAGER_UMC_PATH=\"${undertaleModCli}\"";

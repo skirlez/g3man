@@ -1,9 +1,9 @@
 CXX ?= g++
-LDFLAGS = `pkg-config --libs gtkmm-4.0`
+LDFLAGS = `pkg-config --libs gtkmm-4.0 libzip`
 OBJCOPY ?= objcopy
 
-DEBUG_CXXFLAGS := -std=c++17 `pkg-config --cflags gtkmm-4.0` -Wall -Wextra -g
-RELEASE_CXXFLAGS := -std=c++17 `pkg-config --cflags gtkmm-4.0` -Ofast
+DEBUG_CXXFLAGS := -std=c++17 `pkg-config --cflags gtkmm-4.0 libzip` -Wall -Wextra -g
+RELEASE_CXXFLAGS := -std=c++17 `pkg-config --cflags gtkmm-4.0 libzip` -Ofast
 
 DEBUG_OBJ = $(patsubst %.cpp,out/debug/%.o,$(SRC)) 
 RELEASE_OBJ = $(patsubst %.cpp,out/release/%.o,$(SRC)) 

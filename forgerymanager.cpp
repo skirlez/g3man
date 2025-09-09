@@ -11,10 +11,32 @@
 #include "patcher.h"
 #include "directories.h"
 #include "embeds.h"
-
+#include "zips.h"
 
 using namespace Gtk;
 namespace fs = std::filesystem;
+
+
+typedef struct {
+	bool ok;
+	std::string text;
+} path_status;
+
+
+path_status file_path_exists_status(fs::path path) {
+	if (!fs::exists(path))
+		return { false, "File does not exist" };
+	return {true, "File exists"};
+}
+
+path_status get_nubby_directory_status(fs::path path) {
+	if (!fs::exists(path/"data.win"))
+		return {false, "Could not find data.win"};
+	if (!fs::exists(path/"NNF_FULLVERSION.exe"))
+		return {false, "Could not find NNF_FULLVERSION.exe"};
+	return {true, "Nubby game files found"};
+}
+
 
 ForgeryManager::ForgeryManager() {
 	mods_page = make_managed<Box>(Orientation::VERTICAL, 0);	
@@ -54,7 +76,28 @@ ForgeryManager::ForgeryManager() {
 	});
 	Button* install_from_zip_button = make_managed<Button>("Install from ZIP");
 	install_from_zip_button->signal_clicked().connect([this]() {
-		//TODO
+		browse_button_clicked("Select a mod ZIP", false, [this](std::string result) {
+			fs::path path = result;
+			fs::path nubby_directory = fs::path(this->nubby_directory_entry->get_text());
+			path_status nubby_status = get_nubby_directory_status(nubby_directory);
+			if (!nubby_status.ok) {
+				Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("Nubby install directory is invalid:\n" + nubby_status.text);
+				dialog->show(*this);
+				return;
+			}
+			if (!fs::exists(path)) {
+				Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("Non-existent zip file");
+				dialog->show(*this);
+				return;
+			}
+
+			if (!zips::extract_and_overwrite(path, nubby_directory / "mods")) {
+				Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("Something went wrong during extraction. Please report this on the GitHub if you can.");
+				dialog->show(*this);
+				return;
+			}
+			this->create_mods_directory_and_load_listing();
+		});
 	});
 	Button* remove_mod_button = make_managed<Button>("Remove selected");
 	remove_mod_button->signal_clicked().connect([this]() {
@@ -120,7 +163,9 @@ ForgeryManager::ForgeryManager() {
 	Button* nubby_directory_browse = make_managed<Button>("Browse");
 	nubby_directory_browse->set_margin_end(10);
 	nubby_directory_browse->signal_clicked().connect([this]() {
-		this->browse_button_clicked("Select the Nubby folder", this->nubby_directory_entry, true);
+		this->browse_button_clicked("Select the Nubby folder", true, [this](std::string result) {
+			this->nubby_directory_entry->set_text(result);
+		});
 	});
 
 	Box* nubby_browse_and_directory_box = make_managed<Box>(Orientation::HORIZONTAL);
@@ -148,7 +193,9 @@ ForgeryManager::ForgeryManager() {
 		Button* umc_path_browse = make_managed<Button>("Browse");
 		umc_path_browse->set_margin_end(10);
 		umc_path_browse->signal_clicked().connect([this]() {
-			this->browse_button_clicked("Select the UndertaleModCli executable", this->umc_path_entry, false);
+			this->browse_button_clicked("Select the UndertaleModCli executable", false, [this](std::string result) {
+				umc_path_entry->set_text(result);
+			});
 		});
 
 		Box* umc_browse_and_path_box = make_managed<Box>(Orientation::HORIZONTAL);
@@ -236,26 +283,6 @@ void ForgeryManager::reorder_button_pressed(const int direction) {
 	index = row->get_index();
 }
 
-
-typedef struct {
-	bool ok;
-	std::string text;
-} path_status;
-
-
-path_status file_path_exists_status(fs::path path) {
-	if (!fs::exists(path))
-		return { false, "File does not exist" };
-	return {true, "File exists"};
-}
-
-path_status get_nubby_directory_status(fs::path path) {
-	if (!fs::exists(path/"data.win"))
-		return {false, "Could not find data.win"};
-	if (!fs::exists(path/"NNF_FULLVERSION.exe"))
-		return {false, "Could not find NNF_FULLVERSION.exe"};
-	return {true, "Nubby game files found"};
-}
 
 
 void ForgeryManager::update_nubby_directory_label() {
@@ -382,25 +409,25 @@ void ForgeryManager::update_mod_information(forgery_mod_entry* mod_entry) {
 	this->mod_information->set_text(mod.display_name + "\n" + mod.description + "\n" + credits);
 }
 
-void ForgeryManager::browse_button_clicked(std::string title, Entry* entry, bool select_folder) {
+void ForgeryManager::browse_button_clicked(std::string title, bool select_folder, std::function<void(std::string)> callback) {
 	Glib::RefPtr<FileDialog> dialog = FileDialog::create();
 	dialog->set_title(title);
 	if (!select_folder) {
-		dialog->open(*this, [this, dialog, entry](const Glib::RefPtr<Gio::AsyncResult> &result) {
+		dialog->open(*this, [this, dialog, callback](const Glib::RefPtr<Gio::AsyncResult> &result) {
 			try {
 				Glib::RefPtr<Gio::File> file = dialog->open_finish(result);
 				Glib::ustring str = file->get_path();
-				entry->set_text(str);
+				callback(str);
 			}
 			catch (Glib::Error &e) {}
 		});
 	}
 	else {
-		dialog->select_folder(*this, [this, dialog, entry](const Glib::RefPtr<Gio::AsyncResult> &result) {
+		dialog->select_folder(*this, [this, dialog, callback](const Glib::RefPtr<Gio::AsyncResult> &result) {
 			try {
 				Glib::RefPtr<Gio::File> file = dialog->select_folder_finish(result);
 				Glib::ustring str = file->get_path();
-				entry->set_text(str);
+				callback(str);
 			}
 			catch (Glib::Error &e) {}
 		});

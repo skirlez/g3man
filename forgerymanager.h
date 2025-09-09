@@ -53,7 +53,7 @@ private:
 	void create_mods_directory_and_load_listing();
 	void get_mods_list();
 	void on_exit();
-	void browse_button_clicked(std::string title, Entry* entry, bool select_folder);
+	void browse_button_clicked(std::string title, bool select_folder, std::function<void(std::string)> callback);
 
 	void apply_mods();
 };
