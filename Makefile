@@ -32,16 +32,6 @@ out/release:
 out/merger.csx.o: csx/merger.csx | out
 	$(OBJCOPY) --input binary --output elf64-x86-64 $< $@
 
-.INTERMEDIATE: gmlp/superpatch.gmlp
-
-# merge all patches with newlines
-gmlp/superpatch.gmlp: gmlp/*.gmlp
-	awk 'FNR==1 && NR!=1{print ""}1' gmlp/*.gmlp > $@
-
-# modloader patches to be embedded
-out/superpatch.gmlp.o: gmlp/superpatch.gmlp | out
-	$(OBJCOPY) --input binary --output elf64-x86-64 $< $@
-
 # modloader data.win to be embedded
 out/forgery.win.o: win/forgery.win | out
 	$(OBJCOPY) --input binary --output elf64-x86-64 $< $@
@@ -49,18 +39,17 @@ out/forgery.win.o: win/forgery.win | out
 out/debug/%.o: %.cpp | out/debug
 	$(CXX) $(DEBUG_CXXFLAGS) -c $< -o $@
 
-out/debug/forgery-manager: $(DEBUG_OBJ) out/merger.csx.o out/superpatch.gmlp.o out/forgery.win.o
+out/debug/forgery-manager: $(DEBUG_OBJ) out/merger.csx.o out/forgery.win.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 
 out/release/%.o: %.cpp | out/release
 	$(CXX) $(RELEASE_CXXFLAGS) -c $< -o $@
 
-out/release/forgery-manager: $(RELEASE_OBJ) out/merger.csx.o out/superpatch.gmlp.o out/forgery.win.o
+out/release/forgery-manager: $(RELEASE_OBJ) out/merger.csx.o out/forgery.win.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 
 
 clean:
 	rm -rf out
-	rm -f gmlp/superpatch.gmlp

@@ -1,9 +1,9 @@
 #include <fstream>
-#include <glibmm/main.h>
 
+#include <glibmm/main.h>
+#include <gtkmm/box.h>
 
 #ifdef __linux__
-	#include <unistd.h>
 	#include <sys/wait.h>
 #endif
 
@@ -16,11 +16,38 @@ using namespace Gtk;
 namespace fs = std::filesystem;
 
 Patcher::Patcher() {
-	thing_happening_now = make_managed<Label>();
-	set_child(*thing_happening_now);
 	set_size_request(300, 160);
 	set_resizable(false);
 
+	thing_happening_now = make_managed<Label>();
+	thing_happening_now->set_margin(20);	
+
+
+
+	force_stop_button = make_managed<Button>("KILL");
+	force_stop_button->set_sensitive(false);
+	force_stop_button->set_margin(20);
+	force_stop_button->signal_clicked().connect([this]() {
+		// there's probably some race condition bs here but worst case scenario it 
+		// displays a wrong message if you time pressing this button just right, so who cares
+		killed_by_us = true;
+
+		#ifdef __linux__
+			kill(undertalemodcli_pid, SIGTERM);
+		#endif
+
+		thing_happening_now->set_text("UndertaleModCli process was killed");
+		force_stop_button->set_sensitive(false);
+	});
+
+	Box* box = make_managed<Box>(Orientation::VERTICAL);
+	box->append(*thing_happening_now);
+	box->append(*force_stop_button);
+
+	box->set_valign(Align::CENTER);
+	
+
+	set_child(*box);
 
 	signal_close_request().connect([this]() {
 		if (this->running)
@@ -45,7 +72,7 @@ bool create_file(const fs::path& path, const char* data, size_t size) {
 
 
 void Patcher::patch(std::vector<forgery_mod_entry> mods, fs::path nubby_install_directory, fs::path umc_path) {
-	fs::path temp = std::filesystem::temp_directory_path()/"forgery-manager";
+	fs::path temp = std::filesystem::temp_directory_path()/"forgerymanager_patching";
 	Glib::signal_idle().connect_once([this]() {
 		this->thing_happening_now->set_text("Creating temporary files...");
 	});
@@ -53,14 +80,6 @@ void Patcher::patch(std::vector<forgery_mod_entry> mods, fs::path nubby_install_
 	if (!fs::exists(temp) && !fs::create_directories(temp))
 		return;
 
-	if (!create_file(temp/"forgery.win", embeds::get_modloader_data_start(), embeds::get_modloader_data_size()))
-		return;
-	fs::path modloader_patches_directory = temp/"modloader_patches";
-	if (!fs::exists(modloader_patches_directory) && !fs::create_directories(modloader_patches_directory))
-		return;
-	std::string superpatch = embeds::get_modloader_superpatch_text();
-	if (!create_file(temp/"modloader_patches"/"superpatch.gmlp", superpatch.data(), superpatch.size()))
-		return;
 	std::string merger_script = embeds::get_merger_script_text();
 	if (!create_file(temp/"merger.csx", merger_script.data(), merger_script.size()))
 		return;
@@ -75,17 +94,22 @@ void Patcher::patch(std::vector<forgery_mod_entry> mods, fs::path nubby_install_
 	Glib::signal_idle().connect_once([this]() {
 		this->thing_happening_now->set_text("Patching using UndertaleModCli...");
 	});
+	
+	// TODO
+	std::string patch_directores = (mods[0].path/mods[0].mod.patches_path).string();
+	std::string data_directores = (mods[0].path/mods[0].mod.datafile_path).string();
+	for (size_t i = 1; i < mods.size(); i++) {
+		forgery_mod_entry& entry = mods[i];
+		if (!entry.mod.patches_path.empty())
+			patch_directores += ":" + (entry.path/entry.mod.patches_path).string();
+		if (!entry.mod.datafile_path.empty())
+			data_directores += ":" + (entry.path/entry.mod.datafile_path).string();
+	}	
 
-	std::string patch_directores = modloader_patches_directory.string();
-	for (forgery_mod_entry entry : mods) {
-		patch_directores += ":" + (entry.path/entry.mod.patches_path).string();
-	}
 
-	// no need for ICU
-	g_setenv("DOTNET_SYSTEM_GLOBALIZATION_INVARIANT", "1", true);
 
 	g_setenv("FORGERYMANAGER_PATCH_DIRECTORIES", patch_directores.c_str(), false);
-	g_setenv("FORGERYMANAGER_FORGERY_DATA_PATH", (temp/"forgery.win").c_str(), false);
+	g_setenv("FORGERYMANAGER_DATA_PATHS", data_directores.c_str(), false);
 
 	std::vector<std::string> command = {
 		umc_path.string(),
@@ -98,6 +122,9 @@ void Patcher::patch(std::vector<forgery_mod_entry> mods, fs::path nubby_install_
 	};
 
 	#ifdef __linux__
+		// no need for ICU
+		g_setenv("DOTNET_SYSTEM_GLOBALIZATION_INVARIANT", "1", true);
+
 		std::vector<char*> argv;
 		for (std::string& command : command) 
 			argv.push_back(&command[0]);
@@ -109,9 +136,16 @@ void Patcher::patch(std::vector<forgery_mod_entry> mods, fs::path nubby_install_
 			_exit(127);
 		} 
 		else if (pid > 0) {
+			undertalemodcli_pid = pid;
+			force_stop_button->set_sensitive(true);
+
 			int status;
 			waitpid(pid, &status, 0);
-			if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+			force_stop_button->set_sensitive(false);
+			if (killed_by_us) {
+
+			}
+			else if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
 				Glib::signal_idle().connect_once([this]() {
 					this->thing_happening_now->set_text("Done!");
 				});

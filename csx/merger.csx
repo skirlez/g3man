@@ -2,7 +2,7 @@ using UndertaleModLib.Models;
 using UndertaleModLib.Util;
 using UndertaleModLib.Decompiler;
 
-// A script to merge Nubby's Number Factory and the modloader, Nubby's Forgery.
+// A script to merge Nubby's Number Factory and the mods you have installed
 // Scripts used for reference from UndertaleModTool:
 // ImportGraphics.csx
 // GameObjectCopyInternal.csx
@@ -10,178 +10,129 @@ using UndertaleModLib.Decompiler;
 EnsureDataLoaded();
 
 string patchDirectories = Environment.GetEnvironmentVariable("FORGERYMANAGER_PATCH_DIRECTORIES");
-string modloaderDataPath = Environment.GetEnvironmentVariable("FORGERYMANAGER_FORGERY_DATA_PATH");
+string dataPaths = Environment.GetEnvironmentVariable("FORGERYMANAGER_DATA_PATHS");
 
-int stringListLength = Data.Strings.Count;
 
-UndertaleData modloaderData = UndertaleIO.Read(new FileStream(modloaderDataPath, FileMode.Open, FileAccess.Read));
-
-uint addInstanceId = Data.GeneralInfo.LastObj - 100000;
-Data.GeneralInfo.LastObj += modloaderData.GeneralInfo.LastObj - 100000;
-
-int lastTexturePage = Data.EmbeddedTextures.Count - 1;
-int lastTexturePageItem = Data.TexturePageItems.Count - 1;
-
-Dictionary<UndertaleEmbeddedTexture, int> dict = new Dictionary<UndertaleEmbeddedTexture, int>();
-foreach (UndertaleEmbeddedTexture embeddedTexture in modloaderData.EmbeddedTextures) {
-	if (embeddedTexture.TextureInfo.Name.Content == "__YY__0fallbacktexture.png_YYG_AUTO_GEN_TEX_GROUP_NAME_")
-		continue;
-
-	UndertaleEmbeddedTexture newTexture = new UndertaleEmbeddedTexture();
-	lastTexturePage++;
-	newTexture.Name = new UndertaleString("Texture " + lastTexturePage);
-	newTexture.TextureData.Image = embeddedTexture.TextureData.Image;
-	Data.EmbeddedTextures.Add(newTexture);
-
-	dict.Add(embeddedTexture, lastTexturePage);
-}
-
-foreach (UndertaleSprite sprite in modloaderData.Sprites) {
-	Data.Sprites.Add(sprite);
-	foreach (UndertaleSprite.TextureEntry textureEntry in sprite.Textures) {
-		int newIndex = dict[textureEntry.Texture.TexturePage];
-		textureEntry.Texture.TexturePage = Data.EmbeddedTextures[newIndex];
-		lastTexturePageItem++;
-		textureEntry.Texture.Name = new UndertaleString("PageItem " + lastTexturePageItem);
-		Data.TexturePageItems.Add(textureEntry.Texture);
+if (dataPaths != "") {
+	ScriptMessage("Merging mod data...");
+	string[] dataPathArray = dataPaths.Split(':');
+	foreach (string dataPath in dataPathArray) {
+		UndertaleData data = UndertaleIO.Read(new FileStream(dataPath, FileMode.Open, FileAccess.Read));
+		mergeData(data);
 	}
+	ScriptMessage("All mod data merged.");
 }
 
-foreach (UndertaleSound sound in modloaderData.Sounds) {
-	sound.AudioGroup = Data.AudioGroups[0];
-	Data.Sounds.Add(sound);
-	Data.EmbeddedAudio.Add(sound.AudioFile);
-}
 
-foreach (UndertaleCode code in modloaderData.Code)
-	Data.Code.Add(code);
+void mergeData(UndertaleData otherData) {
+	int stringListLength = Data.Strings.Count;
+	uint addInstanceId = Data.GeneralInfo.LastObj - 100000;
+	Data.GeneralInfo.LastObj += otherData.GeneralInfo.LastObj - 100000;
 
-foreach (UndertaleFunction function in modloaderData.Functions) {
-	Data.Functions.Add(function);
-	function.NameStringID += stringListLength;
-}
+	int lastTexturePage = Data.EmbeddedTextures.Count - 1;
+	int lastTexturePageItem = Data.TexturePageItems.Count - 1;
 
-foreach (UndertaleVariable variable in modloaderData.Variables) {
-	Data.Variables.Add(variable);
+	Dictionary<UndertaleEmbeddedTexture, int> dict = new Dictionary<UndertaleEmbeddedTexture, int>();
+	foreach (UndertaleEmbeddedTexture embeddedTexture in otherData.EmbeddedTextures) {
+		if (embeddedTexture.TextureInfo.Name.Content == "__YY__0fallbacktexture.png_YYG_AUTO_GEN_TEX_GROUP_NAME_")
+			continue;
+		UndertaleEmbeddedTexture newTexture = new UndertaleEmbeddedTexture();
+		lastTexturePage++;
+		newTexture.Name = new UndertaleString("Texture " + lastTexturePage);
+		newTexture.TextureData.Image = embeddedTexture.TextureData.Image;
+		Data.EmbeddedTextures.Add(newTexture);
+		dict.Add(embeddedTexture, lastTexturePage);
+	}
 
-	if (variable.VarID == variable.NameStringID && variable.VarID != 0)
-		variable.VarID += stringListLength;
-	
-	variable.NameStringID += stringListLength;
-	
-}
-Data.InstanceVarCount += modloaderData.InstanceVarCount;
-Data.InstanceVarCountAgain += modloaderData.InstanceVarCountAgain;
-Data.MaxLocalVarCount = Math.Max(Data.MaxLocalVarCount, modloaderData.MaxLocalVarCount);
-
-foreach (UndertaleCodeLocals locals in modloaderData.CodeLocals) 
-	Data.CodeLocals.Add(locals);
-foreach (UndertaleScript script in modloaderData.Scripts) 
-	Data.Scripts.Add(script);
-
-
-foreach (UndertaleGameObject gameObject in modloaderData.GameObjects) {
-	if (Data.GameObjects.ByName(gameObject.Name.Content) != null)
-		continue;
-	UndertaleGameObject parent = gameObject.ParentId;
-	if (parent != null) {
-		UndertaleGameObject parentFromNNF = Data.GameObjects.ByName(parent.Name.Content);
-		if (parentFromNNF != null) {
-			gameObject.ParentId = parentFromNNF;
+	foreach (UndertaleSprite sprite in otherData.Sprites) {
+		Data.Sprites.Add(sprite);
+		foreach (UndertaleSprite.TextureEntry textureEntry in sprite.Textures) {
+			int newIndex = dict[textureEntry.Texture.TexturePage];
+			textureEntry.Texture.TexturePage = Data.EmbeddedTextures[newIndex];
+			lastTexturePageItem++;
+			textureEntry.Texture.Name = new UndertaleString("PageItem " + lastTexturePageItem);
+			Data.TexturePageItems.Add(textureEntry.Texture);
 		}
 	}
-	Data.GameObjects.Add(gameObject);
-}
 
-foreach (UndertaleRoom room in modloaderData.Rooms) {
-	Data.Rooms.Add(room);
-	foreach (UndertaleRoom.Layer layer in room.Layers) {
-		if (layer.LayerType == UndertaleRoom.LayerType.Instances) {
-			foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
-				gameObject.InstanceID += addInstanceId;
-		}
+	foreach (UndertaleSound sound in otherData.Sounds) {
+		sound.AudioGroup = Data.AudioGroups[0];
+		Data.Sounds.Add(sound);
+		Data.EmbeddedAudio.Add(sound.AudioFile);
 	}
-}
+
+	foreach (UndertaleCode code in otherData.Code)
+		Data.Code.Add(code);
+
+	foreach (UndertaleFunction function in otherData.Functions) {
+		Data.Functions.Add(function);
+		function.NameStringID += stringListLength;
+	}
+
+	foreach (UndertaleVariable variable in otherData.Variables) {
+		Data.Variables.Add(variable);
+
+		if (variable.VarID == variable.NameStringID && variable.VarID != 0)
+			variable.VarID += stringListLength;
+		
+		variable.NameStringID += stringListLength;
+		
+	}
+	Data.InstanceVarCount += otherData.InstanceVarCount;
+	Data.InstanceVarCountAgain += otherData.InstanceVarCountAgain;
+	Data.MaxLocalVarCount = Math.Max(Data.MaxLocalVarCount, otherData.MaxLocalVarCount);
+
+	foreach (UndertaleCodeLocals locals in otherData.CodeLocals) 
+		Data.CodeLocals.Add(locals);
+	foreach (UndertaleScript script in otherData.Scripts) 
+		Data.Scripts.Add(script);
 
 
-
-foreach (UndertaleAnimationCurve curve in modloaderData.AnimationCurves)
-	Data.AnimationCurves.Add(curve);
-
-
-foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modloaderData.GeneralInfo.RoomOrder)
-	Data.GeneralInfo.RoomOrder.Add(room);
-
-Data.GeneralInfo.FunctionClassifications |= modloaderData.GeneralInfo.FunctionClassifications;
-
-foreach (UndertaleGlobalInit script in modloaderData.GlobalInitScripts)
-	Data.GlobalInitScripts.Add(script);
-
-foreach (UndertaleString str in modloaderData.Strings)
-	Data.Strings.Add(str);
-
-Data.GeneralInfo.Info |= UndertaleGeneralInfo.InfoFlags.ShowCursor;
-Data.Options.Info |= UndertaleOptions.OptionsFlags.ShowCursor;
-
-// Duplicating generic objects
-UndertaleGameObject obj_generic_item0 = Data.GameObjects.ByName("obj_generic_item0");
-UndertaleGameObject obj_generic_perk0 = Data.GameObjects.ByName("obj_generic_perk0");
-UndertaleGameObject obj_generic_supervisor0 = Data.GameObjects.ByName("obj_generic_supervisor0");
-for (int i = 1; i < 1024; i++) {
-	cloneObject(obj_generic_item0, "obj_generic_item" + i.ToString());
-	cloneObject(obj_generic_perk0, "obj_generic_perk" + i.ToString());
-	cloneObject(obj_generic_supervisor0, "obj_generic_supervisor" + i.ToString());
-}
-
-
-UndertaleGameObject cloneObject(UndertaleGameObject sourceObj, string newName) {
-	// copied with some modifications from GameObjectCopyInternal.csx
-
-	UndertaleGameObject obj = new UndertaleGameObject();
-	obj.Name = Data.Strings.MakeString(newName);
-	Data.GameObjects.Add(obj);
-	obj.Visible = sourceObj.Visible;
-	obj.Solid = sourceObj.Solid;
-	obj.Depth = sourceObj.Depth;
-	obj.Persistent = sourceObj.Persistent;
-	obj.ParentId = sourceObj.ParentId;
-	obj.Events.Clear();
-	for (var i = 0; i < sourceObj.Events.Count; i++)
-	{
-		UndertalePointerList<UndertaleGameObject.Event> newEvent = new UndertalePointerList<UndertaleGameObject.Event>();
-		foreach (UndertaleGameObject.Event evnt in sourceObj.Events[i])
-		{
-			UndertaleGameObject.Event newevnt = new UndertaleGameObject.Event();
-			foreach (UndertaleGameObject.EventAction sourceAction in evnt.Actions)
-			{
-				UndertaleGameObject.EventAction action = new UndertaleGameObject.EventAction();
-				newevnt.Actions.Add(action);
-				action.LibID = sourceAction.LibID;
-				action.ID = sourceAction.ID;
-				action.Kind = sourceAction.Kind;
-				action.UseRelative = sourceAction.UseRelative;
-				action.IsQuestion = sourceAction.IsQuestion;
-				action.UseApplyTo = sourceAction.UseApplyTo;
-				action.ExeType = sourceAction.ExeType;
-				action.ActionName = sourceAction.ActionName;
-				action.CodeId = sourceAction.CodeId;
-				action.ArgumentCount = sourceAction.ArgumentCount;
-				action.Who = sourceAction.Who;
-				action.Relative = sourceAction.Relative;
-				action.IsNot = sourceAction.IsNot;
-				action.UnknownAlwaysZero = sourceAction.UnknownAlwaysZero;
+	foreach (UndertaleGameObject gameObject in otherData.GameObjects) {
+		if (Data.GameObjects.ByName(gameObject.Name.Content) != null)
+			continue;
+		UndertaleGameObject parent = gameObject.ParentId;
+		if (parent != null) {
+			UndertaleGameObject parentFromNNF = Data.GameObjects.ByName(parent.Name.Content);
+			if (parentFromNNF != null) {
+				gameObject.ParentId = parentFromNNF;
 			}
-			newevnt.EventSubtype = evnt.EventSubtype;
-			newEvent.Add(newevnt);
 		}
-		obj.Events.Add(newEvent);
+		Data.GameObjects.Add(gameObject);
 	}
-	return obj;
+
+	foreach (UndertaleRoom room in otherData.Rooms) {
+		Data.Rooms.Add(room);
+		foreach (UndertaleRoom.Layer layer in room.Layers) {
+			if (layer.LayerType == UndertaleRoom.LayerType.Instances) {
+				foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
+					gameObject.InstanceID += addInstanceId;
+			}
+		}
+	}
+
+	foreach (UndertaleAnimationCurve curve in otherData.AnimationCurves)
+		Data.AnimationCurves.Add(curve);
+
+	foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in otherData.GeneralInfo.RoomOrder)
+		Data.GeneralInfo.RoomOrder.Add(room);
+
+	Data.GeneralInfo.FunctionClassifications |= otherData.GeneralInfo.FunctionClassifications;
+
+	foreach (UndertaleGlobalInit script in otherData.GlobalInitScripts)
+		Data.GlobalInitScripts.Add(script);
+
+	foreach (UndertaleString str in otherData.Strings)
+		Data.Strings.Add(str);
 }
 
 
-// Changes the save location to nubby's forgery
-Data.GeneralInfo.Name = modloaderData.GeneralInfo.Name;
+
+// Change the save location
+UndertaleString newName = new UndertaleString(Data.GeneralInfo.Name.Content + "-modded");
+Data.Strings.Add(newName);
+Data.GeneralInfo.Name = newName;
+
 
 enum PatchType {
 	WriteBefore,
@@ -208,7 +159,8 @@ class Patch {
 	}
 }
 
-var allPatches = new Dictionary<string, Dictionary<int, List<Patch>>>();
+Dictionary<string, Dictionary<int, List<Patch>>> allPatches = new Dictionary<string, Dictionary<int, List<Patch>>>();
+Dictionary<string, string> decompileCache = new Dictionary<string, string>();
 
 // Same default settings as editor
 Underanalyzer.Decompiler.DecompileSettings settings = new();
@@ -220,24 +172,26 @@ settings.EmptyLineBeforeSwitchCases = true;
 GlobalDecompileContext globalContext = new GlobalDecompileContext(Data);
 
 // Apply the patches
-string[] directories = patchDirectories.Split(':');
-foreach (string directory in directories) {
+string[] patchDirectoryArray = patchDirectories.Split(':');
+foreach (string directory in patchDirectoryArray) {
 	executePatchFiles(directory);
 }
+
+ScriptMessage("Writing all patches into the code and compiling...");
 applyPatches();
 
 ScriptMessage("Done! Nubby's Forgery has been merged, and patches applied");
 
 
-void executePatchFiles(string path) {
-	foreach (string file in Directory.GetFiles(path, "*.gmlp", SearchOption.AllDirectories)) {
-		ScriptMessage("Applying patch: " + Path.GetRelativePath(path, file));
+void executePatchFiles(string directory) {
+	foreach (string file in Directory.GetFiles(directory, "*.gmlp", SearchOption.AllDirectories)) {
+		ScriptMessage("Executing patch: " + Path.GetRelativePath(directory, file));
 		string patchfile = File.ReadAllText(file);
 		try {
 			executePatchFile(patchfile, "modloader");
 		}
 		catch (Exception e) {
-			string relativePath = Path.GetRelativePath(path, file);
+			string relativePath = Path.GetRelativePath(directory, file);
 			Console.WriteLine($"Error in file {relativePath}: {e.Message}");
 		}
 	}
@@ -409,19 +363,32 @@ Token[] tokenize(string patch) {
 			continue;
 		}
 
-		if (c == '\'') {
+		if (c == '\'' || c == '@') {
 			if (!string.IsNullOrWhiteSpace(build)) {
 				tokens.Add(new NameToken(build, lineNumber));
 			}
+			if (c == '@') {
+				i++;
+				if (patch[i] != '\'') {
+					// TODO ERROR
+					continue;
+				}
+			}
+
 			int lineNumberStart = lineNumber;
 			build = "";
 			string text = "";
 			i++;
+			while (c == '@' && i < patch.Length && patch[i] == '\n')
+				continue;
 			while (i < patch.Length && !(patch[i - 1] != '\\' && patch[i] == '\'')) {
 				if (patch[i] == '\n')
 					lineNumber++;
 				text += patch[i];
 				i++;
+			}
+			while (c == '@' && i < patch.Length && text[text.Length - 1] == '\n') {
+				text = text.Substring(0, text.Length - 1);
 			}
 			if (i >= patch.Length) {
 				// TODO ERROR
@@ -500,7 +467,14 @@ void executePatchFile(string patchfile, string owner) {
 }
 
 int executePatch(Token[] tokens, int pos, string target, bool critical, string owner) {
-	string code = GetDecompiledText(Data.Code.ByName(target), globalContext, settings);
+	string code;
+	if (!decompileCache.ContainsKey(target)) {
+		code = GetDecompiledText(Data.Code.ByName(target), globalContext, settings);
+		decompileCache[target] = code;
+	}
+	else {
+		code = decompileCache[target];
+	}
 	string[] lines = code.Split('\n');
 
 	Dictionary<int, List<Patch>> filePatches;

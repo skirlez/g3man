@@ -70,6 +70,17 @@ ForgeryManager::ForgeryManager() {
 	move_mod_down->signal_clicked().connect([this]() {
 		this->reorder_button_pressed(1);
 	});
+	Button* open_mods_folder_button = make_managed<Button>("Open mods folder");
+	open_mods_folder_button->signal_clicked().connect([this]() {
+		fs::path nubby_directory = fs::path(this->nubby_directory_entry->get_text());
+		path_status nubby_status = get_nubby_directory_status(nubby_directory);
+		if (!nubby_status.ok) {
+			Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("Nubby install directory is invalid (where mods are stored):\n" + nubby_status.text);
+			dialog->show(*this);
+			return;
+		}
+		Gio::AppInfo::launch_default_for_uri("file://" + (nubby_directory / "mods").string());
+	});
 	Button* refresh_mods_button = make_managed<Button>("Refresh");
 	refresh_mods_button->signal_clicked().connect([this]() {
 		this->create_mods_directory_and_load_listing();
@@ -101,8 +112,24 @@ ForgeryManager::ForgeryManager() {
 	});
 	Button* remove_mod_button = make_managed<Button>("Remove selected");
 	remove_mod_button->signal_clicked().connect([this]() {
-		//TODO
+		ListBoxRow* row = this->mods_list->get_selected_row();
+		if (!row)
+			return;
+		forgery_mod_entry* mod_entry = (forgery_mod_entry*)row->get_data("mod_entry");
+		std::error_code ignore;
+		if (fs::remove_all(mod_entry->path, ignore)) {
+			mods_list->unselect_row();
+			mods_list->remove(*row);
+			delete mod_entry;
+			delete row;
+		}
+		else {
+			Glib::RefPtr<AlertDialog> dialog = AlertDialog::create("Couldn't remove mod.\nTry deleting it manually and refreshing.");
+			dialog->show(*this);
+			return;
+		}
 	});
+	manage_mods_box->append(*open_mods_folder_button);
 	manage_mods_box->append(*refresh_mods_button);
 	manage_mods_box->append(*move_mod_up);
 	manage_mods_box->append(*move_mod_down);
@@ -111,6 +138,7 @@ ForgeryManager::ForgeryManager() {
 	move_mod_up->set_margin(5);
 	move_mod_down->set_margin(5);
 	refresh_mods_button->set_margin(5);
+	open_mods_folder_button->set_margin(5);
 	install_from_zip_button->set_margin(5);
 	remove_mod_button->set_margin(5);
 
@@ -340,8 +368,8 @@ void ForgeryManager::free_mods_list_entries() {
 	std::vector<Widget*> children = mods_list->get_children();
 	for (Widget* widget : children) {
 		ListBoxRow* row = (ListBoxRow*)widget;
-		forgery_mod_entry* mod = (forgery_mod_entry*)row->get_data("mod_entry");
-		delete mod;
+		forgery_mod_entry* mod_entry = (forgery_mod_entry*)row->get_data("mod_entry");
+		delete mod_entry;
 		mods_list->remove(*row);
 		delete row;
 	}
@@ -355,7 +383,7 @@ std::optional<forgery_mod> read_mod_json(const fs::path& path) {
 	try {
 		std::ifstream file = std::ifstream(mod_json.string());
 		file >> json;
-		forgery_mod mod = json.get<forgery_mod>();
+		forgery_mod mod = forgery_mod_from_json(json);
 		return mod;
 	}
 	catch (const char* e) {
@@ -434,6 +462,11 @@ void ForgeryManager::browse_button_clicked(std::string title, bool select_folder
 	}
 }
 
+template <typename T>
+bool vector_contains(const std::vector<T>& vector, const T& value) {
+	return std::find(vector.begin(), vector.end(), value) != vector.end();
+}
+
 void ForgeryManager::apply_mods() {
 	fs::path nubby_directory = fs::path(this->nubby_directory_entry->get_text());
 	path_status nubby_status = get_nubby_directory_status(nubby_directory);
@@ -458,13 +491,6 @@ void ForgeryManager::apply_mods() {
 		fs::path umc_path = fs::path(EXPAND_AND_STRINGIFY(FORGERYMANAGER_UMC_PATH));
 	#endif
 
-	Patcher* patcher = make_managed<Patcher>();
-	patcher->set_transient_for(*this);
-	patcher->set_modal(true);
-	patcher->present();
-
-	g_message("%s", umc_path.string().c_str());
-
 	std::vector<forgery_mod_entry> mod_entries;
 
 	std::vector<Widget*> children = mods_list->get_children();
@@ -473,6 +499,33 @@ void ForgeryManager::apply_mods() {
 		forgery_mod_entry* mod = (forgery_mod_entry*)row->get_data("mod_entry");
 		mod_entries.push_back(*mod);
 	}
+	std::vector<std::string> mod_ids;
+	for (forgery_mod_entry& entry : mod_entries) {
+		mod_ids.push_back(entry.mod.mod_id);
+	}
 
+	std::string issues = "Issues prevented patching from going through:\n";
+	bool has_issues = false;
+	for (forgery_mod_entry& entry : mod_entries) {
+		for (related_mod& dependency : entry.mod.depends) {
+			if (!vector_contains(mod_ids, dependency.mod_id)) {
+				has_issues = true;
+				issues += "\nMod " + entry.mod.display_name + " (ID \"" + entry.mod.mod_id + 
+					"\") requires dependency with ID \"" + dependency.mod_id + "\", but it is missing.\n";
+			}
+		}
+	}
+	if (has_issues) {
+		Glib::RefPtr<AlertDialog> dialog = AlertDialog::create(issues);
+		dialog->show(*this);
+		return;
+	}
+
+	Patcher* patcher = make_managed<Patcher>();
+	patcher->set_transient_for(*this);
+	patcher->set_modal(true);
+	patcher->present();
+
+	g_message("%s", umc_path.string().c_str());
 	patcher->apply_mods(mod_entries, nubby_directory, umc_path);
 }
