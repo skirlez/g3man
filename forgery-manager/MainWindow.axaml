@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+        x:Class="forgery_manager.MainWindow"
+        Title="Forgery Manager"
+        Width="800" Height="450"
+        Background="#212327">
+        
+        <SplitView IsPaneOpen="True"
+                   DisplayMode="Inline"
+                   OpenPaneLength="100">
+                <SplitView.Pane>
+                        <StackPanel VerticalAlignment="Center" Spacing="20">
+                                <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80"
+                                        Click="ModsButtonClicked">Mods</Button>
+                                <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80">Settings</Button>
+                                <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80">About</Button>
+                        </StackPanel>
+                </SplitView.Pane>
+
+                <Grid>
+                        <ContentControl x:Name="Page"/>
+                </Grid>
+        </SplitView>
+        
+</Window>
