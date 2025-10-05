@@ -1,9 +1,7 @@
 # Forgery Manager
 A mod manager for the https://github.com/Skirlez/nubbys-forgery/ modloader
 
-## TODO
-- This project does not benefit at all from being C++. If it were C#, and using something like Avalonia,
-we could include UndertaleModLib directly, and that would be nice.
+This is an unfinished C++/GTK4 version. I later moved on to avalonia and gir.core.
 
 ## Compiling
 
