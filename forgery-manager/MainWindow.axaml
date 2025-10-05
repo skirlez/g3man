@@ -15,8 +15,10 @@
                         <StackPanel VerticalAlignment="Center" Spacing="20">
                                 <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80"
                                         Click="ModsButtonClicked">Mods</Button>
-                                <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80">Settings</Button>
-                                <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80">About</Button>
+                                <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80"
+                                        Click="SettingsButtonClicked">Settings</Button>
+                                <Button HorizontalAlignment="Center" HorizontalContentAlignment="Center" Width="80"
+                                        Click="AboutButtonClicked">About</Button>
                         </StackPanel>
                 </SplitView.Pane>
 
