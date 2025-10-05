@@ -1,7 +1,5 @@
 # Forgery Manager
-A generic mod patcher for GameMaker games.
-
-Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer).
+This is an avalonia version I didn't finish because I started using gir.core instead. Barely worked on
 
 ## Compiling
 TODO
