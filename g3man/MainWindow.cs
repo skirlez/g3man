@@ -1,28 +1,34 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using g3man;
+using g3man.Models;
+using g3man.Util;
+using Gdk;
 using Gtk;
 
-public class MainWindow : Window
-{
-	private CheckButton isolateSaveCheck;
-	private Entry gameDirectoryEntry;
-	
+public class MainWindow : Window {
+
+	private int categoriesShowing;
 	private ListBox gamesList;
+	private Entry gameDirectoryEntry;
+	private List<Button> selectGameButtons;
+	
+	private ListBox profilesList;
+	private List<Button> selectProfileButtons;
+	
 	private ListBox modsList;
 	private Stack modsListStack;
 	
 	private Label noModsLabel;
 	private Label noGameLabel;
-
-
+	
 	private Label nothingAutoDetectedLabel;
 	private Label noGamesAddedLabel;
-
-	private Game? currentGame;
-	private Label currentGameLabel;
 	
-	private Box[] allBoxes;
+	private Label currentGameLabel;
+	private Label currentProfileLabel;
+	
+	private Box[] allPages;
 	private string[] pageNames;
 	private string[] pageTitles;
 
@@ -40,13 +46,14 @@ public class MainWindow : Window
 		pageSidebar.SetVexpand(true);
 		
 		Box gamesPage = Box.New(Orientation.Vertical, 0);
+		Box profilesPage = Box.New(Orientation.Vertical, 0);
 		Box modsPage = Box.New(Orientation.Vertical, 0);
 		Box settingsPage = Box.New(Orientation.Vertical, 0);
 		Box aboutPage = Box.New(Orientation.Vertical, 0);
 		
-		allBoxes = [gamesPage, modsPage, settingsPage, aboutPage];
-		pageNames = ["games", "mods", "settings", "about"];
-		pageTitles = ["Games", "Mods", "Settings", "About"];
+		allPages = [gamesPage, profilesPage, modsPage, settingsPage, aboutPage];
+		pageNames = ["games", "profiles","mods", "settings", "about"];
+		pageTitles = ["Games", "Profiles", "Mods", "Settings", "About"];
 
 
 		DisplayCategories(1);
@@ -57,70 +64,61 @@ public class MainWindow : Window
 		pageBox.SetHomogeneous(false);
 		pageStack.SetVisibleChild(gamesPage);
 		
+		
 		SetupGamesPage(gamesPage);
+		SetupProfilesPage(profilesPage);
 		SetupModsPage(modsPage);
 		SetupSettingsPage(settingsPage);
 		SetupAboutPage(aboutPage);
 		
-		Debug.Assert(modsList is not null
-			&& isolateSaveCheck is not null
+		Debug.Assert(modsList is not null 
+			&& profilesList is not null
 			&& gameDirectoryEntry is not null);
 		
 		
 		currentGameLabel = Label.New("No game selected");
-		currentGameLabel.SetMargin(10);
-		currentGameLabel.SetHalign(Align.Center);
+		Label slash = Label.New("/");
+		currentProfileLabel = Label.New("No profile selected");
 		
 		
-		Box currentGameBox = Box.New(Orientation.Horizontal, 0);
-		currentGameBox.Append(currentGameLabel);
-		currentGameBox.SetHalign(Align.Center);
-		currentGameBox.SetHexpand(true);
+		Box currentSetupBox = Box.New(Orientation.Horizontal, 5);
+		currentSetupBox.Append(currentGameLabel);
+		currentSetupBox.Append(slash);
+		currentSetupBox.Append(currentProfileLabel);
+		
+		currentSetupBox.SetHalign(Align.Center);
+		currentSetupBox.SetHexpand(true);
+		currentSetupBox.SetMargin(10);
 
 
 		Box programBox = Box.New(Orientation.Vertical, 0);
 		programBox.Append(pageBox);
 		programBox.Append(Separator.New(Orientation.Horizontal));
-		programBox.Append(currentGameBox);
+		programBox.Append(currentSetupBox);
 		
 		SetChild(programBox);
+
+
 	}
 
 	private void DisplayCategories(int amount) {
-		foreach (Box box in allBoxes) {
-			if (box.IsAncestor(pageStack))
-				pageStack.Remove(box);
+		if (amount < categoriesShowing) {
+			for (int i = categoriesShowing - 1; i >= amount; i--) {
+				pageStack.Remove(allPages[i]);
+			}
+		}
+		else {
+			for (int i = categoriesShowing; i < amount; i++) {
+				pageStack.AddTitled(allPages[i], pageNames[i], pageTitles[i]);
+			}
 		}
 
-		for (int i = 0; i < amount; i++) {
-			pageStack.AddTitled(allBoxes[i], pageNames[i], pageTitles[i]);
-		}
+		categoriesShowing = amount;
 	}
 	
-	public void AddToGamesList(Game game) {
-		Label gameNameLabel = Label.New(game.DisplayName);
-		Button selectGameButton = Button.NewWithLabel("Select");
-		selectGameButton.OnClicked += (_, _) =>
-		{
-			SelectGame(game);
-		};
 
-		Box box = Box.New(Orientation.Horizontal, 10);
-		box.Append(gameNameLabel);
-		box.Append(selectGameButton);
-		box.SetValign(Align.Center);
-		
-		ListBoxRow row = ListBoxRow.New();
-		
-		row.SetChild(box);
-		row.SetActivatable(false);
-		row.SetMargin(10);
-		
-		gamesList.Append(row);
-	}
 	
 	private void SetupGamesPage(Box box) {
-		
 		Label gamesLabel = Label.New("Games");
 		gamesLabel.SetHalign(Align.Start);
 		gamesLabel.SetMarginStart(10);
@@ -132,7 +130,9 @@ public class MainWindow : Window
 		gamesList = ListBox.New();
 		gamesList.SetSelectionMode(SelectionMode.None);
 		gamesList.SetPlaceholder(noGamesAddedLabel);
-		
+		selectGameButtons = [];
+
+		PopulateGamesList(Program.Config.Games);
 		
 		Label autoDetectedLabel = Label.New("Auto-detected");
 		autoDetectedLabel.SetHalign(Align.Start);
@@ -161,9 +161,8 @@ public class MainWindow : Window
 		Label statusLabel = Label.New("");
 		statusLabel.SetHalign(Align.Start);
 		
-
 		Box gameDirectoryBox = Box.New(Orientation.Vertical, 0);
-		gameDirectoryBox.SetHalign(Align.Start);
+		gameDirectoryBox.SetHalign(Align.Center);
 		gameDirectoryBox.Append(gameDirectoryEntryBox);
 		gameDirectoryBox.Append(statusLabel);
 		gameDirectoryBox.SetMargin(20);
@@ -203,6 +202,14 @@ public class MainWindow : Window
 		box.Append(Separator.New(Orientation.Horizontal));
 		box.Append(gameDirectoryBox);
 		box.Append(addGameButton);
+	}
+
+	private void SetupProfilesPage(Box box) {
+		profilesList = ListBox.New();
+		profilesList.SetSelectionMode(SelectionMode.None);
+		selectProfileButtons = [];
+		
+		box.Append(profilesList);
 	}
 	
 	private void SetupModsPage(Box page) {
@@ -248,21 +255,13 @@ public class MainWindow : Window
 	}
 
 	private void SetupSettingsPage(Box page) {
-		isolateSaveCheck = CheckButton.New();
-		isolateSaveCheck.SetHalign(Align.Start);
-		isolateSaveCheck.Label = "Separate modded save";
-		isolateSaveCheck.SetTooltipText("Separates your vanilla save from your modded save.");
-		isolateSaveCheck.OnToggled += (sender, args) => {
-			State.Get().SeparateModdedSave = sender.Active;
-		};
-		
 		Button saveSettingsButton = Button.New();
 		saveSettingsButton.Label = "Save Settings";
 		saveSettingsButton.SetHalign(Align.End);
 		saveSettingsButton.SetValign(Align.End);
 		saveSettingsButton.SetVexpand(true);
 		
-		page.Append(isolateSaveCheck);
+		//page.Append(isolateSaveCheck);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
 	}
@@ -282,9 +281,15 @@ public class MainWindow : Window
 
 
 	private void PopulateModsList() {
-		/*
-		List<Mod> mods = Mod.ParseMods(Path.Combine(State.Get().GameInstallDirectory, "mods"));
+		Game? game = Program.GetGame();
+		Profile? profile = Program.GetProfile();
+		
+		Debug.Assert(game is not null);
+		Debug.Assert(profile is not null);
+		
+		List<Mod> mods = Mod.ParseMods(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
 		modsList.RemoveAll();
+		modsList.SetPlaceholder(noModsLabel);
 		foreach (Mod mod in mods) {
 			ListBoxRow row = ListBoxRow.New();
 			CheckButton modEnabled = CheckButton.New();
@@ -296,19 +301,125 @@ public class MainWindow : Window
 			row.SetChild(modBox);
 			modsList.Append(row);
 		}
-		*/
+	}
+
+	public void AddToGamesList(Game game, bool selected) {
+		Label gameNameLabel = Label.New(game.DisplayName);
 		
+		Box spacer = Box.New(Orientation.Horizontal, 0);
+		spacer.SetHexpand(true);
+		
+		Button selectGameButton = Button.NewWithLabel("Select");
+		
+		selectGameButton.OnClicked += (button, _) => {
+			SelectGame(game, button);
+		};
+		selectGameButton.SetSensitive(!selected);
+		selectGameButtons.Add(selectGameButton);
+
+
+		
+		Box box = Box.New(Orientation.Horizontal, 0);
+		box.Append(gameNameLabel);
+		box.Append(spacer);
+		box.Append(selectGameButton);
+	
+	
+		box.SetValign(Align.Center);
+		
+		
+		ListBoxRow row = ListBoxRow.New();
+		
+		row.SetChild(box);
+		row.SetActivatable(false);
+		row.SetMargin(10);
+		
+		gamesList.Append(row);
+	}
+	private void PopulateGamesList(List<Game> games, Game? selectedGame = null) {
+		selectGameButtons.Clear();
+		
+		gamesList.RemoveAll();
+		gamesList.SetPlaceholder(noGamesAddedLabel);
+		
+		foreach (Game game in games) {
+			AddToGamesList(game, selectedGame == game);
+		}
+	}
+	
+	private void PopulateProfilesList(List<Profile> profiles, string? selectedId = null) {
+		profilesList.RemoveAll();
+		foreach (Profile profile in profiles) {
+			Label profileName = Label.New(profile.Name);
+			Box spacer = Box.New(Orientation.Horizontal, 0);
+			spacer.SetHexpand(true);
+			
+			Button manageProfileButton = Button.NewWithLabel("Manage");
+			Button selectButton = Button.NewWithLabel("Select");
+			if (profile.FolderName == selectedId)
+				selectButton.SetSensitive(false);
+			selectProfileButtons.Add(selectButton);
+			selectButton.OnClicked += (sender, args) => {
+				SelectProfile(profile, sender);
+			};
+			
+			Box box = Box.New(Orientation.Horizontal, 10);
+			box.Append(profileName);
+			box.Append(spacer);
+			box.Append(manageProfileButton);
+			box.Append(selectButton);
+			
+			ListBoxRow row = ListBoxRow.New();
+		
+			row.SetChild(box);
+			row.SetActivatable(false);
+			row.SetMargin(10);
+			
+			profilesList.Append(row);
+		}
 	}
 
-	private void SelectGame(Game game) {
+	private void SelectGame(Game game, Button buttonPressed) {
+		foreach (Button button in selectGameButtons) {
+			button.SetSensitive(true);
+		}
+		buttonPressed.SetSensitive(false);
+		
+		Program.SetGame(game);
 		currentGameLabel.SetText(game.DisplayName);
-		DisplayCategories(allBoxes.Length);
-		Program.DataLoader.LoadAsync(game);
-		currentGame = game;
+		List<Profile> profiles = Profile.ParseProfiles(Path.Combine(game.Directory, "g3man"));
+		if (profiles.Count == 0) {
+			DisplayCategories(2);
+			return;
+		}
+		
+		Profile? profile = profiles.FirstOrDefault(p => {
+			Debug.Assert(p is not null);
+			return p.FolderName == game.ProfileFolderName;
+		}, null);
+		if (profile == null) {
+			PopulateProfilesList(profiles, null);
+			// let user choose profile if for some reason we couldn't use the normal one
+			DisplayCategories(2);
+			return;
+		}
+		Program.SetProfile(profile);
+		currentProfileLabel.SetText(profile.Name);
+		
+		PopulateProfilesList(profiles, game.ProfileFolderName);
+		PopulateModsList();
+		DisplayCategories(allPages.Length);
 	}
 
-	public Game? GetGame() {
-		return currentGame;
+	private void SelectProfile(Profile profile, Button buttonPressed) {
+		if (categoriesShowing == 2)
+			DisplayCategories(allPages.Length);
+		foreach (Button button in selectProfileButtons) {
+			button.SetSensitive(true);
+		}
+		buttonPressed.SetSensitive(false);
+		Program.SetProfile(profile);
+		currentProfileLabel.SetText(profile.Name);
+		PopulateModsList();
 	}
-
 }

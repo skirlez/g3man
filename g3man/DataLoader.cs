@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using g3man.Models;
+using g3man.Util;
 using UndertaleModLib;
 
 namespace g3man;
@@ -7,21 +9,19 @@ namespace g3man;
 /** Responsible for the loading and preloading of the current game's data.win */
 public class DataLoader {
 	private volatile UndertaleData? data;
-	private Game? game;
+	private string lastHash = "";
 	private readonly LoaderLock loaderLock = new LoaderLock(LoaderAction.Proceed, null, false);
 	
 	private readonly Logger logger;
 	
-	public DataLoader()
-	{
+	public DataLoader() {
 		logger = new Logger("DATALOADER");
-		new Thread(() => {
+		Thread thread = new Thread(() => {
 			lock (loaderLock)
 				Monitor.Wait(loaderLock);
 			while (true) {
 				string path;
-				lock (loaderLock)
-				{
+				lock (loaderLock) {
 					loaderLock.IsLoading = true;
 					logger.Debug("Loading data");
 					Debug.Assert(loaderLock.Path is not null);
@@ -30,7 +30,6 @@ public class DataLoader {
 
 
 				UndertaleData? readData = null;
-
 				using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read)) {
 					try {
 						readData = UndertaleIO.Read(stream);
@@ -62,41 +61,37 @@ public class DataLoader {
 					Monitor.Wait(loaderLock);
 				}
 			}
-		}).Start();
+		});
+		thread.IsBackground = true;
+		thread.Start();
 	}
 	
 	public UndertaleData? GetData() {
 		return data;
 	}
 
-	public void Assume(Game newGame, UndertaleData newData) {
-		logger.Debug("Assuming data " + newGame.DisplayName);
+	public void Assume(UndertaleData newData) {
+		logger.Debug("Assuming data " + newData.GeneralInfo.DisplayName.Content);
 		lock (loaderLock) {
 			if (loaderLock.IsLoading) {
 				logger.Debug("We're loading so discard the result");
 				loaderLock.Action = LoaderAction.Discard;
 			}
 			data = newData;
-			game = newGame;
 		}
-		
-
-		
 	}
 	
 	public void LoadAsync(Game newGame) {
 		logger.DebugNewline("");
 		logger.Debug("New request for " + newGame.DisplayName);
-		// Does not matter when this happens
-		if (game != null && game.HasSameData(newGame)) {
+		if (newGame.Hash == lastHash) {
 			logger.Debug("Same data as what's already loaded or being loaded");
-			game = newGame;
 			return;
 		}
 
 		lock (loaderLock) {
-			game = newGame;
-			loaderLock.Path = game.GetCleanDatafilePath();
+			loaderLock.Path = newGame.GetCleanDatafilePath();
+			lastHash = newGame.Hash;
 			
 			if (loaderLock.IsLoading) {
 				logger.Debug("Telling loader to load new game after it is done with this one");
@@ -118,8 +113,7 @@ public class DataLoader {
 		public bool IsLoading = isLoading;
 	}
 
-	private enum LoaderAction
-	{
+	private enum LoaderAction {
 		Discard,
 		Restart,
 		Proceed,

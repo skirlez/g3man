@@ -1,5 +1,5 @@
 
-using g3man;
+namespace g3man.Util;
 
 public static class ProgramPaths {
 	public static string GetConfigDirectory() {
