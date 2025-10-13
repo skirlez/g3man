@@ -36,6 +36,12 @@ public static class JsonUtil {
 		Debug.Assert(result is not null);
 		return result;
 	}
+	public static int GetNumberOrThrow(JsonElement element, string field) {
+		JsonElement inner = GetPropertyOrThrow(element, field);
+		if (inner.ValueKind != JsonValueKind.Number)
+			throw new InvalidDataException($"Field {field} is of the wrong type (Expected a number, but got {inner.ValueKind.ToString()})");
+		return inner.GetInt32();
+	}
 	public static string[] GetStringArrayOrThrow(JsonElement element, string field) {
 		JsonElement inner = GetPropertyOrThrow(element, field);
 		

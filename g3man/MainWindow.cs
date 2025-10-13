@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+
 using g3man;
 using g3man.Models;
 using g3man.Util;
 using Gdk;
 using Gtk;
+using Window = Gtk.Window;
 
 public class MainWindow : Window {
 
@@ -98,7 +100,7 @@ public class MainWindow : Window {
 		
 		SetChild(programBox);
 
-
+		ApplyTheme(Program.Config.Theme);
 	}
 
 	private void DisplayCategories(int amount) {
@@ -255,13 +257,40 @@ public class MainWindow : Window {
 	}
 
 	private void SetupSettingsPage(Box page) {
+		
+		#if WINDOWS
+			// added spaces because the check is too close by default
+			DropDown themeDropDown = DropDown.NewFromStrings(["System Default  ", "Light  ", "Dark  "]);
+			themeDropDown.SetSelected((uint)Program.Config.Theme);
+			themeDropDown.OnNotify += (_, args) => {
+				// doesn't seem to be a signal for this
+				if (args.Pspec.GetName() != "selected-item")
+					return;
+				int selected = (int)themeDropDown.GetSelected();
+				ApplyTheme(selected);
+				Program.Config.Theme = selected;
+			};
+			
+			
+			Box themeBox = Box.New(Orientation.Horizontal, 5);
+			Label themeLabel = Label.New("Theme");
+			themeBox.Append(themeLabel);
+			themeBox.Append(themeDropDown);
+			themeBox.SetHalign(Align.Start);
+			themeBox.SetMargin(10);
+			
+			page.Append(themeBox);
+		#endif
+		
 		Button saveSettingsButton = Button.New();
 		saveSettingsButton.Label = "Save Settings";
 		saveSettingsButton.SetHalign(Align.End);
 		saveSettingsButton.SetValign(Align.End);
 		saveSettingsButton.SetVexpand(true);
+		saveSettingsButton.OnClicked += (sender, args) => {
+			Program.Config.Write();
+		};
 		
-		//page.Append(isolateSaveCheck);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
 	}
@@ -421,5 +450,12 @@ public class MainWindow : Window {
 		Program.SetProfile(profile);
 		currentProfileLabel.SetText(profile.Name);
 		PopulateModsList();
+	}
+
+	private void ApplyTheme(int theme) {
+		Settings? settings = Settings.GetDefault();
+		if (settings is null)
+			return;
+		settings.GtkApplicationPreferDarkTheme = (theme == 2);
 	}
 }

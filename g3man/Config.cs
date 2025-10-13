@@ -10,19 +10,32 @@ public class Config {
 	public static readonly Logger logger = new Logger("CONFIG");
 	public List<Game> Games;
 	
+	#if WINDOWS
+		public int Theme;
+	#endif
+	
 	public Config() {
 		Games = [];
 	}
 	
 	public Config(JsonElement root) {
 		Games = JsonUtil.GetObjectArrayOrThrow(root, "games").Select(element => new Game(element)).ToList();
+		#if WINDOWS
+			int theme = JsonUtil.GetNumberOrThrow(root, "theme");
+			if (theme < 0 || theme > 2)
+				throw new InvalidDataException("Field \"theme\" must be between 0 and 2");
+			Theme = theme;
+		#endif
 	}
 
 	public JsonObject ToJson() {
 		JsonNode?[] gameObjects = Games.Select(game => game.ToJson()).ToArray<JsonNode?>();
 		return new JsonObject() {
 			["format_version"] = 1,
-			["games"] = new JsonArray(gameObjects)
+			["games"] = new JsonArray(gameObjects),
+			#if WINDOWS
+				["theme"] = Theme
+			#endif
 		};
 	}
 	

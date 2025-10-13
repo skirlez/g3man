@@ -29,7 +29,10 @@ public class GameAdder : Window {
 	}
 	private record Success(string GameName, string InternalName, UndertaleData Data, string Hash, string ProfileId);
 	private record Error(string Reason);
-	private Result<Success, Error> LoadAndSetupGame(string datafilePath) {
+	private Result<Success, Error> LoadAndSetupGame() {
+		string? datafilePath = ProgramPaths.GetDatafileFromDirectory(directory);
+		if (datafilePath is null)
+			return new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile"));
 		byte[] hash;
 		UndertaleData data;
 		try {
@@ -51,7 +54,6 @@ public class GameAdder : Window {
 		Profile profile = new Profile("Default", "default", false, []);
 		try {
 			profile.Write(directory);
-	
 		}
 		catch (Exception e) {
 			Console.WriteLine("Failed to create default profile folders: " + e);
@@ -79,22 +81,16 @@ public class GameAdder : Window {
 		SetModal(true);
 		Present();
 		Thread thread = new Thread(() => {
-
-			string? datafilePath = null;
+			
 			Result<Success, Error> result;
 			if (Program.Config.Games.Any(game => game.Directory == directory))
 				result = new Result<Success, Error>(new Error("You already have a game with this directory added."));
 			else {
-				datafilePath = ProgramPaths.GetDatafileFromDirectory(directory);
-				if (datafilePath is null)
-					result = new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile"));
-				else
-					result = LoadAndSetupGame(datafilePath);
+				result = LoadAndSetupGame();
 			}
 
 			Program.RunOnMainThreadEventually(() => {
 				if (result.IsOk()) {
-					Debug.Assert(datafilePath is not null);
 					Success s = result.GetValue();
 					
 					Game game = new Game(s.GameName, s.InternalName, directory, s.Hash, s.ProfileId);
