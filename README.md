@@ -3,7 +3,7 @@
 
 A mod manager and mod patcher for GameMaker games. 
 
-Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer).
+Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer). These two projects are incredible, and I would not have been able to make this without them.
 
 ## Background
 (as of 7/10/2025)
@@ -14,16 +14,16 @@ Most mods use UndertaleModTool to modify the game.
 UndertaleModTool has existed for a long time, and it is a great, incredibly powerful tool for modding GameMaker games. There's really nothing it can't do.
 
 Yet, basic things you'd expect with mods for other games are usually not possible for your average GameMaker game (unless it has official modding support):
-- Loading several mods at once
-- Mods not existing in a format which makes them *impossible* to update game versions without reconstructing them from scratch
+- You cannot load several mods at once
+- When a game updates, *all* mods break 
 
-Due to the fact that all the data and code for GameMaker games are inside a single binary file, it is basically impossible
+This is not the fault of UndertaleModTool - due to the fact that all the data and code for GameMaker games are inside a single binary file, it is basically impossible
 to distribute patches for it in a manner that works with several mods applied at the same time.
 
 Additionally, when a game updates, that update is of course pushed as a new data.win. So none of the old patches work for it, and for mods to update,
 mod creators have to manually reconstruct the mod with the new data.win as a base.
 
-There are tools that address this, for example, [YYToolkit](https://github.com/AurieFramework/YYToolkit) - but its approach is much less accessible to most people.
+There are tools that address this, for example, [YYToolkit](https://github.com/AurieFramework/YYToolkit) - but its approach is much less accessible for most people.
 
 g3man attempts to solve these problems while staying firmly in GameMaker-Land, and only by patching the data.win.
 
@@ -34,6 +34,8 @@ g3man attempts to solve these problems while staying firmly in GameMaker-Land, a
 
 	This is basically what g3man's patch format is. It's a small list of instructions that say where to insert code.
 	The patch format is designed to be incredibly simple, and to be as compatible as possible with other patches (so several patches can modify the same file).
+	It's also made in a way where you can decide how "robust" your patch should be when it comes to surviving updates, in case you want or don't want to put in extra effort.
+
 	For documentation and examples, check TODO.
 
 2. Data merging
@@ -54,11 +56,40 @@ g3man attempts to solve these problems while staying firmly in GameMaker-Land, a
 	A small downside is that your asset indices get offset. You have to use asset_get_index() to get their index every time (i.e. instead of `spr_player`, you have to reference it using `asset_get_index("spr_player")`), as the indices for each asset will only be known post-merge.
 
 
-Since g3man operates on the data.win only, it does not work for games compiled with YYC (games where the code is transpiled to C++, compiled, then embedded into the executable). To my knowledge, the only option available for YYC games right now is YYToolkit.
+Since g3man operates on the data.win only, it only partially supports GameMaker games compiled with YYC (games where the code is transpiled to C++, compiled, then embedded into the executable).
+You should still be able to, for example, do sprite overrides. But not anything that involves code - it's simply not in the data.win!
+ 
+To my knowledge, the only option available for YYC code modding right now is YYToolkit.
 
-	
+## Features
+
+- Support for all GameMaker games compiled with VM mode (theoretically)
+- A profile system to easily switch between sets of mods
+- Support for both Linux and Windows
 
 ## Compiling
+
+### NixOS
+TODO
+
+### Linux (Other distros)
+
+1. Install GTK4 and libadwaita
+2. Download .NET 8 SDK
+3. Clone the repository
+4. `dotnet build g3man`
+
+### Windows
+
+1. Download [msys2](https://www.msys2.org/)
+2. Open the MSYS2 MINGW64 shell
+3. Run `pacman -Syu && pacman -S mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita` to install GTK4 and libadwaita
+4. Add `C:/msys64/mingw64/bin` to PATH (or wherever you placed msys64 if you changed it)
+5. Download .NET 8 SDK
+6. Clone the repository
+7. `dotnet build g3man`
+
+
 TODO
 
 
