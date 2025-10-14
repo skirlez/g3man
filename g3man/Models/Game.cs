@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using g3man.Util;
@@ -5,6 +6,8 @@ using g3man.Util;
 namespace g3man.Models;
 
 public class Game {
+	private static Logger logger = new Logger("GAME-PARSER");
+	
 	public string DisplayName;
 	public string InternalName;
 	public string Directory;
@@ -44,5 +47,38 @@ public class Game {
 			["profile_folder_name"] = ProfileFolderName,
 			["hash"] = Hash
 		};
+	}
+
+	public static List<Game> Parse(List<string> gameDirectories) {
+		ConcurrentBag<Game> games = new ConcurrentBag<Game>();
+		Parallel.ForEach(gameDirectories, gameDirectory =>
+		{
+			string fullPath = Path.Combine(gameDirectory, "g3man", "game.json");
+			JsonDocument jsonDoc;
+			try {
+				string text = File.ReadAllText(fullPath); 
+				jsonDoc = JsonDocument.Parse(text);
+			}
+			catch (Exception e) {
+				logger.Error("Couldn't find or load game.json at " + fullPath + ":\n" + e.Message);
+				return;
+			}
+			try {
+				Game game = new Game(jsonDoc.RootElement);
+				games.Add(game);
+			}
+			catch (InvalidDataException e) {
+				logger.Error("Invalid game.json at " + fullPath + ":\n" + e.Message);
+			}
+		});
+		return games.ToList();
+	}
+
+	public void Write() {
+		string folder = Path.Combine(Directory, "g3man");
+		System.IO.Directory.CreateDirectory(folder);
+		
+		string jsonText = ToJson().ToJsonString();
+		File.WriteAllText(Path.Combine(folder, "game.json"), jsonText);
 	}
 }

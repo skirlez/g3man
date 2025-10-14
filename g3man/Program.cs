@@ -20,7 +20,7 @@ public static class Program {
 		if (game == null) {
 			DataLoader.Assume(newData);
 		}
-		Config.Games.Add(newGame);
+		Config.GameDirectories.Add(newGame.Directory);
 		Config.Write();
 	}
 	public static void SetGame(Game newGame) {

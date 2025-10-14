@@ -10,6 +10,8 @@ using Thread = System.Threading.Thread;
 namespace g3man;
 
 public class GameAdder : Window {
+	public static Logger logger = new Logger("GAMEADDER");
+	
 	private readonly Label label;
 	private readonly string directory;
 	private MainWindow owner;
@@ -27,12 +29,12 @@ public class GameAdder : Window {
 		
 		SetChild(label);
 	}
-	private record Success(string GameName, string InternalName, UndertaleData Data, string Hash, string ProfileId);
-	private record Error(string Reason);
+	private record Success(Game Game, UndertaleData Data);
+	private record Error(string Reason, Exception? Exception);
 	private Result<Success, Error> LoadAndSetupGame() {
 		string? datafilePath = ProgramPaths.GetDatafileFromDirectory(directory);
 		if (datafilePath is null)
-			return new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile"));
+			return new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile", null));
 		byte[] hash;
 		UndertaleData data;
 		try {
@@ -42,37 +44,45 @@ public class GameAdder : Window {
 			}
 		}
 		catch (Exception e) {
-			Console.WriteLine("Couldn't open game's datafile: " + e);
-			return new Result<Success, Error>(new Error("An error occurred while reading the game's datafile"));
+			return new Result<Success, Error>(new Error("An error occurred while reading the game's datafile", e));
 		}
 		
 		if (Patcher.IsDataPatched(data)) {
 			// TODO: Write something to check if the clean datafile still exists so we can cleanly readd the game
-			return new Result<Success, Error>(new Error("This game is already patched by g3man. Please make sure the game's datafile is not modified so g3man can copy it."));
+			return new Result<Success, Error>(new Error("This game is already patched by g3man. Please make sure the game's datafile is not modified so g3man can copy it.", null));
 		}
+
 
 		Profile profile = new Profile("Default", "default", false, []);
 		try {
 			profile.Write(directory);
 		}
 		catch (Exception e) {
-			Console.WriteLine("Failed to create default profile folders: " + e);
-			return new Result<Success, Error>(new Error("Couldn't create default profile folders"));
+			return new Result<Success, Error>(new Error("Failed to create default profile folders", e));
+		}
+		
+		Game game = new Game(data.GeneralInfo.DisplayName.Content,
+			data.GeneralInfo.FileName.Content, 
+			directory, 
+			BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant(), 
+			profile.FolderName);
+		
+		
+		try {
+			game.Write();
+		}
+		catch (Exception e) {
+			return new Result<Success, Error>(new Error("Failed to create game.json", e));
 		}
 		
 		try {
 			File.Copy(datafilePath, Path.Combine(directory, Patcher.CleanDataName), true);
 		}
 		catch (Exception e) {
-			Console.WriteLine("Failed to create clean copy of datafile: " + e);
-			return new Result<Success, Error>(new Error("Failed to create clean copy of datafile"));
+			return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));
 		}
 		
-		return new Result<Success, Error>(new Success(
-			data.GeneralInfo.DisplayName.Content, 
-			data.GeneralInfo.FileName.Content,
-			data, BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant(),
-			profile.FolderName));
+		return new Result<Success, Error>(new Success(game, data));
 
 	}
 	
@@ -83,24 +93,28 @@ public class GameAdder : Window {
 		Thread thread = new Thread(() => {
 			
 			Result<Success, Error> result;
-			if (Program.Config.Games.Any(game => game.Directory == directory))
-				result = new Result<Success, Error>(new Error("You already have a game with this directory added."));
-			else {
+			if (Program.Config.GameDirectories.Any(existingDirectory => existingDirectory == directory))
+				result = new Result<Success, Error>(new Error("You already have a game with this directory added.", null));
+			else 
 				result = LoadAndSetupGame();
-			}
 
 			Program.RunOnMainThreadEventually(() => {
 				if (result.IsOk()) {
 					Success s = result.GetValue();
 					
-					Game game = new Game(s.GameName, s.InternalName, directory, s.Hash, s.ProfileId);
-					Program.AddGame(game, s.Data);
-					owner.AddToGamesList(game, false);	
+					
+					Program.AddGame(s.Game, s.Data);
+					owner.AddToGamesList(s.Game, false);	
 					
 					Close();
 				}
-				else {
-					label.SetText("Game couldn't be added:\n" + result.GetError().Reason);
+				else
+				{
+					Error err = result.GetError();
+					logger.Error(err.Reason);
+					if (err.Exception is not null)
+						logger.Error(err.Exception.ToString());
+					label.SetText("Game couldn't be added:\n" + err.Reason);
 				}
 			});
 		});

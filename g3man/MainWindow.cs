@@ -134,7 +134,9 @@ public class MainWindow : Window {
 		gamesList.SetPlaceholder(noGamesAddedLabel);
 		selectGameButtons = [];
 
-		PopulateGamesList(Program.Config.Games);
+
+		List<Game> games = Game.Parse(Program.Config.GameDirectories); 
+		PopulateGamesList(games);
 		
 		Label autoDetectedLabel = Label.New("Auto-detected");
 		autoDetectedLabel.SetHalign(Align.Start);
@@ -316,7 +318,7 @@ public class MainWindow : Window {
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
 		
-		List<Mod> mods = Mod.ParseMods(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
+		List<Mod> mods = Mod.Parse(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
 		modsList.RemoveAll();
 		modsList.SetPlaceholder(noModsLabel);
 		foreach (Mod mod in mods) {
@@ -416,7 +418,7 @@ public class MainWindow : Window {
 		
 		Program.SetGame(game);
 		currentGameLabel.SetText(game.DisplayName);
-		List<Profile> profiles = Profile.ParseProfiles(Path.Combine(game.Directory, "g3man"));
+		List<Profile> profiles = Profile.Parse(Path.Combine(game.Directory, "g3man"));
 		if (profiles.Count == 0) {
 			DisplayCategories(2);
 			return;

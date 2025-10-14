@@ -64,7 +64,7 @@ public class Mod {
 	}
 	
 	
-	public static List<Mod> ParseMods(string directory) {
+	public static List<Mod> Parse(string directory) {
 		ConcurrentBag<Mod> mods = new ConcurrentBag<Mod>();
 		string[] modFolders;
 		try {
@@ -74,21 +74,18 @@ public class Mod {
 			// ignored
 			return [];
 		}
-
 		Parallel.ForEach(modFolders, modFolder => {
 			string fullPath = Path.Combine(modFolder, "mod.json");
-			string text;
+			JsonDocument jsonDoc;
 			try {
-				text = File.ReadAllText(fullPath);
+				string text = File.ReadAllText(fullPath);
+				jsonDoc = JsonDocument.Parse(text);
 			}
 			catch (Exception e) {
 				logger.Error("Couldn't find or load mod.json at " + fullPath + ":\n" + e.Message);
 				return;
 			}
-
-
-			JsonDocument jsonDoc = JsonDocument.Parse(text);
-
+			
 			try {
 				Mod mod = new Mod(jsonDoc.RootElement);
 				mods.Add(mod);

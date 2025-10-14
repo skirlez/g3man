@@ -27,7 +27,7 @@ public class Profile {
 		ModOrder = JsonUtil.GetStringArrayOrThrow(root, "mod_order");
 	}
 
-	public static List<Profile> ParseProfiles(string directory) {
+	public static List<Profile> Parse(string directory) {
 		ConcurrentBag<Profile> profiles = new ConcurrentBag<Profile>();
 		string[] profileFolders;
 		try {
@@ -40,17 +40,15 @@ public class Profile {
 
 		Parallel.ForEach(profileFolders, profileFolder => {
 			string fullPath = Path.Combine(profileFolder, "profile.json");
-			string text;
+			JsonDocument jsonDoc;
 			try {
-				text = File.ReadAllText(fullPath);
+				string text = File.ReadAllText(fullPath); 
+				jsonDoc = JsonDocument.Parse(text);
 			}
 			catch (Exception e) {
 				logger.Error("Couldn't find or load profile.json at " + fullPath + ":\n" + e.Message);
 				return;
 			}
-
-			JsonDocument jsonDoc = JsonDocument.Parse(text);
-
 			try {
 				Profile profile = new Profile(jsonDoc.RootElement, Path.GetFileName(profileFolder));
 				profiles.Add(profile);
