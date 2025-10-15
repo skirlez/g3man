@@ -40,16 +40,19 @@ public class DataLoader {
 				}
 
 				lock (loaderLock) {
+					if (loaderLock.Action == LoaderAction.Restart) {
+						if (readData != null)
+							logger.Debug("Told to restart. Discarding: " +
+							             readData.GeneralInfo.DisplayName.Content);
+						else
+							logger.Debug("Told to restart. Discarding game that failed to load.");
+
+						loaderLock.Action = LoaderAction.Proceed;
+						continue;
+					}
 					if (readData != null) {
 						if (loaderLock.Action != LoaderAction.Discard) {
-							if (loaderLock.Action == LoaderAction.Restart) {
-								logger.Debug("Told to restart for another game. Discarding: " +
-												  readData.GeneralInfo.DisplayName.Content);
-								loaderLock.Action = LoaderAction.Proceed;
-								continue;
-							}
-						
-							logger.Debug("Loaded data of " + readData.GeneralInfo.DisplayName);
+							logger.Debug("Loaded data of " + readData.GeneralInfo.DisplayName.Content);
 							data = readData;
 						}
 						else
@@ -97,9 +100,8 @@ public class DataLoader {
 				logger.Debug("Telling loader to load new game after it is done with this one");
 				loaderLock.Action = LoaderAction.Restart;
 			}
-			else {
+			else
 				loaderLock.Action = LoaderAction.Proceed;
-			}
 
 			logger.Debug("Waking up thread to load the data");
 			Monitor.Pulse(loaderLock);

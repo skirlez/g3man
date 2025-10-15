@@ -7,8 +7,10 @@ using UndertaleModLib;
 namespace g3man;
 
 public static class Program {
-	public static DataLoader DataLoader;
-
+	public static DataLoader DataLoader = null!;
+	public static Config Config = null!;
+	
+	public static Initializer InitializedUsing;
 
 	private static Game? game;
 	private static Profile? profile;
@@ -36,21 +38,24 @@ public static class Program {
 		game.ProfileFolderName = profile.FolderName;
 		Config.Write();
 	}
-
-
-	public static Config Config;
 	
 	public static int Main(string[] args) {
+		
 		DataLoader = new DataLoader();
 		JsonElement? configJson = Config.Read();
-		if (configJson is null) {
+		if (configJson is null)
 			Config = new Config();
-		}
-		else {
+		else
 			Config = new Config(configJson.Value);
-		}
 
-		Application application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+		Application application;
+		
+		if (Config.Initializer == Initializer.Gtk)
+			application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+		else
+			application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+		InitializedUsing = Config.Initializer;
+		
 		application.OnActivate += (sender, _) => {
 			MainWindow window = new MainWindow();
 			application.AddWindow(window);
@@ -68,4 +73,15 @@ public static class Program {
 			return false;
 		});
 	}
+	
+	public enum Initializer {
+		Gtk,
+		Adwaita
+	}
+	public enum Theme {
+		SystemDefault,
+		Light,
+		Dark
+	}
 }
+

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-
+using Adw;
 using g3man;
 using g3man.Models;
 using g3man.Util;
@@ -9,8 +9,7 @@ using Gtk;
 using Window = Gtk.Window;
 
 public class MainWindow : Window {
-
-	private int categoriesShowing;
+	
 	private ListBox gamesList;
 	private Entry gameDirectoryEntry;
 	private List<Button> selectGameButtons;
@@ -19,7 +18,6 @@ public class MainWindow : Window {
 	private List<Button> selectProfileButtons;
 	
 	private ListBox modsList;
-	private Stack modsListStack;
 	
 	private Label noModsLabel;
 	private Label noGameLabel;
@@ -35,6 +33,8 @@ public class MainWindow : Window {
 	private string[] pageTitles;
 
 	private Stack pageStack;
+	private ExtraCategories currentExtrasCategories;
+	private StackSidebar pageSidebar;
 	
 	public MainWindow() {
 		Title = "g3man";
@@ -42,7 +42,7 @@ public class MainWindow : Window {
 		pageStack = Stack.New();
 		pageStack.SetHexpand(true);
 		
-		StackSidebar pageSidebar = StackSidebar.New();
+		pageSidebar = StackSidebar.New();
 		pageSidebar.SetStack(pageStack);
 		pageSidebar.SetValign(Align.Fill);
 		pageSidebar.SetVexpand(true);
@@ -58,14 +58,19 @@ public class MainWindow : Window {
 		pageTitles = ["Games", "Profiles", "Mods", "Settings", "About"];
 
 
-		DisplayCategories(1);
+		
 		
 		Box pageBox = Box.New(Orientation.Horizontal, 0);
 		pageBox.Append(pageSidebar);
 		pageBox.Append(pageStack);
 		pageBox.SetHomogeneous(false);
-		pageStack.SetVisibleChild(gamesPage);
 		
+		pageStack.SetTransitionType(StackTransitionType.SlideUpDown);
+		for (int i = 0; i < allPages.Length; i++) {
+			pageStack.AddTitled(allPages[i], pageNames[i], pageTitles[i]);
+		}
+		pageStack.SetVisibleChild(gamesPage);
+		EnableExtraCategories(ExtraCategories.None);
 		
 		SetupGamesPage(gamesPage);
 		SetupProfilesPage(profilesPage);
@@ -103,19 +108,36 @@ public class MainWindow : Window {
 		ApplyTheme(Program.Config.Theme);
 	}
 
-	private void DisplayCategories(int amount) {
-		if (amount < categoriesShowing) {
-			for (int i = categoriesShowing - 1; i >= amount; i--) {
-				pageStack.Remove(allPages[i]);
-			}
+	enum ExtraCategories {
+		None,
+		Profiles,
+		ProfilesAndMods
+	}
+	/**
+	 * Turns on extra categories (Profiles and Mods) depending on the parameter.
+	 * 
+	 * TODO: This is a really dumb way to be doing things.
+	 * There must be a better way that achieves the same visual result.
+	 */
+	private void EnableExtraCategories(ExtraCategories extra) {
+		ListBox pageList = (ListBox)pageSidebar.GetFirstChild()!.GetFirstChild()!.GetFirstChild()!;
+		ListBoxRow gamesRow = (ListBoxRow)pageList.GetFirstChild()!;
+		ListBoxRow profilesRow = (ListBoxRow)gamesRow.GetNextSibling()!;
+		ListBoxRow modsRow = (ListBoxRow)profilesRow.GetNextSibling()!;
+		if (extra < ExtraCategories.Profiles) {
+			profilesRow.SetSensitive(false);
+			modsRow.SetSensitive(false);
+			return;
 		}
-		else {
-			for (int i = categoriesShowing; i < amount; i++) {
-				pageStack.AddTitled(allPages[i], pageNames[i], pageTitles[i]);
-			}
+		Debug.Assert(Program.GetGame() is not null);
+		profilesRow.SetSensitive(true);
+		if (extra < ExtraCategories.ProfilesAndMods) {
+			modsRow.SetSensitive(false);
+			return;
 		}
 
-		categoriesShowing = amount;
+		Debug.Assert(Program.GetProfile() is not null);
+		modsRow.SetSensitive(true);
 	}
 	
 
@@ -261,28 +283,43 @@ public class MainWindow : Window {
 	private void SetupSettingsPage(Box page) {
 		
 		#if WINDOWS
-			// added spaces because the check is too close by default
-			DropDown themeDropDown = DropDown.NewFromStrings(["System Default  ", "Light  ", "Dark  "]);
+			DropDown themeDropDown = DropDown.NewFromStrings(["System Default", "Light", "Dark"]);
 			themeDropDown.SetSelected((uint)Program.Config.Theme);
 			themeDropDown.OnNotify += (_, args) => {
 				// doesn't seem to be a signal for this
 				if (args.Pspec.GetName() != "selected-item")
 					return;
-				int selected = (int)themeDropDown.GetSelected();
+				Program.Theme selected = (Program.Theme)themeDropDown.GetSelected();
 				ApplyTheme(selected);
 				Program.Config.Theme = selected;
 			};
 			
+			Label themeLabel = Label.New("Theme");
 			
 			Box themeBox = Box.New(Orientation.Horizontal, 5);
-			Label themeLabel = Label.New("Theme");
 			themeBox.Append(themeLabel);
 			themeBox.Append(themeDropDown);
 			themeBox.SetHalign(Align.Start);
 			themeBox.SetMargin(10);
-			
-			page.Append(themeBox);
 		#endif
+		
+		
+		DropDown initializerDropDown =  DropDown.NewFromStrings(["GTK", "Adwaita"]);
+		initializerDropDown.SetSelected((uint)Program.Config.Initializer);
+		initializerDropDown.OnNotify += (_, args) => {
+			// doesn't seem to be a signal for this
+			if (args.Pspec.GetName() != "selected-item")
+				return;
+			Program.Initializer selected = (Program.Initializer)initializerDropDown.GetSelected();
+			Program.Config.Initializer = selected;
+		};
+		Label initializerLabel = Label.New("Initializer");
+		Box initializerBox = Box.New(Orientation.Horizontal, 5);
+		initializerBox.Append(initializerLabel);
+		initializerBox.Append(initializerDropDown);
+		initializerBox.SetHalign(Align.Start);
+		initializerBox.SetMargin(10);
+		
 		
 		Button saveSettingsButton = Button.New();
 		saveSettingsButton.Label = "Save Settings";
@@ -293,6 +330,10 @@ public class MainWindow : Window {
 			Program.Config.Write();
 		};
 		
+		#if WINDOWS
+			page.Append(themeBox);
+		#endif
+		page.Append(initializerBox);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
 	}
@@ -419,8 +460,9 @@ public class MainWindow : Window {
 		Program.SetGame(game);
 		currentGameLabel.SetText(game.DisplayName);
 		List<Profile> profiles = Profile.Parse(Path.Combine(game.Directory, "g3man"));
-		if (profiles.Count == 0) {
-			DisplayCategories(2);
+		if (profiles.Count == 0)
+		{
+			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
 		}
 		
@@ -431,7 +473,7 @@ public class MainWindow : Window {
 		if (profile == null) {
 			PopulateProfilesList(profiles, null);
 			// let user choose profile if for some reason we couldn't use the normal one
-			DisplayCategories(2);
+			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
 		}
 		Program.SetProfile(profile);
@@ -439,12 +481,12 @@ public class MainWindow : Window {
 		
 		PopulateProfilesList(profiles, game.ProfileFolderName);
 		PopulateModsList();
-		DisplayCategories(allPages.Length);
+		EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 	}
 
 	private void SelectProfile(Profile profile, Button buttonPressed) {
-		if (categoriesShowing == 2)
-			DisplayCategories(allPages.Length);
+		if (currentExtrasCategories == ExtraCategories.Profiles) 
+			EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 		foreach (Button button in selectProfileButtons) {
 			button.SetSensitive(true);
 		}
@@ -454,10 +496,20 @@ public class MainWindow : Window {
 		PopulateModsList();
 	}
 
-	private void ApplyTheme(int theme) {
-		Settings? settings = Settings.GetDefault();
-		if (settings is null)
-			return;
-		settings.GtkApplicationPreferDarkTheme = (theme == 2);
+	private void ApplyTheme(Program.Theme theme) {
+		if (Program.InitializedUsing == Program.Initializer.Gtk) {
+			Settings? settings = Settings.GetDefault();
+			if (settings is null)
+				return;
+			settings.GtkApplicationPreferDarkTheme = (theme == Program.Theme.Dark);
+		}
+		else {
+			Adw.StyleManager.GetDefault().SetColorScheme(theme switch {
+				Program.Theme.SystemDefault => ColorScheme.Default,
+				Program.Theme.Light => ColorScheme.ForceLight,
+				Program.Theme.Dark => ColorScheme.ForceDark,
+				_ => throw new UnreachableException()
+			});
+		}
 	}
 }

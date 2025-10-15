@@ -11,8 +11,9 @@ public class Config {
 	public List<string> GameDirectories;
 	
 	#if WINDOWS
-		public int Theme;
+		public Program.Theme Theme;
 	#endif
+	public Program.Initializer Initializer;
 	
 	public Config() {
 		GameDirectories = [];
@@ -21,11 +22,15 @@ public class Config {
 	public Config(JsonElement root)
 	{
 		GameDirectories = JsonUtil.GetStringArrayOrThrow(root, "game_directories").ToList();
+		int initializer = JsonUtil.GetNumberOrThrow(root, "initializer");
+		if (initializer < 0 || initializer > 1)
+			throw new InvalidDataException("Field \"initializer\" must be in the range of 0-1 (inclusive)");
+		Initializer = (Program.Initializer)initializer;
 		#if WINDOWS
 			int theme = JsonUtil.GetNumberOrThrow(root, "theme");
 			if (theme < 0 || theme > 2)
-				throw new InvalidDataException("Field \"theme\" must be between 0 and 2");
-			Theme = theme;
+				throw new InvalidDataException("Field \"theme\" must be in the range of 0-2 (inclusive)");
+			Theme = (Program.Theme)theme;
 		#endif
 	}
 
@@ -33,8 +38,9 @@ public class Config {
 	return new JsonObject() {
 			["format_version"] = 1,
 			["game_directories"] = new JsonArray(GameDirectories.Select(directory => (JsonNode)directory).ToArray()),
+			["initializer"] = (int)Initializer,
 			#if WINDOWS
-				["theme"] = Theme
+				["theme"] = (int)Theme
 			#endif
 		};
 	}
