@@ -14,13 +14,15 @@ public class Mod {
 	public string Version;
 	public string TargetGameVersion;
 	public string TargetPatcherVersion;
-	public string PatchesPath;
+	public PatchLocation[] Patches;
 	public string DatafilePath;
 	public string PostMergeScriptPath;
 	public string[] Credits;
 	
 	public RelatedMod[] Depends;
 	public RelatedMod[] Breaks;
+
+	public string FolderName;
 	
 	/*
 	public Mod(string modId, string displayName, string description, string[] credits, string version, string targetGameVersion, 
@@ -40,11 +42,8 @@ public class Mod {
 	}
 	*/
 
-
 	
-
-
-	private Mod(JsonElement root) {
+	private Mod(JsonElement root, string folderName) {
 		ModId = JsonUtil.GetStringOrThrow(root, "mod_id");
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		Description = JsonUtil.GetStringOrThrow(root, "description");
@@ -53,7 +52,8 @@ public class Mod {
 		Version = JsonUtil.GetStringOrThrow(root, "version");
 		TargetGameVersion = JsonUtil.GetStringOrThrow(root, "target_game_version");
 		TargetPatcherVersion = JsonUtil.GetStringOrThrow(root, "target_patcher_version");
-		PatchesPath = JsonUtil.GetStringOrThrow(root, "patches_path");
+		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches")
+			.Select(x => new PatchLocation(x)).ToArray();
 		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path");
 		PostMergeScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path");
 		
@@ -61,6 +61,8 @@ public class Mod {
 			.Select(x => new RelatedMod(x)).ToArray();
 		Breaks = JsonUtil.GetObjectArrayOrThrow(root, "breaks")
 			.Select(x => new RelatedMod(x)).ToArray();
+		
+		FolderName = folderName;
 	}
 	
 	
@@ -87,7 +89,7 @@ public class Mod {
 			}
 			
 			try {
-				Mod mod = new Mod(jsonDoc.RootElement);
+				Mod mod = new Mod(jsonDoc.RootElement, Path.GetFileName(modFolder));
 				mods.Add(mod);
 			}
 			catch (InvalidDataException e) {
@@ -101,6 +103,26 @@ public class Mod {
 }
 
 
+public class PatchLocation {
+	public string Path;
+	public PatchFormatType Type;
+	
+	public PatchLocation(JsonElement root) {
+		Path = JsonUtil.GetStringOrThrow(root, "path");
+		string typeString = JsonUtil.GetStringOrThrow(root, "type");
+		Type = typeString switch {
+			"gmlp" => PatchFormatType.GMLP,
+			_ => throw new InvalidPatchTypeException("Invalid patch format type: " + typeString
+				+ "\nRight now the only type is \"gmlp\".)")
+		};
+	}
+}
+public class InvalidPatchTypeException(string message) : Exception(message);
+
+
+public enum PatchFormatType {
+	GMLP
+}
 
 public class RelatedMod {
 	public string ModId;

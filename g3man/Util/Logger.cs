@@ -8,7 +8,7 @@ public class Logger(string prefix)
 	}
 	
 	public void Error(string str) {
-		Console.WriteLine($"[{prefix}/ERROR] {str}");
+		Console.Error.WriteLine($"[{prefix}/ERROR] {str}");
 	}
 
 	public void Debug(string str)
@@ -18,7 +18,7 @@ public class Logger(string prefix)
 		#endif
 	}
 
-	public void DebugNewline(string empty)
+	public void DebugNewline()
 	{
 		#if DEBUG
 			Console.WriteLine("");

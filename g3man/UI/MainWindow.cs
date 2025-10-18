@@ -1,12 +1,10 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using Adw;
-using g3man;
 using g3man.Models;
 using g3man.Util;
-using Gdk;
 using Gtk;
 using Window = Gtk.Window;
+
+namespace g3man.UI;
 
 public class MainWindow : Window {
 	
@@ -104,8 +102,10 @@ public class MainWindow : Window {
 		programBox.Append(currentSetupBox);
 		
 		SetChild(programBox);
-
-		ApplyTheme(Program.Config.Theme);
+		
+#if THEMESELECTOR
+			ApplyTheme(Program.Config.Theme);
+#endif
 	}
 
 	enum ExtraCategories {
@@ -114,11 +114,11 @@ public class MainWindow : Window {
 		ProfilesAndMods
 	}
 	/**
-	 * Turns on extra categories (Profiles and Mods) depending on the parameter.
-	 * 
-	 * TODO: This is a really dumb way to be doing things.
-	 * There must be a better way that achieves the same visual result.
-	 */
+* Turns on extra categories (Profiles and Mods) depending on the parameter.
+*
+* TODO: This is a really dumb way to be doing things.
+* There must be a better way that achieves the same visual result.
+*/
 	private void EnableExtraCategories(ExtraCategories extra) {
 		ListBox pageList = (ListBox)pageSidebar.GetFirstChild()!.GetFirstChild()!.GetFirstChild()!;
 		ListBoxRow gamesRow = (ListBoxRow)pageList.GetFirstChild()!;
@@ -205,8 +205,8 @@ public class MainWindow : Window {
 		Button addGameButton = Button.NewWithLabel("Add game");
 		addGameButton.SetHalign(Align.Center);
 		addGameButton.OnClicked += (sender, args) => {
-			GameAdder adder = new GameAdder(gameDirectoryEntry.GetText(), this);
-			adder.Dialog();
+			GameAdderWindow adderWindow = new GameAdderWindow(gameDirectoryEntry.GetText(), this);
+			adderWindow.Dialog();
 		};
 		
 		gameDirectoryEntry.GetBuffer().OnDeletedText += (buffer, args) => {
@@ -235,7 +235,18 @@ public class MainWindow : Window {
 		profilesList.SetSelectionMode(SelectionMode.None);
 		selectProfileButtons = [];
 		
+		Button addNewProfile = Button.NewWithLabel("Add new profile");
+		addNewProfile.SetHalign(Align.Center);
+		addNewProfile.SetMargin(10);
+		addNewProfile.OnClicked += (sender, args) => {
+			Profile profile = new Profile("", "", false, []);
+			ManageProfileWindow window = new ManageProfileWindow(this, profile, true);
+			// TODO
+			//window.Dialog();
+		};
+		
 		box.Append(profilesList);
+		box.Append(addNewProfile);
 	}
 	
 	private void SetupModsPage(Box page) {
@@ -282,7 +293,8 @@ public class MainWindow : Window {
 
 	private void SetupSettingsPage(Box page) {
 		
-		#if WINDOWS
+#if THEMESELECTOR
+			// TODO CHANGE THIS TO COMBOBOXTEXT
 			DropDown themeDropDown = DropDown.NewFromStrings(["System Default", "Light", "Dark"]);
 			themeDropDown.SetSelected((uint)Program.Config.Theme);
 			themeDropDown.OnNotify += (_, args) => {
@@ -296,29 +308,38 @@ public class MainWindow : Window {
 			
 			Label themeLabel = Label.New("Theme");
 			
-			Box themeBox = Box.New(Orientation.Horizontal, 5);
+			
+			Box themeBox = Box.New(Orientation.Horizontal, 10);
 			themeBox.Append(themeLabel);
 			themeBox.Append(themeDropDown);
 			themeBox.SetHalign(Align.Start);
 			themeBox.SetMargin(10);
-		#endif
-		
-		
-		DropDown initializerDropDown =  DropDown.NewFromStrings(["GTK", "Adwaita"]);
-		initializerDropDown.SetSelected((uint)Program.Config.Initializer);
-		initializerDropDown.OnNotify += (_, args) => {
-			// doesn't seem to be a signal for this
-			if (args.Pspec.GetName() != "selected-item")
-				return;
-			Program.Initializer selected = (Program.Initializer)initializerDropDown.GetSelected();
-			Program.Config.Initializer = selected;
-		};
+#endif
+
 		Label initializerLabel = Label.New("Initializer");
-		Box initializerBox = Box.New(Orientation.Horizontal, 5);
+		ComboBoxText initializerDropDown =  ComboBoxText.New();
+		Label initializerRestartLabel = Label.New("Restart app for changes to apply");
+		initializerRestartLabel.SetVisible(false);
+		
+		initializerDropDown.AppendText("Adwaita");
+		initializerDropDown.AppendText("GTK");
+		
+		initializerDropDown.SetActive((int)Program.Config.Initializer);
+		initializerDropDown.OnChanged += (_, _) => {
+			Program.Initializer selected = (Program.Initializer)initializerDropDown.GetActive();
+			Program.Config.Initializer = selected;
+			initializerRestartLabel.SetVisible(Program.InitializedUsing != selected);
+		};
+		
+		
+		Box initializerBox = Box.New(Orientation.Horizontal, 10);
 		initializerBox.Append(initializerLabel);
 		initializerBox.Append(initializerDropDown);
+		initializerBox.Append(initializerRestartLabel);
 		initializerBox.SetHalign(Align.Start);
 		initializerBox.SetMargin(10);
+
+		
 		
 		
 		Button saveSettingsButton = Button.New();
@@ -330,9 +351,9 @@ public class MainWindow : Window {
 			Program.Config.Write();
 		};
 		
-		#if WINDOWS
+#if THEMESELECTOR
 			page.Append(themeBox);
-		#endif
+#endif
 		page.Append(initializerBox);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
@@ -496,20 +517,22 @@ public class MainWindow : Window {
 		PopulateModsList();
 	}
 
-	private void ApplyTheme(Program.Theme theme) {
-		if (Program.InitializedUsing == Program.Initializer.Gtk) {
-			Settings? settings = Settings.GetDefault();
-			if (settings is null)
-				return;
-			settings.GtkApplicationPreferDarkTheme = (theme == Program.Theme.Dark);
+#if THEMESELECTOR
+		private void ApplyTheme(Program.Theme theme) {
+			if (Program.InitializedUsing == Program.Initializer.Gtk) {
+				Settings? settings = Settings.GetDefault();
+				if (settings is null)
+					return;
+				settings.GtkApplicationPreferDarkTheme = (theme == Program.Theme.Dark);
+			}
+			else {
+				Adw.StyleManager.GetDefault().SetColorScheme(theme switch {
+					Program.Theme.SystemDefault => ColorScheme.Default,
+					Program.Theme.Light => ColorScheme.ForceLight,
+					Program.Theme.Dark => ColorScheme.ForceDark,
+					_ => throw new UnreachableException()
+				});
+			}
 		}
-		else {
-			Adw.StyleManager.GetDefault().SetColorScheme(theme switch {
-				Program.Theme.SystemDefault => ColorScheme.Default,
-				Program.Theme.Light => ColorScheme.ForceLight,
-				Program.Theme.Dark => ColorScheme.ForceDark,
-				_ => throw new UnreachableException()
-			});
-		}
-	}
+#endif
 }

@@ -10,38 +10,33 @@ public class Config {
 	public static readonly Logger logger = new Logger("CONFIG");
 	public List<string> GameDirectories;
 	
-	#if WINDOWS
-		public Program.Theme Theme;
-	#endif
+	public Program.Theme Theme;
 	public Program.Initializer Initializer;
 	
 	public Config() {
 		GameDirectories = [];
+		Initializer = Program.Initializer.Adwaita;
+		Theme = Program.Theme.SystemDefault;
 	}
 	
-	public Config(JsonElement root)
-	{
+	public Config(JsonElement root) {
 		GameDirectories = JsonUtil.GetStringArrayOrThrow(root, "game_directories").ToList();
 		int initializer = JsonUtil.GetNumberOrThrow(root, "initializer");
 		if (initializer < 0 || initializer > 1)
 			throw new InvalidDataException("Field \"initializer\" must be in the range of 0-1 (inclusive)");
 		Initializer = (Program.Initializer)initializer;
-		#if WINDOWS
 			int theme = JsonUtil.GetNumberOrThrow(root, "theme");
 			if (theme < 0 || theme > 2)
 				throw new InvalidDataException("Field \"theme\" must be in the range of 0-2 (inclusive)");
-			Theme = (Program.Theme)theme;
-		#endif
+		Theme = (Program.Theme)theme;
 	}
 
 	public JsonObject ToJson() {
-	return new JsonObject() {
+		return new JsonObject() {
 			["format_version"] = 1,
 			["game_directories"] = new JsonArray(GameDirectories.Select(directory => (JsonNode)directory).ToArray()),
 			["initializer"] = (int)Initializer,
-			#if WINDOWS
-				["theme"] = (int)Theme
-			#endif
+			["theme"] = (int)Theme
 		};
 	}
 	

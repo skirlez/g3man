@@ -1,5 +1,3 @@
-
-using System.Diagnostics;
 using System.Security.Cryptography;
 using g3man.Models;
 using g3man.Util;
@@ -7,15 +5,15 @@ using Gtk;
 using UndertaleModLib;
 using Thread = System.Threading.Thread;
 
-namespace g3man;
+namespace g3man.UI;
 
-public class GameAdder : Window {
+public class GameAdderWindow : Window {
 	public static Logger logger = new Logger("GAMEADDER");
 	
 	private readonly Label label;
 	private readonly string directory;
 	private MainWindow owner;
-	public GameAdder(string directory, MainWindow owner) {
+	public GameAdderWindow(string directory, MainWindow owner) {
 		SetSizeRequest(350, 150);
 		SetResizable(false);
 		this.directory = directory;
@@ -101,8 +99,6 @@ public class GameAdder : Window {
 			Program.RunOnMainThreadEventually(() => {
 				if (result.IsOk()) {
 					Success s = result.GetValue();
-					
-					
 					Program.AddGame(s.Game, s.Data);
 					owner.AddToGamesList(s.Game, false);	
 					

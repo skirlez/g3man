@@ -1,12 +1,15 @@
 ﻿using System.Diagnostics;
 using System.Text.Json;
+using g3man.GMLP.Tests;
 using g3man.Models;
+using g3man.UI;
 using Gtk;
 using UndertaleModLib;
 
 namespace g3man;
 
 public static class Program {
+	
 	public static DataLoader DataLoader = null!;
 	public static Config Config = null!;
 	
@@ -14,6 +17,9 @@ public static class Program {
 
 	private static Game? game;
 	private static Profile? profile;
+	private static Application application = null!;
+	private static MainWindow window = null!;
+	
 	public static Profile? GetProfile() {
 		return profile;
 	}
@@ -40,7 +46,6 @@ public static class Program {
 	}
 	
 	public static int Main(string[] args) {
-		
 		DataLoader = new DataLoader();
 		JsonElement? configJson = Config.Read();
 		if (configJson is null)
@@ -48,21 +53,20 @@ public static class Program {
 		else
 			Config = new Config(configJson.Value);
 
-		Application application;
-		
 		if (Config.Initializer == Initializer.Gtk)
 			application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
 		else
 			application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
 		InitializedUsing = Config.Initializer;
-		
-		application.OnActivate += (sender, _) => {
-			MainWindow window = new MainWindow();
+
+		application.OnActivate += (_, _) => {
+			window = new MainWindow();
 			application.AddWindow(window);
 			window.Show();
 		};
 		return application.RunWithSynchronizationContext([]);
 	}
+	
 
 	
 	// TODO; I don't really know if this is correct.
@@ -75,8 +79,8 @@ public static class Program {
 	}
 	
 	public enum Initializer {
-		Gtk,
-		Adwaita
+		Adwaita,
+		Gtk
 	}
 	public enum Theme {
 		SystemDefault,
