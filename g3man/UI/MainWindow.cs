@@ -126,18 +126,23 @@ public class MainWindow : Window {
 		ListBoxRow modsRow = (ListBoxRow)profilesRow.GetNextSibling()!;
 		if (extra < ExtraCategories.Profiles) {
 			profilesRow.SetSensitive(false);
+			profilesRow.SetSelectable(false);
 			modsRow.SetSensitive(false);
+			modsRow.SetSelectable(false);
 			return;
 		}
 		Debug.Assert(Program.GetGame() is not null);
 		profilesRow.SetSensitive(true);
+		profilesRow.SetSelectable(true);
 		if (extra < ExtraCategories.ProfilesAndMods) {
 			modsRow.SetSensitive(false);
+			modsRow.SetSelectable(false);
 			return;
 		}
 
 		Debug.Assert(Program.GetProfile() is not null);
 		modsRow.SetSensitive(true);
+		modsRow.SetSelectable(true);
 	}
 	
 
