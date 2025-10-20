@@ -18,13 +18,13 @@ public static class GMLP {
 		EmptyLineAroundBranchStatements = true,
 		EmptyLineBeforeSwitchCases = true
 	};
-	private static Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
+	private static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
 		{"write_before", OperationType.WriteBefore},
 		{"write_replace", OperationType.WriteReplace},
 		{"write_after", OperationType.WriteAfter}
 	};
 	
-	private static Dictionary<string, (OperationType, char)> BraceFunctionTypes = new Dictionary<string, (OperationType, char)> {
+	private static readonly Dictionary<string, (OperationType, char)> BraceFunctionTypes = new Dictionary<string, (OperationType, char)> {
 		{"open_brace_before", (OperationType.WriteBefore, '{') },
 		{"open_brace_after", (OperationType.WriteAfter, '{') },
 		{"close_brace_before", (OperationType.WriteBefore, '}') },
@@ -43,7 +43,7 @@ public static class GMLP {
 				
 				UndertaleCode? codeEntry = data.Code.ByName(target);
 				if (codeEntry is null)
-					throw new Exception($"Target \"{target}\" does not exist");
+					throw new InvalidPatchException($"Target \"{target}\" does not exist");
 				
 				string code = new DecompileContext(context, codeEntry, Settings).DecompileToString();
 				
@@ -52,14 +52,15 @@ public static class GMLP {
 					pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, ref patchIncrement);
 				}
 				else {
-					throw new Exception($"Incomplete patch; meta section without patch section");
+					throw new InvalidPatchException($"Incomplete patch; meta section without patch section");
 				}
 			}
 			else {
-				throw new Exception($"Expected \"meta:\" section at start of patch (line {lastLineNumber})");
+				throw new InvalidPatchException($"Expected \"meta:\" section at start of patch (line {lastLineNumber})");
 			}
 		}
 	}
+	
 
 	private static (string target, bool critical, int pos) ExecuteMetadataSection(Token[] tokens, int pos) {
 		bool critical = true;
@@ -74,10 +75,10 @@ public static class GMLP {
 						NameToken valueToken =
 							(NameToken)Expect(tokens, pos + 1, typeof(NameToken), equalsToken.LineNumber);
 						pos++;
+						
 						if (valueToken.Name != "true" && valueToken.Name != "false") {
-							throw new Exception($"At line {valueToken.LineNumber}: Expected \"true\" or \"false\"");
+							throw new InvalidPatchException($"At line {valueToken.LineNumber}: Expected \"true\" or \"false\"");
 						}
-
 						critical = valueToken.Name == "true";
 						break;
 					}
@@ -91,7 +92,7 @@ public static class GMLP {
 						break;
 					}
 					default:
-						throw new Exception($"At line {nameToken.LineNumber}: invalid metadata name {nameToken.Name}");
+						throw new InvalidPatchException($"At line {nameToken.LineNumber}: invalid metadata name {nameToken.Name}");
 						break;
 				}
 			}
@@ -103,14 +104,15 @@ public static class GMLP {
 		}
 
 		if (target is null)
-			throw new Exception($"Meta section must contain \"target\"");
+			throw new InvalidPatchException($"Meta section must contain \"target\"");
 		
 		return (target, critical, pos);
 	}
 	
 	private static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, ref int patchIncrement) {
+		// TODO make sure code has \n line endings only
 		string[] lines = code.Split('\n');
-
+		
 		UnitOperations unitOperations = record.GetUnitOperationsOrCreate(target, code);
 		
 		int filePos = 0;
@@ -156,13 +158,20 @@ public static class GMLP {
 						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
 						pos++;
 
+						
+						int positionSum = 0;
+						for (int i = 0; i < filePos; i++) {
+							positionSum += lines[i].Length + 1;
+						}
+						int index = code.IndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
+						
 						for (int i = filePos; i < lines.Length; i++) {
-							if (lines[i].Contains(stringToken.Text)) {
+							positionSum += lines[i].Length + 1; // incl newline
+							if (positionSum > index) {
 								filePos = i;
 								break;
 							}
 						}
-
 						break;
 					}
 					case "reverse_find_line_with": {
@@ -173,14 +182,25 @@ public static class GMLP {
 						pos++;
 						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
 						pos++;
-
+						
+						
+						int positionSum = 0;
+						for (int i = 0; i <= filePos; i++) {
+							positionSum += lines[i].Length + 1;
+						}
+						if (positionSum == code.Length + 1) // final line might not have newline
+							positionSum = code.Length;
+						int index = code.LastIndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
+						
 						for (int i = filePos; i >= 0; i--) {
-							if (lines[i].Contains(stringToken.Text)) {
+							positionSum -= lines[i].Length + 1;
+							if (positionSum < index) {
 								filePos = i;
 								break;
 							}
 						}
-
+						
+						
 						break;
 					}
 					case "open_brace_before":
@@ -217,7 +237,7 @@ public static class GMLP {
 						break;
 					}
 					default:
-						throw new Exception($"At line {nameToken.LineNumber}: unknown operation {nameToken.Name}");
+						throw new InvalidPatchException($"At line {nameToken.LineNumber}: unknown operation {nameToken.Name}");
 				}
 			}
 			else {
@@ -370,14 +390,11 @@ public static class GMLP {
 					build += patch[i];
 					i++;
 				}
-
 				if (build == "-" || build == "+") {
-					// TODO error
+					throw new InvalidPatchException($"At line {lineNumber}: Expected a number after the sign");
 				}
-				else {
-					int number = int.Parse(build);
-					tokens.Add(new NumberToken(number, lineNumber));
-				}
+				int number = int.Parse(build);
+				tokens.Add(new NumberToken(number, lineNumber));
 
 				build = "";
 				i--;
@@ -423,39 +440,46 @@ public static class GMLP {
 				if (c == '@') {
 					i++;
 					if (patch[i] != '\'') {
-						// TODO ERROR
-						continue;
+						throw new InvalidPatchException(
+							$"At line {lineNumber}: Expected a string after the \'@\' character");
 					}
 				}
 
+				int startCharPosition = i;
 				
 				bool stripNewlines = c != '@'; 
-
+				
 
 				int lineNumberStart = lineNumber;
 				build = "";
 				string text = "";
-				i++;
-
-				while (stripNewlines && i < patch.Length && patch[i] == '\n') {
+				
+				// make sure we're 1 character away from the start of the string contents
+				while (stripNewlines && i + 1 < patch.Length && patch[i + 1] == '\n') {
 					i++;
 				}
 
-				while (i < patch.Length && !(patch[i - 1] != '\\' && patch[i] == '\'')) {
-					if (patch[i] == '\n')
+				
+				
+				while (i + 1 < patch.Length && !(patch[i] != '\\' && patch[i + 1] == '\'')) {
+					if (patch[i + 1] == '\n')
 						lineNumber++;
-					text += patch[i];
+					text += patch[i + 1];
 					i++;
 				}
 
-				while (stripNewlines && i < patch.Length && text[text.Length - 1] == '\n') {
+				
+				while (stripNewlines && text[text.Length - 1] == '\n') {
 					text = text.Substring(0, text.Length - 1);
 				}
 
 				if (i >= patch.Length) {
-					// TODO ERROR
+					throw new InvalidPatchException($"At line {lineNumber}: Reached end of file before string terminated");
 					continue;
 				}
+				
+				// go over the ' we're currently on
+				i++;
 
 				if (!string.IsNullOrWhiteSpace(text)) {
 					tokens.Add(new StringToken(text, lineNumberStart));
@@ -483,4 +507,6 @@ public static class GMLP {
 		return Settings;
 	}
 }
+
+public class InvalidPatchException(string message) : Exception(message);
 

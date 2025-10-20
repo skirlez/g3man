@@ -33,7 +33,10 @@ write_after('3')
 find_line_with(
 'aaaaabbbbb'
 )
-write_after('4')
+write_after(
+'
+4
+')
 """
 
 		];

@@ -3,7 +3,7 @@ namespace g3man.GMLP.Tests;
 public class GMLPTests {
 
 	public static void TestAll() {
-		GMLPTest[] tests = [new WritesTest(), new StringTest(), new BracesTest()];
+		GMLPTest[] tests = [new WritesTest(), new WritesTest(), new BracesTest(), new StringTest(), new AtStringTest()];
 		foreach (GMLPTest test in tests) {
 			Console.WriteLine($"Running test: {test.Name}");
 			string result = test.GetResult();
