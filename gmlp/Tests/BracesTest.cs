@@ -1,6 +1,6 @@
-namespace g3man.GMLP.Tests;
+namespace gmlp.Tests;
 
-public class BracesTest() : GMLPTest("Braces") {
+public class BracesTest() : LanguageTest("Braces") {
 	public override string GetCode() {
 		return 
 """

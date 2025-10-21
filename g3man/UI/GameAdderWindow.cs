@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using g3man.Models;
+using g3man.Patching;
 using g3man.Util;
 using Gtk;
 using UndertaleModLib;

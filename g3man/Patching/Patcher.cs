@@ -1,13 +1,12 @@
 using System.Diagnostics;
 using g3man.Models;
 using g3man.Util;
+using gmlp;
 using UndertaleModLib;
-using UndertaleModLib.Models;
-using g3man.GMLP;
 using UndertaleModLib.Decompiler;
+using UndertaleModLib.Models;
 
-
-namespace g3man;
+namespace g3man.Patching;
 
 public class Patcher {
 	private static readonly Logger logger = new Logger("PATCHER");
@@ -139,9 +138,6 @@ public class Patcher {
 			context = Program.DataLoader.GetDecompileContext()!;
 		}
 		
-		
-		
-		
 		string modsFolder = Path.Combine(game.Directory, profile.FolderName, "mods");
 		foreach (Mod mod in mods) {
 			if (mod.DatafilePath == "")
@@ -160,6 +156,11 @@ public class Patcher {
 
 
 		PatchesRecord record = new PatchesRecord();
+		GameMakerCodeSource source = new GameMakerCodeSource(data, context);
+
+
+		List<PatchOwner> order = mods.Select(mod => new PatchOwner(mod.ModId)).ToList();
+		
 		foreach (Mod mod in mods) {
 			statusCallback($"Patching: {mod.DisplayName}");
 			foreach (PatchLocation patchLocation in mod.Patches) {
@@ -183,8 +184,8 @@ public class Patcher {
 				void processPatch(string patchPath, string relativePath) {
 					try {
 						string patchText = File.ReadAllText(patchPath);
-						PatchOwner owner = new ModPatchOwner(mod, relativePath);
-						GMLP.GMLP.ExecuteEntirePatch(patchText, data, context, record, owner);
+						
+						gmlp.Language.ExecuteEntirePatch(patchText, source, record, null);
 					}
 					catch (Exception e) {
 						logger.Error("Failed to read patch file: " + e);
@@ -193,8 +194,8 @@ public class Patcher {
 			}
 		}	
 
-		PatchApplier applier = new GMLPatchApplier(data, context);
-		GMLP.GMLP.ApplyPatches(record, applier, mods);
+		
+		Language.ApplyPatches(record, source, order);
 	}
 	
 	public static bool IsDataPatched(UndertaleData data) {

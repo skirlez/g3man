@@ -1,6 +1,6 @@
-using g3man.Models;
+using System.Collections.Generic;
 
-namespace g3man.GMLP;
+namespace gmlp;
 
 
 public class PatchesRecord {
@@ -43,7 +43,7 @@ public class PatchOperation(string text, bool critical, OperationType type, Patc
 	// gets incremented for each patch operation in a patch file, so they can sort by each other.
 	private readonly int increment = increment;
 	
-	public int IsHigherPriorityThan(PatchOperation other, List<Mod> mods) {
+	public int IsHigherPriorityThan(PatchOperation other, List<PatchOwner> mods) {
 		int ownerComparison = Owner.IsHigherPriorityThan(other.Owner, mods);
 		if (ownerComparison != 0)
 			return ownerComparison;

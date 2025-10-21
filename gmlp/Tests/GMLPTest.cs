@@ -1,7 +1,10 @@
-namespace g3man.GMLP.Tests;
+using System.Collections.Generic;
+using gmlp;
+
+namespace gmlp.Tests;
 
 
-public abstract class GMLPTest(string name) {
+public abstract class LanguageTest(string name) {
 	public readonly string Name = name;
 	public abstract string GetCode();
 	public abstract string[] GetPatchSections();
@@ -26,11 +29,12 @@ public abstract class GMLPTest(string name) {
 
 		int patchIncrement = 0;
 		for (int i = patchSections.Length - 1; i >= 0; i--) {
-			GMLP.ExecutePatchSection(patchSections[i], Name, code, patchesCritical[i], new TestPatchOwner(i, $"{Name}-{i}"), record, ref patchIncrement);
+			Language.ExecutePatchSection(patchSections[i], Name, code, patchesCritical[i], new PatchOwner($"{Name}-{i}"), record, ref patchIncrement);
 		}
 
 		Dictionary<string, string> dictionary = new Dictionary<string, string>();
-		GMLP.ApplyPatches(record, new DictionaryPatchApplier(dictionary), []);
+		CodeSource source = new DictionaryCodeSource(dictionary);
+		Language.ApplyPatches(record, source, []);
 		return dictionary[Name];
 	}
 	

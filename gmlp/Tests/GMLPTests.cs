@@ -1,10 +1,12 @@
-namespace g3man.GMLP.Tests;
+using System;
 
-public class GMLPTests {
+namespace gmlp.Tests;
+
+public class LanguageTests {
 
 	public static void TestAll() {
-		GMLPTest[] tests = [new WritesTest(), new WritesTest(), new BracesTest(), new StringTest(), new AtStringTest()];
-		foreach (GMLPTest test in tests) {
+		LanguageTest[] tests = [new WritesTest(), new WritesTest(), new BracesTest(), new StringTest(), new AtStringTest()];
+		foreach (LanguageTest test in tests) {
 			Console.WriteLine($"Running test: {test.Name}");
 			string result = test.GetResult();
 			string expected = test.GetExpected();

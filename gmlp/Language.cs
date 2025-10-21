@@ -1,23 +1,15 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using g3man.GMLP;
-using g3man.Models;
-using Underanalyzer.Decompiler;
-using UndertaleModLib;
-using UndertaleModLib.Decompiler;
-using UndertaleModLib.Models;
 
-namespace g3man.GMLP;
+namespace gmlp;
 
 /**
 * Can you tell I've never written something like this before?
 */
-public static class GMLP {
-	private static readonly DecompileSettings Settings = new DecompileSettings {
-		UnknownArgumentNamePattern = "arg{0}",
-		RemoveSingleLineBlockBraces = true,
-		EmptyLineAroundBranchStatements = true,
-		EmptyLineBeforeSwitchCases = true
-	};
+public static class Language {
+
 	private static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
 		{"write_before", OperationType.WriteBefore},
 		{"write_replace", OperationType.WriteReplace},
@@ -30,8 +22,10 @@ public static class GMLP {
 		{"close_brace_before", (OperationType.WriteBefore, '}') },
 		{"close_brace_after", (OperationType.WriteAfter, '}') }
 	};
+	
 
-	public static void ExecuteEntirePatch(string patchText, UndertaleData data, GlobalDecompileContext context, PatchesRecord record, PatchOwner owner) {
+
+	public static void ExecuteEntirePatch(string patchText, CodeSource data, PatchesRecord record, PatchOwner owner) {
 		int patchIncrement = 0;
 		
 		Token[] tokens = tokenize(patchText);
@@ -40,12 +34,11 @@ public static class GMLP {
 			int lastLineNumber = tokens[pos].LineNumber;
 			if (tokens[pos] is SectionToken metaSectionToken && metaSectionToken.Section == "meta") {
 				(string target, bool critical, pos) = ExecuteMetadataSection(tokens, pos + 1);
-				
-				UndertaleCode? codeEntry = data.Code.ByName(target);
-				if (codeEntry is null)
+
+				CodeFile? codeFile = data.GetCodeFile(target);
+				if (codeFile is null)
 					throw new InvalidPatchException($"Target \"{target}\" does not exist");
-				
-				string code = new DecompileContext(context, codeEntry, Settings).DecompileToString();
+				string code = codeFile.GetAsString();
 				
 				if (pos < tokens.Length || tokens[pos] is SectionToken patchSectionToken
 						&& patchSectionToken.Section == "patch") {
@@ -112,7 +105,6 @@ public static class GMLP {
 	private static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, ref int patchIncrement) {
 		// TODO make sure code has \n line endings only
 		string[] lines = code.Split('\n');
-		
 		UnitOperations unitOperations = record.GetUnitOperationsOrCreate(target, code);
 		
 		int filePos = 0;
@@ -255,7 +247,7 @@ public static class GMLP {
 		ExecutePatchSection(tokens, 0, target, code, critical, owner, record, ref patchIncrement);
 	}
 
-	public static void ApplyPatches(PatchesRecord record, PatchApplier applier, List<Mod> mods) {
+	public static void ApplyPatches(PatchesRecord record, CodeSource source, List<PatchOwner> order) {
 		foreach (KeyValuePair<string, UnitOperations> recordPair in record.GetData()) {
 			string file = recordPair.Key;
 			
@@ -276,7 +268,7 @@ public static class GMLP {
 				}
 
 				// we use OrderBy for stable order, since while we want mods to sort by owner, we also want "equal")
-				replacers.Sort((a, b) => a.IsHigherPriorityThan(b, mods));
+				replacers.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 				
 				if (replacers.Count >= 2) {
 					// pick out the only critical replacer, or the first non-critical replacer if we don't have any
@@ -285,7 +277,7 @@ public static class GMLP {
 						&& op != chosenReplacer);
 				}
 				
-				operations.Sort((a, b) => a.IsHigherPriorityThan(b, mods));
+				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 
 				StringBuilder before = new StringBuilder();
 				StringBuilder after = new StringBuilder();
@@ -311,7 +303,7 @@ public static class GMLP {
 			}
 		
 			string finalResult = string.Join("\n", lines);
-			applier.Apply(file, finalResult);
+			source.Replace(file, finalResult);
 		}
 	}
 	
@@ -503,9 +495,7 @@ public static class GMLP {
 		return token;
 	}
 
-	public static DecompileSettings GetSettings() {
-		return Settings;
-	}
+
 }
 
 public class InvalidPatchException(string message) : Exception(message);

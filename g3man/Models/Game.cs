@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using g3man.Patching;
 using g3man.Util;
 
 namespace g3man.Models;

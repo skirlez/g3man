@@ -9,6 +9,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Underanalyzer", "Underanaly
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "g3man", "g3man\g3man.csproj", "{A25ABB9A-3C89-4083-828F-850BF4D6B1BF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gmlp", "gmlp\gmlp.csproj", "{F7713168-FD64-4ED9-ADFC-962FE33A055B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gmlpweb", "gmlpweb\gmlpweb.csproj", "{80648288-3DF0-4CA8-94D3-B6477871D802}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,5 +42,13 @@ Global
 		{A25ABB9A-3C89-4083-828F-850BF4D6B1BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A25ABB9A-3C89-4083-828F-850BF4D6B1BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A25ABB9A-3C89-4083-828F-850BF4D6B1BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F7713168-FD64-4ED9-ADFC-962FE33A055B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F7713168-FD64-4ED9-ADFC-962FE33A055B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F7713168-FD64-4ED9-ADFC-962FE33A055B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F7713168-FD64-4ED9-ADFC-962FE33A055B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80648288-3DF0-4CA8-94D3-B6477871D802}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80648288-3DF0-4CA8-94D3-B6477871D802}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80648288-3DF0-4CA8-94D3-B6477871D802}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80648288-3DF0-4CA8-94D3-B6477871D802}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
