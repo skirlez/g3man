@@ -1,15 +1,28 @@
+async function onBlazorInitialized() {}
 
-async function onBlazorInitialized() {
-    const result = await DotNet.invokeMethodAsync('gmlpweb', 'patch', 
-        'meta:\n' +
-        'target=test\n' +
-        'critical=false\n' +
-        'patch:\n' +
-        'find_line_with(\'aaaaabbbbb\')\n' +
-        'write_after(\'1\')',
+const code = document.getElementById("code");
+const patch = document.getElementById("patch");
+const result = document.getElementById("result");
+const terminal = document.getElementById("terminal");
 
-        'ccccc;\n' +
-        'aaaaabbbbb;\n' +
-        'ddddd;');
-    console.log(result);
+async function applyPatch() {
+  try {
+    const patched = await DotNet.invokeMethodAsync(
+      "gmlpweb",
+      "patch",
+      patch.value,
+      code.value,
+    );
+    result.innerText = patched;
+    terminal.innerText = "";
+  } catch (error) {
+    terminal.innerText = error.message;
+  }
 }
+
+code.addEventListener("input", (event) => {
+  applyPatch();
+});
+patch.addEventListener("input", (event) => {
+  applyPatch();
+});
