@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "g3man", "g3man\g3man.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gmlp", "gmlp\gmlp.csproj", "{F7713168-FD64-4ED9-ADFC-962FE33A055B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gmlpweb", "gmlpweb\gmlpweb.csproj", "{80648288-3DF0-4CA8-94D3-B6477871D802}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gmlpweb", "gmlpweb\gmlpweb.csproj", "{6FD4E82D-6DFA-4510-AA06-4E679962CC0A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -46,9 +46,9 @@ Global
 		{F7713168-FD64-4ED9-ADFC-962FE33A055B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F7713168-FD64-4ED9-ADFC-962FE33A055B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F7713168-FD64-4ED9-ADFC-962FE33A055B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{80648288-3DF0-4CA8-94D3-B6477871D802}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{80648288-3DF0-4CA8-94D3-B6477871D802}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{80648288-3DF0-4CA8-94D3-B6477871D802}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{80648288-3DF0-4CA8-94D3-B6477871D802}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6FD4E82D-6DFA-4510-AA06-4E679962CC0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6FD4E82D-6DFA-4510-AA06-4E679962CC0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6FD4E82D-6DFA-4510-AA06-4E679962CC0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6FD4E82D-6DFA-4510-AA06-4E679962CC0A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
