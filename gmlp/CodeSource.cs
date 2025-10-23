@@ -9,7 +9,7 @@ public abstract class CodeSource {
 
 public class DictionaryCodeSource(Dictionary<string, string> dictionary) : CodeSource {
 	public override CodeFile? GetCodeFile(string file) {
-		return new TestCodeFile(file);
+		return new StringCodeFile(file);
 	}
 
 	public override void Replace(string file, string code) {

@@ -11,4 +11,13 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.20" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="Layout\MainLayout.razor" />
+    <_ContentIncludedByDefault Remove="Layout\NavMenu.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\gmlp\gmlp.csproj" />
+  </ItemGroup>
+
 </Project>
