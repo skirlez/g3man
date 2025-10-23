@@ -1,5 +1,14 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using System;
+using System.Runtime.InteropServices;
 
-Console.WriteLine("Hello, World!");
+namespace gmlpweb;
+
+public class Program {
+    
+    [UnmanagedCallersOnly(EntryPoint = "concat_test")]
+    public static IntPtr ConcatTest(IntPtr a, int aLength, IntPtr b, int bLength)
+    {
+        return a + b;
+    }
+}

@@ -266,19 +266,17 @@ public static class Language {
 					// TODO message
 					continue;
 				}
-
-				// we use OrderBy for stable order, since while we want mods to sort by owner, we also want "equal")
-				replacers.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 				
+				replacers.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 				if (replacers.Count >= 2) {
-					// pick out the only critical replacer, or the first non-critical replacer if we don't have any
-					PatchOperation chosenReplacer = replacers.FirstOrDefault(op => op.Critical, replacers.First(op => op.Type == OperationType.WriteReplace));
+					// pick out the last critical replacer, or the last non-critical replacer if we don't have any
+					// (last has highest priority)
+					PatchOperation chosenReplacer = replacers.LastOrDefault(op => op.Critical, replacers.Last(op => op.Type == OperationType.WriteReplace));
 					operations.RemoveAll(op => replacers.Contains(op)
 						&& op != chosenReplacer);
 				}
-				
 				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
-
+				
 				StringBuilder before = new StringBuilder();
 				StringBuilder after = new StringBuilder();
 				foreach (PatchOperation op in operations) {
