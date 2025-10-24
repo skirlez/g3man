@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -28,7 +29,7 @@ public static class Language {
 	public static void ExecuteEntirePatch(string patchText, CodeSource data, PatchesRecord record, PatchOwner owner) {
 		int patchIncrement = 0;
 		
-		Token[] tokens = tokenize(patchText);
+		Token[] tokens = Tokenize(patchText);
 		int pos = 0;
 		while (pos < tokens.Length) {
 			int lastLineNumber = tokens[pos].LineNumber;
@@ -40,9 +41,8 @@ public static class Language {
 					throw new InvalidPatchException($"Target \"{target}\" does not exist");
 				string code = codeFile.GetAsString();
 				
-				if (pos < tokens.Length || tokens[pos] is SectionToken patchSectionToken
-						&& patchSectionToken.Section == "patch") {
-					pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, ref patchIncrement);
+				if (pos < tokens.Length && tokens[pos] is SectionToken patchSectionToken && patchSectionToken.Section == "patch") {
+					pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, true, ref patchIncrement);
 				}
 				else {
 					throw new InvalidPatchException($"Incomplete patch; meta section without patch section");
@@ -85,8 +85,7 @@ public static class Language {
 						break;
 					}
 					default:
-						throw new InvalidPatchException($"At line {nameToken.LineNumber}: invalid metadata name {nameToken.Name}");
-						break;
+						throw new InvalidPatchException($"At line {nameToken.LineNumber}: invalid metadata variable {nameToken.Name}");
 				}
 			}
 			else {
@@ -102,7 +101,7 @@ public static class Language {
 		return (target, critical, pos);
 	}
 	
-	private static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, ref int patchIncrement) {
+	public static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, bool bailOnSection, ref int patchIncrement) {
 		// TODO make sure code has \n line endings only
 		string[] lines = code.Split('\n');
 		UnitOperations unitOperations = record.GetUnitOperationsOrCreate(target, code);
@@ -110,131 +109,129 @@ public static class Language {
 		int filePos = 0;
 		while (pos < tokens.Length) {
 			Token token = tokens[pos];
-			if (token is SectionToken) {
+			if (token is SectionToken && bailOnSection) {
 				break;
 			}
-
-			if (token is NameToken nameToken) {
-				switch (nameToken.Name) {
-					case "move_to_end": {
-						Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-						pos++;
-						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
-						pos++;
-						filePos = lines.Length - 1;
-						break;
-					}
-					case "move_to":
-					case "move": {
-						Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-						pos++;
-						NumberToken numberToken =
-							(NumberToken)Expect(tokens, pos + 1, typeof(NumberToken), startToken.LineNumber);
-						pos++;
-						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), numberToken.LineNumber);
-						pos++;
-
-						if (nameToken.Name == "move_to")
-							filePos = numberToken.Number - 1;
-						else
-							filePos += numberToken.Number;
-
-						break;
-					}
-					case "find_line_with": {
-						Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-						pos++;
-						StringToken stringToken =
-							(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
-						pos++;
-						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
-						pos++;
-
-						
-						int positionSum = 0;
-						for (int i = 0; i < filePos; i++) {
-							positionSum += lines[i].Length + 1;
-						}
-						int index = code.IndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
-						
-						for (int i = filePos; i < lines.Length; i++) {
-							positionSum += lines[i].Length + 1; // incl newline
-							if (positionSum > index) {
-								filePos = i;
-								break;
-							}
-						}
-						break;
-					}
-					case "reverse_find_line_with": {
-						Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-						pos++;
-						StringToken stringToken =
-							(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
-						pos++;
-						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
-						pos++;
-						
-						
-						int positionSum = 0;
-						for (int i = 0; i <= filePos; i++) {
-							positionSum += lines[i].Length + 1;
-						}
-						if (positionSum == code.Length + 1) // final line might not have newline
-							positionSum = code.Length;
-						int index = code.LastIndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
-						
-						for (int i = filePos; i >= 0; i--) {
-							positionSum -= lines[i].Length + 1;
-							if (positionSum < index) {
-								filePos = i;
-								break;
-							}
-						}
-						
-						
-						break;
-					}
-					case "open_brace_before":
-					case "open_brace_after":
-					case "close_brace_before":
-					case "close_brace_after": {
-						Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-						pos++;
-						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
-						pos++;
-
-						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						(OperationType type, char character) = BraceFunctionTypes[nameToken.Name];
-						
-						linePatches.Add(new PatchOperation($"{character}", critical, type, owner, patchIncrement));
-						patchIncrement++;
-						break;
-					}
-					case "write_before":
-					case "write_replace":
-					case "write_after": {
-						Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-						pos++;
-						StringToken stringToken =
-							(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
-						pos++;
-						Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
-						pos++;
-
-						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						OperationType type = WriteFunctionTypes[nameToken.Name];
-						linePatches.Add(new PatchOperation(stringToken.Text, critical, type, owner, patchIncrement));
-						patchIncrement++;
-						break;
-					}
-					default:
-						throw new InvalidPatchException($"At line {nameToken.LineNumber}: unknown operation {nameToken.Name}");
+			Expect(tokens, pos, typeof(NameToken), token.LineNumber);
+			Debug.Assert(token is NameToken);
+			NameToken nameToken = (NameToken)token;
+			switch (nameToken.Name) {
+				case "move_to_end": {
+					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
+					pos++;
+					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
+					pos++;
+					filePos = lines.Length - 1;
+					break;
 				}
+				case "move_to":
+				case "move": {
+					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
+					pos++;
+					NumberToken numberToken =
+						(NumberToken)Expect(tokens, pos + 1, typeof(NumberToken), startToken.LineNumber);
+					pos++;
+					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), numberToken.LineNumber);
+					pos++;
+
+					if (nameToken.Name == "move_to")
+						filePos = numberToken.Number - 1;
+					else
+						filePos += numberToken.Number;
+
+					break;
+				}
+				case "find_line_with": {
+					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
+					pos++;
+					StringToken stringToken =
+						(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
+					pos++;
+					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
+					pos++;
+
+					
+					int positionSum = 0;
+					for (int i = 0; i < filePos; i++) {
+						positionSum += lines[i].Length + 1;
+					}
+					int index = code.IndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
+					
+					for (int i = filePos; i < lines.Length; i++) {
+						positionSum += lines[i].Length + 1; // incl newline
+						if (positionSum > index) {
+							filePos = i;
+							break;
+						}
+					}
+					break;
+				}
+				case "reverse_find_line_with": {
+					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
+					pos++;
+					StringToken stringToken =
+						(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
+					pos++;
+					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
+					pos++;
+					
+					
+					int positionSum = 0;
+					for (int i = 0; i <= filePos; i++) {
+						positionSum += lines[i].Length + 1;
+					}
+					if (positionSum == code.Length + 1) // final line might not have newline
+						positionSum = code.Length;
+					int index = code.LastIndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
+					
+					for (int i = filePos; i >= 0; i--) {
+						positionSum -= lines[i].Length + 1;
+						if (positionSum < index) {
+							filePos = i;
+							break;
+						}
+					}
+					
+					
+					break;
+				}
+				case "open_brace_before":
+				case "open_brace_after":
+				case "close_brace_before":
+				case "close_brace_after": {
+					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
+					pos++;
+					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
+					pos++;
+
+					List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
+					(OperationType type, char character) = BraceFunctionTypes[nameToken.Name];
+					
+					linePatches.Add(new PatchOperation($"{character}", critical, type, owner, patchIncrement));
+					patchIncrement++;
+					break;
+				}
+				case "write_before":
+				case "write_replace":
+				case "write_after": {
+					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
+					pos++;
+					StringToken stringToken =
+						(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
+					pos++;
+					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
+					pos++;
+
+					List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
+					OperationType type = WriteFunctionTypes[nameToken.Name];
+					linePatches.Add(new PatchOperation(stringToken.Text, critical, type, owner, patchIncrement));
+					patchIncrement++;
+					break;
+				}
+				default:
+					throw new InvalidPatchException($"At line {nameToken.LineNumber}: unknown operation {nameToken.Name}");
 			}
-			else {
-				throw new Exception($"Unexpected token {token.GetType().Name} at line {token.LineNumber}");
-			}
+			
 
 			pos++;
 		}
@@ -243,8 +240,8 @@ public static class Language {
 	}
 
 	public static void ExecutePatchSection(string patchSection, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, ref int patchIncrement) {
-		Token[] tokens = tokenize(patchSection);
-		ExecutePatchSection(tokens, 0, target, code, critical, owner, record, ref patchIncrement);
+		Token[] tokens = Tokenize(patchSection);
+		ExecutePatchSection(tokens, 0, target, code, critical, owner, record, false, ref patchIncrement);
 	}
 
 	public static void ApplyPatches(PatchesRecord record, CodeSource source, List<PatchOwner> order) {
@@ -263,8 +260,8 @@ public static class Language {
 				// if we have two non-critical patches then we can pick the one with higher priority
 				bool invalidUnitPatch = (replacers.Count >= 2 && (replacers.Count(op => op.Critical) >= 2));
 				if (invalidUnitPatch) {
-					// TODO message
-					continue;
+					List<string> atFaultList = replacers.Select(op => op.Owner.Name).ToList();
+					throw new PatchConflictException($"There are two or more critical and incompatible replacers on the same line", atFaultList);
 				}
 				
 				replacers.Sort((a, b) => a.IsHigherPriorityThan(b, order));
@@ -305,33 +302,33 @@ public static class Language {
 		}
 	}
 	
-	private class Token(int lineNumber) {
+	public class Token(int lineNumber) {
 		public readonly int LineNumber = lineNumber;
 	}
 
-	private class NumberToken(int number, int lineNumber) : Token(lineNumber) {
+	public class NumberToken(int number, int lineNumber) : Token(lineNumber) {
 		public readonly int Number = number;
 	}
 
-	private class NameToken(string name, int lineNumber) : Token(lineNumber) {
+	public class NameToken(string name, int lineNumber) : Token(lineNumber) {
 		public readonly string Name = name;
 	}
 
-	private class SectionToken(string section, int lineNumber) : Token(lineNumber) {
+	public class SectionToken(string section, int lineNumber) : Token(lineNumber) {
 		public readonly string Section = section;
 	}
 
-	class EqualsToken(int lineNumber) : Token(lineNumber);
+	public class EqualsToken(int lineNumber) : Token(lineNumber);
 
-	class ParensStartToken(int lineNumber) : Token(lineNumber);
+	public class ParensStartToken(int lineNumber) : Token(lineNumber);
 
-	class ParensEndToken(int lineNumber) : Token(lineNumber);
+	public class ParensEndToken(int lineNumber) : Token(lineNumber);
 
-	class StringToken(string text, int lineNumber) : Token(lineNumber) {
+	public class StringToken(string text, int lineNumber) : Token(lineNumber) {
 		public readonly string Text = text;
 	}
 
-	private static Token[] tokenize(string patch) {
+	public static Token[] Tokenize(string patch) {
 		List<Token> tokens = new List<Token>();
 		int lineNumber = 1;
 		string build = "";
@@ -429,13 +426,11 @@ public static class Language {
 
 				if (c == '@') {
 					i++;
-					if (patch[i] != '\'') {
+					if (i >= patch.Length || patch[i] != '\'') {
 						throw new InvalidPatchException(
 							$"At line {lineNumber}: Expected a string after the \'@\' character");
 					}
 				}
-
-				int startCharPosition = i;
 				
 				bool stripNewlines = c != '@'; 
 				
@@ -486,15 +481,40 @@ public static class Language {
 	
 	private static Token Expect(Token[] tokens, int pos, Type type, int lastLineNumber) {
 		if (pos >= tokens.Length)
-			throw new Exception($"At line {lastLineNumber}: Expected {type.Name}, found end of file");
+			throw new InvalidPatchException($"At line {lastLineNumber}: Expected {GetHumanTypeName(type)}, found end of file");
 		Token token = tokens[pos];
 		if (!type.IsInstanceOfType(token))
-			throw new Exception($"At line {token.LineNumber}: Expected {type.Name}, found {token.GetType().Name}");
+			throw new InvalidPatchException($"At line {token.LineNumber}: Expected {GetHumanTypeName(type)}, but found {GetHumanTypeName(token.GetType())}");
 		return token;
 	}
 
+	private static string GetHumanTypeName(Type type) {
+		switch (type.Name) {
+			case "StringToken":
+				return "a string";
+			case "NameToken":
+				return "a name";
+			case "NumberToken":
+				return "a number";
+			case "SectionToken":
+				return "the start of a section";
+			case "EqualsToken":
+				return "an equals sign";
+			case "ParensStartToken":
+				return "an opening parenthesis";
+			case "ParensEndToken":
+				return "a closing parenthesis";
+			default:
+				return "67";
+		}
+	}
 
 }
 
 public class InvalidPatchException(string message) : Exception(message);
+
+public class PatchConflictException(string message, List<string> atFault) : Exception(message) {
+	private List<string> atFault;
+}
+
 

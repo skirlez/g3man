@@ -38,7 +38,7 @@ public class PatchOperation(string text, bool critical, OperationType type, Patc
 	public readonly bool Critical = critical;
 	public readonly OperationType Type = type;
 	
-	private readonly PatchOwner Owner = owner;
+	public readonly PatchOwner Owner = owner;
 
 	// gets incremented for each patch operation in a patch file, so they can sort by each other.
 	private readonly int increment = increment;

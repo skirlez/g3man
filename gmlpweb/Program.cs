@@ -23,6 +23,8 @@ public class Program {
 		EmptyLineBeforeSwitchCases = true
 	};
 
+	private const string TheOnlyCodeFileName = "singular";
+
 	private static void Main(string[] args) {
 		data = UndertaleData.CreateNew();
 		data.GeneralInfo.Major = 2024;
@@ -32,7 +34,7 @@ public class Program {
 		
 		ReadDefinitions();
 		
-		codeEntry = UndertaleCode.CreateEmptyEntry(data, "gml_Script_singular");
+		codeEntry = UndertaleCode.CreateEmptyEntry(data, TheOnlyCodeFileName);
 		
 		context = new GlobalDecompileContext(data);
 		importGroup = new CodeImportGroup(data, context);
@@ -67,22 +69,60 @@ public class Program {
 	}
 	
 	
+	/**
+	 * Runs the gmlp patch `patch` on `code`.
+	 * 
+	 * Returns an object with a string result and an integer type.
+	 *
+	 * 0 - success
+	 * 1 - patch failure
+	 * 2 - unhandled program error
+	 */
 	[JSInvokable("patch")]
-	public static string Patch(string patch, string code) {
+	public static object Patch(string patch, string code) {
+
 		PatchesRecord record = new PatchesRecord();
 		CodeSource source = new SingleCodeSource(code);
-		Language.ExecuteEntirePatch(patch, source, record, new PatchOwner(""));
-		Language.ApplyPatches(record, source, []);
+
+		try {
+			Language.Token[] tokens = Language.Tokenize(patch);
+
+			// our job is to get to the patch section, people may be pasting their entire patch here, and that should be valid
+			int i = 0;
+			while (i < tokens.Length && tokens[i] is Language.SectionToken sectionToken &&
+					sectionToken.Section != "patch") {
+				i++;
+				while (i < tokens.Length && tokens[i] is not Language.SectionToken)
+					i++;
+				i++;
+			}
+
+			if (i >= tokens.Length) {
+				// error the user for being stupid
+				i = 0;
+			}
+
+			int increment = 0;
+			Language.ExecutePatchSection(tokens, i, TheOnlyCodeFileName, code, true, new PatchOwner("gmlpweb"), record,
+				false, ref increment);
+			Language.ApplyPatches(record, source, []);
+		}
+		catch (InvalidPatchException e) {
+			return new { result = e.Message, type = 1 };
+		}
+		catch (Exception e) {
+			return new { result = e.ToString(), type = 2 };
+		}
 
 		CodeFile? result = source.GetCodeFile("");
 		Debug.Assert(result is not null);
 		string newCode = result.GetAsString();
-		return newCode;
+		return new { result = newCode, type = 0 };
 	}
 
 	[JSInvokable("compile_and_decompile")]
 	public static string CompileAndDecompile(string code) {
-		importGroup.QueueReplace("gml_Script_singular", code);
+		importGroup.QueueReplace(TheOnlyCodeFileName, code);
 		importGroup.Import();
 		return new DecompileContext(context, codeEntry, settings).DecompileToString();
 	}
@@ -97,7 +137,7 @@ public class Program {
 	
 	/**
 	 * gmlp expects to work with a class that can provide several code files, but
-	 * we only need to work with 1.
+	 * we only need to work with one.
 	 */
 	private class SingleCodeSource(string only) : CodeSource {
 		private string only = only;

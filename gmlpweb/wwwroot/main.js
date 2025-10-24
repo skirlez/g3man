@@ -28,22 +28,27 @@ codeEditor.addEventListener("input", (event) => {
 });
 
 async function applyPatch() {
-  try {
-    const patched = await DotNet.invokeMethodAsync(
-      "gmlpweb",
-      "patch",
-      patchEditor.value,
-      codeEditor.value,
-    );
-    result.textContent = patched;
+  const patched = await DotNet.invokeMethodAsync(
+    "gmlpweb",
+    "patch",
+    patchEditor.value,
+    codeEditor.value);
+    
+  if (patched.type === 0) {
+    result.textContent = patched.result;
     terminal.textContent = "All quiet on the western front.";
     terminal.classList.remove("error");
-    refreshHighlights();
-  } catch (error) {
-    console.log(error);
-    terminal.classList.add("error");
-    terminal.textContent = error;
   }
+  else if (patched.type === 1) {
+    terminal.classList.add("error");
+    terminal.textContent = patched.result;
+  }
+  else {
+    console.log(patched.result);
+    terminal.classList.add("error");
+    terminal.textContent = patched.result;
+  }
+  refreshHighlights();
 }
 
 exampleButton.addEventListener("click", (event) => {
