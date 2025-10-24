@@ -15,19 +15,29 @@
     </head>
 
     <body>
-        <button id="template">template</button>
-        <div id="app">
-            <div class="layered">
-                <textarea id="patchEditor" spellcheck="false"></textarea>
-                <pre><code id="patchDisplay" class="language-yaml"></code></pre>
-            </div>
+        <header>
+            <section id="title">
+                <span>gmlpweb</span>
+                <button id="example">example</button>
+            </section>
+            <a href="https://github.com/skirlez/g3man"
+                ><img src="static/github-mark-white.svg" alt="GitHub Logo"
+            /></a>
+        </header>
+        <main id="app">
+            <section>
+                <div class="layered">
+                    <textarea id="patchEditor" spellcheck="false"></textarea>
+                    <pre><code id="patchDisplay" class="language-yaml"></code></pre>
+                </div>
+            </section>
             <pre><code id="result" class="language-gml"></code></pre>
-            <div class="layered">
+            <section class="layered">
                 <textarea id="codeEditor" spellcheck="false"></textarea>
                 <pre><code id="codeDisplay" class="language-gml"></code></pre>
-            </div>
-            <div id="outerTerminal"><p id="terminal"></p></div>
-        </div>
+            </section>
+            <code id="terminal">All quiet on the western front.</code>
+        </main>
 
         <div id="blazor-error-ui">
             An unhandled error has occurred.

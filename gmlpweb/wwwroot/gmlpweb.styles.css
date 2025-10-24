@@ -1,12 +1,78 @@
-html,
+@font-face {
+    font-family: "Epoch";
+    src: url("static/epoch.otf") format("opentype");
+}
+
+:root {
+    --background: #1d1d1d;
+    --on-background: #272727;
+    --on-background: #272727;
+    --floating: #363636;
+    --foreground: #fff8e7;
+    --low-contrast: var(--on-background);
+    --terminal-background: black;
+    --error: red;
+    --caret: var(--foreground);
+}
+
+html {
+    height: 100%;
+}
+
 body {
     height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-size: 1.5rem;
+    padding: 0.5rem 1rem;
+    font-family: "Epoch", sans-serif;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#title {
+    display: flex;
+    gap: 1rem;
+    justify-items: center;
+}
+
+header button {
+    font-size: 1rem;
+    border-radius: 1rem;
+    background-color: var(--on-background);
+    color: var(--foreground);
+    border: none;
+    padding: 0.25rem 0.5rem;
+    transition: background-color 0.5s;
+}
+
+header button:hover {
+    background-color: var(--floating);
+}
+
+header img {
+    height: 1.25rem;
+    color: var(--foreground);
+}
+
+#app {
+    flex: 1;
+    display: grid;
+    gap: 1rem;
+    background-color: var(--background);
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
 }
 
 .layered {
     display: grid;
     height: 100%;
-    width: 100%;
 }
 
 .layered > * {
@@ -18,7 +84,7 @@ body {
     border: none;
     background-color: transparent;
     color: transparent;
-    caret-color: white;
+    caret-color: var(--foreground);
     z-index: 1;
     padding: 1em;
     font-size: 14px;
@@ -26,28 +92,41 @@ body {
     line-height: var(--bs-body-line-height);
 }
 
-.layered > pre > code {
-    height: 100%;
-}
-
-#app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    height: 100%;
-}
-
 code {
-    width: 100%;
     height: 100%;
-    background: #282c34; /* atom one dark background */
 }
 
-#outerTerminal {
-    background-color: black;
-    color: red;
+textarea {
+    resize: none;
+}
+
+#terminal {
+    padding: 1rem;
+    background-color: var(--terminal-background);
+    color: var(--low-contrast);
+    overflow: scroll;
+}
+
+#terminal.error {
+    color: var(--error);
 }
 
 pre {
     margin-bottom: 0;
+}
+
+#app > :nth-child(1) * {
+    border-radius: 0 1rem 1rem 0;
+}
+
+#app > :nth-child(2) * {
+    border-radius: 1rem 0 0 1rem;
+}
+
+#app > :nth-child(3) * {
+    border-top-right-radius: 1rem;
+}
+
+#app > :nth-child(4) {
+    border-top-left-radius: 1rem;
 }

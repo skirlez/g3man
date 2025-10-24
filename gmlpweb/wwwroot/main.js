@@ -2,7 +2,7 @@ async function onBlazorInitialized() {
   hljs.highlightAll();
 }
 
-const templateButton = document.getElementById("template");
+const exampleButton = document.getElementById("example");
 const codeEditor = document.getElementById("codeEditor");
 const codeDisplay = document.getElementById("codeDisplay");
 const patchEditor = document.getElementById("patchEditor");
@@ -36,15 +36,17 @@ async function applyPatch() {
       codeEditor.value,
     );
     result.textContent = patched;
-    terminal.textContent = "";
+    terminal.textContent = "All quiet on the western front.";
+    terminal.classList.remove("error");
     refreshHighlights();
   } catch (error) {
     console.log(error);
+    terminal.classList.add("error");
     terminal.textContent = error;
   }
 }
 
-templateButton.addEventListener("click", (event) => {
+exampleButton.addEventListener("click", (event) => {
   patchEditor.value = `meta:
 target=test
 critical=false
