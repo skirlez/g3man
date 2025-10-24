@@ -8,27 +8,23 @@
         <link rel="stylesheet" href="css/app.css" />
         <link rel="icon" type="image/png" href="favicon.png" />
         <link href="gmlpweb.styles.css" rel="stylesheet" />
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/styles/atom-one-dark.min.css"
+        />
     </head>
 
     <body>
+        <button id="template">template</button>
         <div id="app">
-            <div>
-                <textarea id="patch">
-meta:
-target=test
-critical=false
-patch:
-find_line_with('aaaaabbbbb')
-write_after('1')</textarea
-                >
+            <div class="layered">
+                <textarea id="patchEditor" spellcheck="false"></textarea>
+                <pre><code id="patchDisplay" class="language-yaml"></code></pre>
             </div>
-            <div><p id="result"></p></div>
-            <div>
-                <textarea id="code">
-ccccc;
-aaaaabbbbb;
-ddddd;</textarea
-                >
+            <pre><code id="result" class="language-gml"></code></pre>
+            <div class="layered">
+                <textarea id="codeEditor" spellcheck="false"></textarea>
+                <pre><code id="codeDisplay" class="language-gml"></code></pre>
             </div>
             <div id="outerTerminal"><p id="terminal"></p></div>
         </div>
@@ -40,5 +36,8 @@ ddddd;</textarea
         </div>
         <script src="_framework/blazor.webassembly.js"></script>
         <script src="main.js"></script>
+        <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/highlight.min.js"></script>
+        <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/languages/gml.min.js"></script>
+        <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/languages/yaml.min.js"></script>
     </body>
 </html>

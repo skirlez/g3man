@@ -1,27 +1,5 @@
 html,
 body {
-    height: 100%;
-}
-
-#app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    height: 100%;
-}
-
-#app textarea {
-    width: 100%;
-    height: 100%;
-}
-
-#outerTerminal {
-    background-color: black;
-    color: green;
-}
-
-html,
-body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
