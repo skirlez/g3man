@@ -12,6 +12,7 @@
       devShells.x86_64-linux.default = pkgs.mkShell {
         packages = with pkgs; [
           dotnetCorePackages.sdk_8_0
+          git # technically undertalemodlib uses it to make gitversion.txt
         ];
         buildInputs = with pkgs; [
           git
