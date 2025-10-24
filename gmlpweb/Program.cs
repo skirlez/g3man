@@ -1,13 +1,32 @@
 using System.Diagnostics;
 using gmlp;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
+using Underanalyzer.Decompiler;
+using UndertaleModLib;
+using UndertaleModLib.Compiler;
+using UndertaleModLib.Decompiler;
+using UndertaleModLib.Models;
 
 namespace gmlpweb;
 
 public class Program {
+	private static UndertaleData data;
+	private static UndertaleCode codeEntry;
+	private static GlobalDecompileContext context;
+	private static CodeImportGroup importGroup;
+	private static DecompileSettings settings = new DecompileSettings {
+		UnknownArgumentNamePattern = "arg{0}",
+		RemoveSingleLineBlockBraces = true,
+		EmptyLineAroundBranchStatements = true,
+		EmptyLineBeforeSwitchCases = true
+	};
+
 	private static void Main(string[] args) {
+		data = UndertaleData.CreateNew();
+		codeEntry = UndertaleCode.CreateEmptyEntry(data, "singular");
+		context = new GlobalDecompileContext(data);
+		importGroup = new CodeImportGroup(data, context);
 		init(args);
 	}
 
@@ -29,17 +48,32 @@ public class Program {
 		}
 	}
 	
+	
 	[JSInvokable("patch")]
-	public static string patch(string patch, string code) {
+	public static string Patch(string patch, string code) {
 		PatchesRecord record = new PatchesRecord();
 		CodeSource source = new SingleCodeSource(code);
 		Language.ExecuteEntirePatch(patch, source, record, new PatchOwner(""));
-		
 		Language.ApplyPatches(record, source, []);
 
 		CodeFile? result = source.GetCodeFile("");
 		Debug.Assert(result is not null);
-		return result.GetAsString();
+		string newCode = result.GetAsString();
+		return newCode;
+	}
+
+	[JSInvokable("compile_and_decompile")]
+	public static string compileAndDecompile(string code) {
+		importGroup.QueueReplace("singular", code);
+		importGroup.Import();
+		return new DecompileContext(context, codeEntry, settings).DecompileToString();
+	}
+	
+	[JSInvokable("compile_and_dissassemble")]
+	public static string compile_and_disassemble(string code) {
+		importGroup.QueueReplace(codeEntry, code);
+		importGroup.Import();
+		return codeEntry.Disassemble(data.Variables, data.CodeLocals?.For(codeEntry));
 	}
 	
 	

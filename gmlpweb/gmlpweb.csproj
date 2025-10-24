@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\gmlp\gmlp.csproj" />
+    <ProjectReference Include="..\UndertaleModLib\UndertaleModLib.csproj" />
   </ItemGroup>
 
 </Project>
