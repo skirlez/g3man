@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using gmlp;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
@@ -15,7 +16,7 @@ public class Program {
 	private static UndertaleCode codeEntry;
 	private static GlobalDecompileContext context;
 	private static CodeImportGroup importGroup;
-	private static DecompileSettings settings = new DecompileSettings {
+	private static DecompileSettings settings = new DecompileSettings() {
 		UnknownArgumentNamePattern = "arg{0}",
 		RemoveSingleLineBlockBraces = true,
 		EmptyLineAroundBranchStatements = true,
@@ -24,12 +25,29 @@ public class Program {
 
 	private static void Main(string[] args) {
 		data = UndertaleData.CreateNew();
-		codeEntry = UndertaleCode.CreateEmptyEntry(data, "singular");
+		data.GeneralInfo.Major = 2024;
+		data.GeneralInfo.Minor = 13;
+		data.GeneralInfo.BytecodeVersion = 17;
+		data.ToolInfo.DecompilerSettings = settings;
+		
+		ReadDefinitions();
+		
+		codeEntry = UndertaleCode.CreateEmptyEntry(data, "gml_Script_singular");
+		
 		context = new GlobalDecompileContext(data);
 		importGroup = new CodeImportGroup(data, context);
 		init(args);
 	}
 
+	private static void ReadDefinitions() {
+		Assembly assembly = Assembly.GetExecutingAssembly();
+		using Stream? stream = assembly.GetManifestResourceStream("gmlpweb.gamemaker.json");
+		Debug.Assert(stream is not null);
+		using StreamReader reader = new StreamReader(stream);
+		string definitons = reader.ReadToEnd();
+		data.GameSpecificRegistry.DeserializeFromJson(definitons.AsSpan());
+	}
+	
 	private static async void init(string[] args) {
 		try {
 			WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -63,21 +81,22 @@ public class Program {
 	}
 
 	[JSInvokable("compile_and_decompile")]
-	public static string compileAndDecompile(string code) {
-		importGroup.QueueReplace("singular", code);
+	public static string CompileAndDecompile(string code) {
+		importGroup.QueueReplace("gml_Script_singular", code);
 		importGroup.Import();
 		return new DecompileContext(context, codeEntry, settings).DecompileToString();
 	}
 	
 	[JSInvokable("compile_and_dissassemble")]
-	public static string compile_and_disassemble(string code) {
+	public static string CompileAndDisassemble(string code) {
 		importGroup.QueueReplace(codeEntry, code);
 		importGroup.Import();
 		return codeEntry.Disassemble(data.Variables, data.CodeLocals?.For(codeEntry));
 	}
 	
 	
-	/** gmlp expects to work with a class that can provide several code files, but
+	/**
+	 * gmlp expects to work with a class that can provide several code files, but
 	 * we only need to work with 1.
 	 */
 	private class SingleCodeSource(string only) : CodeSource {
