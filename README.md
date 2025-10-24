@@ -5,6 +5,8 @@ A mod manager and mod patcher for GameMaker games.
 
 Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer). These two projects are incredible, and I would not have been able to make this without them.
 
+This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), an interactive website for creating gmlp patches used by g3man.
+
 ## Background
 (as of 7/10/2025)
 
@@ -67,12 +69,15 @@ To my knowledge, the only option available for YYC code modding right now is YYT
 - A profile system to easily switch between sets of mods
 - Support for both Linux and Windows
 
-## Compiling
+## Building g3man
 
-### NixOS
-TODO
+#### Nix/NixOS
+```bash
+nix develop
+dotnet build g3man
+```
 
-### Linux (Other distros)
+### Linux (Other)
 
 1. Install GTK4 and libadwaita
 2. Download .NET 8 SDK
@@ -90,7 +95,18 @@ TODO
 7. `dotnet build g3man`
 
 
-TODO
+## Building gmlpweb
+
+### Nix/NixOS
+```bash
+nix develop
+dotnet build gmlpweb
+```
+### Anything Else
+1. Download .NET 8 SDK
+2. Clone the repository
+3. `dotnet build gmlpweb`
+
 
 
 ## Contributing
