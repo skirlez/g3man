@@ -205,6 +205,7 @@ public class MainWindow : Window {
 		}
 		
 		Button addGameButton = Button.NewWithLabel("Add game");
+		addGameButton.SetMarginBottom(10);
 		addGameButton.SetHalign(Align.Center);
 		addGameButton.OnClicked += (sender, args) => {
 			GameAdderWindow adderWindow = new GameAdderWindow(gameDirectoryEntry.GetText(), this);
@@ -379,8 +380,20 @@ public class MainWindow : Window {
 		title.SetSizeRequest(100, 20);
 		Label subtitle = Label.New("");
 		subtitle.SetMarkup("<b>G</b>ame<b>M</b>aker <b>M</b>od <b>Man</b>ager");
+
+		Label license = Label.New("Licensed under the terms of the AGPLv3,\nThis is Free Software (with Free as in Freedom)");
+		license.SetMarginTop(10);
+		license.SetJustify(Justification.Center);
+
+		
+		Label source = Label.New("");
+		source.SetMarginTop(10);
+		source.SetMarkup("<a href=\"https://github.com/skirlez/g3man\">GitHub Repository</a>");
+
 		page.Append(title);
 		page.Append(subtitle);
+		page.Append(license);
+		page.Append(source);
 		page.SetHalign(Align.Center);
 		page.SetValign(Align.Center);
 	}

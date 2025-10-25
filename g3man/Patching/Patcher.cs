@@ -11,7 +11,7 @@ namespace g3man.Patching;
 public class Patcher {
 	private static readonly Logger logger = new Logger("PATCHER");
 	public const string CleanDataName = "clean_data.g3man";
-
+	public const string TempDataName = "temp_data.g3man";
 
 	/**
 	 * Merges (as in, copies all data) from `modData` into `data`.
@@ -49,6 +49,7 @@ public class Patcher {
 			}
 		}
 
+		// TODO: Is This OK
 		foreach (UndertaleSound sound in modData.Sounds) {
 			sound.AudioGroup = data.AudioGroups[0];
 			data.Sounds.Add(sound);
@@ -84,8 +85,10 @@ public class Patcher {
 			data.Scripts.Add(script);
 		
 		foreach (UndertaleGameObject gameObject in modData.GameObjects) {
+			/*
 			if (data.GameObjects.ByName(gameObject.Name.Content) != null)
 				continue;
+			*/
 			UndertaleGameObject parent = gameObject.ParentId;
 			if (parent is not null) {
 				string name = parent.Name.Content;
@@ -104,10 +107,10 @@ public class Patcher {
 		foreach (UndertaleRoom room in modData.Rooms) {
 			data.Rooms.Add(room);
 			foreach (UndertaleRoom.Layer layer in room.Layers) {
-				if (layer.LayerType == UndertaleRoom.LayerType.Instances) {
-					foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
-						gameObject.InstanceID += addInstanceId;
-				}
+				if (layer.LayerType != UndertaleRoom.LayerType.Instances) 
+					continue;
+				foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
+					gameObject.InstanceID += addInstanceId;
 			}
 		}
 
@@ -130,28 +133,21 @@ public class Patcher {
 	}
 	
 	public void Patch(List<Mod> mods, Profile profile, Game game, Action<string, bool> statusCallback) {
-		const string genericError = "Error occured during patching! Check the log.";
 		void setStatus(string message, bool leave = false) {
 			logger.Info(message);
 			statusCallback(message, leave);
 		}
 		
-		DataLoader.LoaderLock loaderLock = Program.DataLoader.Lock;
 		UndertaleData data;
 		
 		statusCallback($"Waiting for game data to load...", false);
 
-		lock (loaderLock) {
+		lock (Program.DataLoader.Lock) {
 			while (!Program.DataLoader.CanSnatch()) {
-				Monitor.Wait(loaderLock);
+				Monitor.Wait(Program.DataLoader.Lock);
 			}
-
 			data = Program.DataLoader.Snatch();
 		}
-		
-		
-		
-		GlobalDecompileContext context = new GlobalDecompileContext(data);
 
 		string modsFolder = Path.Combine(game.Directory, "g3man", profile.FolderName, "mods");
 		foreach (Mod mod in mods) {
@@ -169,7 +165,7 @@ public class Patcher {
 			}
 		}
 
-
+		GlobalDecompileContext context = new GlobalDecompileContext(data);
 		PatchesRecord record = new PatchesRecord();
 		GameMakerCodeSource source = new GameMakerCodeSource(data, context);
 
@@ -235,6 +231,22 @@ public class Patcher {
 				logger.Error("This code failed to compile:\n" + e.GetBadCode()!);
 			return;
 		}
+		
+		setStatus("Saving file");
+		try {
+			string tempFilePath = Path.Combine(game.Directory, TempDataName);
+			using FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write);
+			UndertaleIO.Write(stream, data);
+			// TODO: change data.win
+			File.Move(tempFilePath, Path.Combine(game.Directory, "data.win"), true);
+			File.Delete(tempFilePath);
+		}
+		catch (Exception e) {
+			setStatus("Error occured while saving! Check the log.", true);
+			logger.Error("Failed to save datafile: " + e);
+			return;
+		}
+		
 		
 		setStatus("Done!", true);
 	}
