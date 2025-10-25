@@ -8,17 +8,17 @@ namespace g3man.UI;
 
 public class MainWindow : Window {
 	
-	private ListBox gamesList;
+	private ListBox gamesListBox;
 	private Entry gameDirectoryEntry;
 	private List<Button> selectGameButtons;
 	
-	private ListBox profilesList;
+	private ListBox profilesListBox;
 	private List<Button> selectProfileButtons;
 	
-	private ListBox modsList;
+	private ListBox modsListBox;
+	private List<Mod> modsList;
 	
 	private Label noModsLabel;
-	private Label noGameLabel;
 	
 	private Label nothingAutoDetectedLabel;
 	private Label noGamesAddedLabel;
@@ -54,9 +54,6 @@ public class MainWindow : Window {
 		allPages = [gamesPage, profilesPage, modsPage, settingsPage, aboutPage];
 		pageNames = ["games", "profiles","mods", "settings", "about"];
 		pageTitles = ["Games", "Profiles", "Mods", "Settings", "About"];
-
-
-		
 		
 		Box pageBox = Box.New(Orientation.Horizontal, 0);
 		pageBox.Append(pageSidebar);
@@ -76,8 +73,8 @@ public class MainWindow : Window {
 		SetupSettingsPage(settingsPage);
 		SetupAboutPage(aboutPage);
 		
-		Debug.Assert(modsList is not null 
-			&& profilesList is not null
+		Debug.Assert(modsListBox is not null 
+			&& profilesListBox is not null
 			&& gameDirectoryEntry is not null);
 		
 		
@@ -104,7 +101,7 @@ public class MainWindow : Window {
 		SetChild(programBox);
 		
 #if THEMESELECTOR
-			ApplyTheme(Program.Config.Theme);
+		ApplyTheme(Program.Config.Theme);
 #endif
 	}
 
@@ -156,9 +153,9 @@ public class MainWindow : Window {
 		noGamesAddedLabel = Label.New("There are no games added");
 		noGamesAddedLabel.SetMargin(10);
 
-		gamesList = ListBox.New();
-		gamesList.SetSelectionMode(SelectionMode.None);
-		gamesList.SetPlaceholder(noGamesAddedLabel);
+		gamesListBox = ListBox.New();
+		gamesListBox.SetSelectionMode(SelectionMode.None);
+		gamesListBox.SetPlaceholder(noGamesAddedLabel);
 		selectGameButtons = [];
 
 
@@ -224,7 +221,7 @@ public class MainWindow : Window {
 		
 		box.Append(gamesLabel);
 		box.Append(Separator.New(Orientation.Horizontal));
-		box.Append(gamesList);
+		box.Append(gamesListBox);
 		box.Append(autoDetectedLabel);
 		box.Append(Separator.New(Orientation.Horizontal));
 		box.Append(autodetectedStack);
@@ -236,8 +233,8 @@ public class MainWindow : Window {
 	}
 
 	private void SetupProfilesPage(Box box) {
-		profilesList = ListBox.New();
-		profilesList.SetSelectionMode(SelectionMode.None);
+		profilesListBox = ListBox.New();
+		profilesListBox.SetSelectionMode(SelectionMode.None);
 		selectProfileButtons = [];
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
@@ -250,11 +247,18 @@ public class MainWindow : Window {
 			//window.Dialog();
 		};
 		
-		box.Append(profilesList);
+		box.Append(profilesListBox);
 		box.Append(addNewProfile);
 	}
 	
 	private void SetupModsPage(Box page) {
+		noModsLabel = Label.New("No mods found.");
+		noModsLabel.SetMargin(30);
+		
+		modsListBox = ListBox.New();
+		modsListBox.SetHexpand(true);
+		modsListBox.SetPlaceholder(noModsLabel);
+		
 		Box manageModsBox = Box.New(Orientation.Horizontal, 5);
 		manageModsBox.SetHalign(Align.Center);
 		manageModsBox.SetValign(Align.Center);
@@ -282,18 +286,22 @@ public class MainWindow : Window {
 		manageModsBox.Append(moveModsDown);
 		manageModsBox.Append(installFromZipButton);
 		manageModsBox.Append(removeModButton);
-
-		noModsLabel = Label.New("No mods found.");
-		noModsLabel.SetMargin(30);
-		noGameLabel = Label.New("Select a game to begin adding mods!");
-		noGameLabel.SetMargin(30);
-
-		modsList = ListBox.New();
-		modsList.SetHexpand(true);
-		modsList.SetPlaceholder(noModsLabel);
+		manageModsBox.SetMargin(10);
 		
-		page.Append(modsList);
+		Button applyButton = Button.NewWithLabel("Apply!");
+		applyButton.SetHalign(Align.Center);
+		applyButton.SetValign(Align.End);
+		applyButton.SetVexpand(true);
+		applyButton.SetMarginBottom(20);
+		applyButton.OnClicked += (_, _) => {
+			PatcherWindow window = new PatcherWindow(this);
+			window.Dialog(modsList);
+		};
+		
+		page.Append(modsListBox);
 		page.Append(manageModsBox);
+		page.Append(applyButton);
+		page.SetVexpand(true);
 	}
 
 	private void SetupSettingsPage(Box page) {
@@ -385,10 +393,10 @@ public class MainWindow : Window {
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
 		
-		List<Mod> mods = Mod.Parse(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
-		modsList.RemoveAll();
-		modsList.SetPlaceholder(noModsLabel);
-		foreach (Mod mod in mods) {
+		modsList = Mod.Parse(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
+		modsListBox.RemoveAll();
+		modsListBox.SetPlaceholder(noModsLabel);
+		foreach (Mod mod in modsList) {
 			ListBoxRow row = ListBoxRow.New();
 			CheckButton modEnabled = CheckButton.New();
 			Label modName = Label.New(mod.DisplayName);
@@ -397,7 +405,7 @@ public class MainWindow : Window {
 			modBox.Append(modName);
 			modBox.SetMargin(10);
 			row.SetChild(modBox);
-			modsList.Append(row);
+			modsListBox.Append(row);
 		}
 	}
 
@@ -432,13 +440,13 @@ public class MainWindow : Window {
 		row.SetActivatable(false);
 		row.SetMargin(10);
 		
-		gamesList.Append(row);
+		gamesListBox.Append(row);
 	}
 	private void PopulateGamesList(List<Game> games, Game? selectedGame = null) {
 		selectGameButtons.Clear();
 		
-		gamesList.RemoveAll();
-		gamesList.SetPlaceholder(noGamesAddedLabel);
+		gamesListBox.RemoveAll();
+		gamesListBox.SetPlaceholder(noGamesAddedLabel);
 		
 		foreach (Game game in games) {
 			AddToGamesList(game, selectedGame == game);
@@ -446,7 +454,7 @@ public class MainWindow : Window {
 	}
 	
 	private void PopulateProfilesList(List<Profile> profiles, string? selectedId = null) {
-		profilesList.RemoveAll();
+		profilesListBox.RemoveAll();
 		foreach (Profile profile in profiles) {
 			Label profileName = Label.New(profile.Name);
 			Box spacer = Box.New(Orientation.Horizontal, 0);
@@ -473,7 +481,7 @@ public class MainWindow : Window {
 			row.SetActivatable(false);
 			row.SetMargin(10);
 			
-			profilesList.Append(row);
+			profilesListBox.Append(row);
 		}
 	}
 

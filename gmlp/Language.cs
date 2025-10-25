@@ -124,6 +124,14 @@ public static class Language {
 					filePos = lines.Length - 1;
 					break;
 				}
+				case "move_to_start": {
+					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
+					pos++;
+					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
+					pos++;
+					filePos = 0;
+					break;
+				}
 				case "move_to":
 				case "move": {
 					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
@@ -261,7 +269,7 @@ public static class Language {
 				bool invalidUnitPatch = (replacers.Count >= 2 && (replacers.Count(op => op.Critical) >= 2));
 				if (invalidUnitPatch) {
 					List<string> atFaultList = replacers.Select(op => op.Owner.Name).ToList();
-					throw new PatchConflictException($"There are two or more critical and incompatible replacers on the same line", atFaultList);
+					throw new PatchApplicationException($"There are two or more critical and incompatible replacers on the same line.", "The following mods are at fault", atFaultList);
 				}
 				
 				replacers.Sort((a, b) => a.IsHigherPriorityThan(b, order));
@@ -298,7 +306,21 @@ public static class Language {
 			}
 		
 			string finalResult = string.Join("\n", lines);
-			source.Replace(file, finalResult);
+			try {
+				source.Replace(file, finalResult);
+			}
+			catch (Exception e) {
+				// this shit is probably really slow. but it runs on exception anyway, they deserve it
+				List<List<PatchOwner>> dictList = unitOperations.GetData().ToList()
+					.Select(kvp => kvp.Value.Select(op => op.Owner).ToList()).ToList();
+				
+				List<string> atFaultList = dictList.Aggregate(
+						(sum, next) => sum.Union(next).ToList())
+					.Select(owner => owner.Name).ToList();
+					
+				
+				throw new PatchApplicationException(e.Message, "One or more of the following mods are at fault", atFaultList, finalResult);
+			}
 		}
 	}
 	
@@ -513,8 +535,20 @@ public static class Language {
 
 public class InvalidPatchException(string message) : Exception(message);
 
-public class PatchConflictException(string message, List<string> atFault) : Exception(message) {
-	private List<string> atFault;
+public class PatchApplicationException(string message, string blameMessage, List<string> atFault, string? badCode = null) : Exception(message) {
+	private readonly List<string> atFault = atFault;
+
+	public string? GetBadCode() {
+		return badCode;
+	}
+	public string HumanError() {
+		Debug.Assert(atFault.Count != 0);
+		string atFaultString = blameMessage + ":\n" + atFault[0];
+		for (int i = 1; i < atFault.Count; i++) {
+			atFaultString += ",\n" + atFault[i];
+		}
+		return $"{message}:\n{atFaultString}";
+	}
 }
 
 

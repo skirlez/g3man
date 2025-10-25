@@ -13,6 +13,11 @@ public class Patcher {
 	public const string CleanDataName = "clean_data.g3man";
 
 
+	/**
+	 * Merges (as in, copies all data) from `modData` into `data`.
+	 * 
+	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
+	 */
 	private static void Merge(UndertaleData data, UndertaleData modData) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
@@ -124,25 +129,35 @@ public class Patcher {
 		data.GeneralInfo.FunctionClassifications |= modData.GeneralInfo.FunctionClassifications;
 	}
 	
-	public void Patch(List<Mod> mods, Profile profile, Game game, Action<string> statusCallback) {
-		DataLoader.LoaderLock loaderLock = Program.DataLoader.Lock;
-		
-		UndertaleData data;
-		GlobalDecompileContext context;
-		
-		lock (loaderLock) {
-			while (loaderLock.IsLoading) {
-				Monitor.Wait(loaderLock);
-			}
-			data = Program.DataLoader.GetData()!;
-			context = Program.DataLoader.GetDecompileContext()!;
+	public void Patch(List<Mod> mods, Profile profile, Game game, Action<string, bool> statusCallback) {
+		const string genericError = "Error occured during patching! Check the log.";
+		void setStatus(string message, bool leave = false) {
+			logger.Info(message);
+			statusCallback(message, leave);
 		}
 		
-		string modsFolder = Path.Combine(game.Directory, profile.FolderName, "mods");
+		DataLoader.LoaderLock loaderLock = Program.DataLoader.Lock;
+		UndertaleData data;
+		
+		statusCallback($"Waiting for game data to load...", false);
+
+		lock (loaderLock) {
+			while (!Program.DataLoader.CanSnatch()) {
+				Monitor.Wait(loaderLock);
+			}
+
+			data = Program.DataLoader.Snatch();
+		}
+		
+		
+		
+		GlobalDecompileContext context = new GlobalDecompileContext(data);
+
+		string modsFolder = Path.Combine(game.Directory, "g3man", profile.FolderName, "mods");
 		foreach (Mod mod in mods) {
 			if (mod.DatafilePath == "")
 				continue;
-			statusCallback($"Merging: {mod.DisplayName}");
+			setStatus($"Merging: {mod.DisplayName}");
 			string fullDatafilePath = Path.Combine(modsFolder, mod.FolderName, mod.DatafilePath);
 			try {
 				using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
@@ -161,8 +176,11 @@ public class Patcher {
 
 		List<PatchOwner> order = mods.Select(mod => new PatchOwner(mod.ModId)).ToList();
 		
+		
+		// TODO: this can be parallelized in a lot of different ways.
 		foreach (Mod mod in mods) {
-			statusCallback($"Patching: {mod.DisplayName}");
+			int index = mods.IndexOf(mod);
+			setStatus($"Patching: {mod.DisplayName}");
 			foreach (PatchLocation patchLocation in mod.Patches) {
 				// the only one right now
 				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
@@ -172,30 +190,53 @@ public class Patcher {
 				
 				if (Directory.Exists(fullPath)) {
 					foreach (string file in Directory.GetFiles(fullPath, "*.gmlp", SearchOption.AllDirectories)) {
-						processPatch(file, Path.GetRelativePath(modFolder, file));
+						if (!processPatch(file, Path.GetRelativePath(modFolder, file)))
+							return;
 					}
 				}
-				else if (File.Exists(fullPath))
-					processPatch(fullPath, patchLocation.Path);
+				else if (File.Exists(fullPath)) {
+					if (!processPatch(fullPath, patchLocation.Path))
+						return;
+				}
 				else {
-					logger.Error($"In mod {mod.DisplayName}: Invalid patch or patch directory {patchLocation.Path}" );
+					setStatus($"Mod {mod.DisplayName}: Invalid patch or patch directory {patchLocation.Path}", true);
+					return;
 				}
 				
-				void processPatch(string patchPath, string relativePath) {
+
+
+				bool processPatch(string patchPath, string relativePath) {
 					try {
 						string patchText = File.ReadAllText(patchPath);
-						
-						gmlp.Language.ExecuteEntirePatch(patchText, source, record, null);
+						Language.ExecuteEntirePatch(patchText, source, record, order[index]);
+						return true;
+					}
+					catch (InvalidPatchException e) {
+						setStatus($"Failed to read patch file at {relativePath}: {e.Message}");
 					}
 					catch (Exception e) {
+						setStatus("Error occured during patching! Check the log.", true);
 						logger.Error("Failed to read patch file: " + e);
 					}
+
+					return false;
 				}
 			}
-		}	
+		}
 
+		setStatus("Applying patches");
 		
-		Language.ApplyPatches(record, source, order);
+		try {
+			Language.ApplyPatches(record, source, order);
+		}
+		catch (PatchApplicationException e) {
+			setStatus(e.HumanError());
+			if (e.GetBadCode() is not null)
+				logger.Error("This code failed to compile:\n" + e.GetBadCode()!);
+			return;
+		}
+		
+		setStatus("Done!", true);
 	}
 	
 	public static bool IsDataPatched(UndertaleData data) {

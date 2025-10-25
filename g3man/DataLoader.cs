@@ -10,82 +10,88 @@ namespace g3man;
 /** Responsible for the loading and preloading of the current game's data.win */
 public class DataLoader {
 	private volatile UndertaleData? data;
-	private volatile GlobalDecompileContext? context;
+	private readonly MemoryStream dataMemory = new MemoryStream();
 	private string lastHash = "";
 	public readonly LoaderLock Lock = new LoaderLock(LoaderAction.Proceed, null, false);
-	
 	private readonly Logger logger;
 	
 	public DataLoader() {
 		logger = new Logger("DATALOADER");
 		Thread thread = new Thread(() => {
-			lock (Lock)
-				Monitor.Wait(Lock);
+			string path;
+			LoaderAction action;
+			UndertaleData readData = null!;
 			while (true) {
-				string path;
-				lock (Lock) {
-					Lock.IsLoading = true;
-					logger.Debug("Loading data");
-					Debug.Assert(Lock.Path is not null);
-					path = Lock.Path;
-				}
-
-
-				UndertaleData? readData = null;
-				try {
-					using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
-					readData = UndertaleIO.Read(stream);
-				}
-				catch (Exception e) {
-					logger.Debug("Failed to load datafile: " + e.Message);
-				}
-				context = new GlobalDecompileContext(data);
-				
 				lock (Lock) {
 					if (Lock.Action == LoaderAction.Restart) {
-						if (readData != null)
-							logger.Debug("Told to restart. Discarding: " +
-							             readData.GeneralInfo.DisplayName.Content);
+						if (readData is not null)
+							logger.Debug("Told to restart. Discarding: " + readData.GeneralInfo.DisplayName.Content);
 						else
-							logger.Debug("Told to restart. Discarding game that failed to load.");
-
+							logger.Debug("Told to restart. Discarding nothing.");
 						Lock.Action = LoaderAction.Proceed;
-						continue;
 					}
-					if (readData != null) {
-						if (Lock.Action != LoaderAction.Discard) {
+					else {
+						if (readData is not null) {
 							logger.Debug("Loaded data of " + readData.GeneralInfo.DisplayName.Content);
 							data = readData;
 						}
-						else
-							logger.Debug("Told to discard. Discarding: " + readData.GeneralInfo.DisplayName.Content);
-					}
 
-					logger.Debug("Waiting (idle)");
-					Lock.IsLoading = false;
-					Monitor.Wait(Lock);
+						logger.Debug("Waiting (idle)");
+						Lock.IsLoading = false;
+						Monitor.PulseAll(Lock);
+						Monitor.Wait(Lock);
+						Lock.IsLoading = true;
+						logger.Debug("Loading data");
+					}
+					
+					Debug.Assert(Lock.Path is not null);
+					path = Lock.Path;
+					action = Lock.Action;
+				}
+				
+				if (action == LoaderAction.Proceed) {
+					try {
+						dataMemory.SetLength(0);
+						{
+							using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+							stream.CopyTo(dataMemory);
+						}
+						readData = UndertaleIO.Read(dataMemory);
+					}
+					catch (Exception e) {
+						logger.Debug("Failed to load datafile: " + e.Message);
+					}
+				}
+				else if (action == LoaderAction.Clone) {
+					dataMemory.Position = 0;
+					readData = UndertaleIO.Read(dataMemory);
 				}
 			}
 		});
 		thread.IsBackground = true;
 		thread.Start();
 	}
-	
-	public UndertaleData? GetData() {
-		return data;
-	}
 
-	public GlobalDecompileContext? GetDecompileContext() {
-		return context;
+
+	public bool CanSnatch() {
+		return !Lock.IsLoading && Lock.Action != LoaderAction.Restart;
 	}
+	public UndertaleData Snatch() {
+		Debug.Assert(Monitor.IsEntered(Lock));
+		Debug.Assert(CanSnatch());
+		Debug.Assert(data is not null);
+		Lock.Action = LoaderAction.Clone;
+		UndertaleData bye = data!;
+		Monitor.PulseAll(Lock);
+		return bye;
+	}
+	
+	
 	
 	public void Assume(UndertaleData newData) {
 		logger.Debug("Assuming data " + newData.GeneralInfo.DisplayName.Content);
 		lock (Lock) {
-			if (Lock.IsLoading) {
-				logger.Debug("We're loading so discard the result");
-				Lock.Action = LoaderAction.Discard;
-			}
+			Debug.Assert(!Lock.IsLoading);
 			data = newData;
 		}
 	}
@@ -122,8 +128,8 @@ public class DataLoader {
 	}
 
 	public enum LoaderAction {
-		Discard,
 		Restart,
 		Proceed,
+		Clone,
 	}
 }
