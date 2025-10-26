@@ -38,7 +38,7 @@ write_after('&& added_condition')
 
 // removing unwanted code
 move_to_end()
-reverse_find_line_with('Condition not met')
+reverse_find_line_with('I hope')
 write_before('if false')
 open_brace_before()
 close_brace_after()</textarea
@@ -53,9 +53,10 @@ if (condition)
 {
     show_message("Condition met!");
 }
-else if (condition)
+else
 {
     show_message("Condition not met...");
+    show_message("I hope no one patches this out");
 }</textarea
                     >
                     <pre><code id="codeDisplay" class="language-gml"></code></pre>
@@ -91,6 +92,6 @@ else if (condition)
         <script src="main.js"></script>
         <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/highlight.min.js"></script>
         <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/languages/gml.min.js"></script>
-        <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/languages/yaml.min.js"></script>
+        <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/languages/javascript.min.js"></script>
     </body>
 </html>
