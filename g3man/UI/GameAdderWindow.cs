@@ -52,7 +52,7 @@ public class GameAdderWindow : Window {
 		}
 
 
-		Profile profile = new Profile("Default", "default", false, []);
+		Profile profile = new Profile("Default", "default",false, "", []);
 		try {
 			profile.Write(directory);
 		}

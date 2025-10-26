@@ -21,6 +21,7 @@ public class Config {
 	
 	public Config(JsonElement root) {
 		GameDirectories = JsonUtil.GetStringArrayOrThrow(root, "game_directories").ToList();
+		
 		int initializer = JsonUtil.GetNumberOrThrow(root, "initializer");
 		if (initializer < 0 || initializer > 1)
 			throw new InvalidDataException("Field \"initializer\" must be in the range of 0-1 (inclusive)");
@@ -68,5 +69,9 @@ public class Config {
 			logger.Error("Failed to read config file: " + e);
 			return null;
 		}
+	}
+
+	public void UpdateGameDirectories(List<Game> games) {
+		GameDirectories = games.Select(game => game.Directory).ToList();
 	}
 }

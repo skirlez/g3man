@@ -9,21 +9,23 @@ public class Profile {
 	public string Name;
 	public string FolderName;
 	public bool SeparateModdedSave;
+	public string ModdedSaveName;
 	public string[] ModOrder;
 
-	private static Logger logger = new Logger("PROFILE-PARSER");
+	private static readonly Logger logger = new Logger("PROFILE-PARSER");
 
-	public Profile(string name, string folderName, bool separateModdedSave, string[] modOrder) {
+	public Profile(string name, string folderName, bool separateModdedSave, string moddedSaveName, string[] modOrder) {
 		Name = name;
 		FolderName = folderName;
 		SeparateModdedSave = separateModdedSave;
+		ModdedSaveName = moddedSaveName;
 		ModOrder = modOrder;
 	}
 
 	public Profile(JsonElement root, string folderName) {
 		Name = JsonUtil.GetStringOrThrow(root, "name");
 		FolderName = folderName;
-		SeparateModdedSave = JsonUtil.GetBooleanOrThrow(root, "separate_modded_save");
+		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
 		ModOrder = JsonUtil.GetStringArrayOrThrow(root, "mod_order");
 	}
 
@@ -66,15 +68,36 @@ public class Profile {
 			["format_version"] = 1,
 			["name"] = Name,
 			["separate_modded_save"] = SeparateModdedSave,
+			["modded_save_name"] = ModdedSaveName,
 			["mod_order"] = new JsonArray(ModOrder.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>())
 		};
 	}
 	
-	public void Write(string directory) {
-		string profileFolder = Path.Combine(directory, "g3man", FolderName);
-		Directory.CreateDirectory(Path.Combine(profileFolder, "mods"));
-		
-		string jsonText = ToJson().ToJsonString();
-		File.WriteAllText(Path.Combine(profileFolder, "profile.json"), jsonText);
+	public bool Write(string directory) {
+		try {
+			string profileFolder = Path.Combine(directory, "g3man", FolderName);
+			Directory.CreateDirectory(Path.Combine(profileFolder, "mods"));
+
+			string jsonText = ToJson().ToJsonString();
+			File.WriteAllText(Path.Combine(profileFolder, "profile.json"), jsonText);
+			return true;
+		}
+		catch (Exception e) {
+			logger.Error("Failed to write profile.json at " + directory + ":\n" + e.Message);
+		}
+		return false;
+	}
+
+	public bool Delete(string directory) {
+		try {
+			string profileFolder = Path.Combine(directory, "g3man", FolderName);
+			Directory.Delete(profileFolder, true);
+			return true;
+		}
+		catch (Exception e) {
+			logger.Error("Failed to delete profile.json at " + directory + ":\n" + e.Message);
+		}
+
+		return false;
 	}
 }

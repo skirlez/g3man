@@ -31,7 +31,7 @@ public class MainWindow : Window {
 	private string[] pageTitles;
 
 	private Stack pageStack;
-	private ExtraCategories currentExtrasCategories;
+	private ExtraCategories currentExtraCategories;
 	private StackSidebar pageSidebar;
 	
 	public MainWindow() {
@@ -111,12 +111,13 @@ public class MainWindow : Window {
 		ProfilesAndMods
 	}
 	/**
-* Turns on extra categories (Profiles and Mods) depending on the parameter.
-*
-* TODO: This is a really dumb way to be doing things.
-* There must be a better way that achieves the same visual result.
-*/
+	* Turns on extra categories (Profiles and Mods) depending on the parameter.
+	*
+	* TODO: This is a really dumb way to be doing things.
+	* There must be a better way that achieves the same visual result.
+	*/
 	private void EnableExtraCategories(ExtraCategories extra) {
+		currentExtraCategories = extra;
 		ListBox pageList = (ListBox)pageSidebar.GetFirstChild()!.GetFirstChild()!.GetFirstChild()!;
 		ListBoxRow gamesRow = (ListBoxRow)pageList.GetFirstChild()!;
 		ListBoxRow profilesRow = (ListBoxRow)gamesRow.GetNextSibling()!;
@@ -159,7 +160,8 @@ public class MainWindow : Window {
 		selectGameButtons = [];
 
 
-		List<Game> games = Game.Parse(Program.Config.GameDirectories); 
+		List<Game> games = Game.Parse(Program.Config.GameDirectories);
+		Program.Config.UpdateGameDirectories(games);
 		PopulateGamesList(games);
 		
 		Label autoDetectedLabel = Label.New("Auto-detected");
@@ -242,10 +244,10 @@ public class MainWindow : Window {
 		addNewProfile.SetHalign(Align.Center);
 		addNewProfile.SetMargin(10);
 		addNewProfile.OnClicked += (sender, args) => {
-			Profile profile = new Profile("", "", false, []);
-			ManageProfileWindow window = new ManageProfileWindow(this, profile, true);
+			Profile profile = new Profile("", "", false, "", []);
+			ManageProfileWindow window = new ManageProfileWindow(this, profile, null);
 			// TODO
-			//window.Dialog();
+			window.Dialog();
 		};
 		
 		box.Append(profilesListBox);
@@ -466,36 +468,65 @@ public class MainWindow : Window {
 		}
 	}
 	
-	private void PopulateProfilesList(List<Profile> profiles, string? selectedId = null) {
+	private void PopulateProfilesList(List<Profile> profiles, Profile? selectedId = null) {
 		profilesListBox.RemoveAll();
 		foreach (Profile profile in profiles) {
-			Label profileName = Label.New(profile.Name);
-			Box spacer = Box.New(Orientation.Horizontal, 0);
-			spacer.SetHexpand(true);
-			
-			Button manageProfileButton = Button.NewWithLabel("Manage");
-			Button selectButton = Button.NewWithLabel("Select");
-			if (profile.FolderName == selectedId)
-				selectButton.SetSensitive(false);
-			selectProfileButtons.Add(selectButton);
-			selectButton.OnClicked += (sender, args) => {
-				SelectProfile(profile, sender);
-			};
-			
-			Box box = Box.New(Orientation.Horizontal, 10);
-			box.Append(profileName);
-			box.Append(spacer);
-			box.Append(manageProfileButton);
-			box.Append(selectButton);
-			
-			ListBoxRow row = ListBoxRow.New();
-		
-			row.SetChild(box);
-			row.SetActivatable(false);
-			row.SetMargin(10);
-			
-			profilesListBox.Append(row);
+			AddToProfilesList(profile, profile == selectedId);
 		}
+	}
+
+	public void AddToProfilesList(Profile profile, bool selected) {
+		// TODO: bad
+		int newIndex = 0;
+		while (profilesListBox.GetRowAtIndex(newIndex) is not null)
+			newIndex++;
+		profilesListBox.Append(createProfileWidgets(profile, selected, newIndex));
+	}
+
+	public void UpdateProfilesList(Profile? profile, int index, bool selected) {
+		ListBoxRow old = profilesListBox.GetRowAtIndex(index)!;
+		profilesListBox.Remove(old);
+		if (profile is not null) {
+			profilesListBox.Insert(createProfileWidgets(profile, selected, index), index);
+			currentProfileLabel.SetText(profile.Name);
+		}
+		else if (selected) {
+			// if deleted currently selected profile, hide mods tab
+			EnableExtraCategories(ExtraCategories.Profiles);
+			currentProfileLabel.SetText("No profile selected");
+		}
+	}
+
+	private ListBoxRow createProfileWidgets(Profile profile, bool selected, int index) {
+		Label profileName = Label.New(profile.Name);
+		Box spacer = Box.New(Orientation.Horizontal, 0);
+		spacer.SetHexpand(true);
+			
+		Button manageProfileButton = Button.NewWithLabel("Manage");
+		manageProfileButton.OnClicked += (_, _) => {
+			ManageProfileWindow window = new ManageProfileWindow(this, profile, index);
+			window.Dialog();
+		};
+		Button selectButton = Button.NewWithLabel("Select");
+		if (selected)
+			selectButton.SetSensitive(false);
+		selectProfileButtons.Add(selectButton);
+		selectButton.OnClicked += (sender, args) => {
+			SelectProfile(profile, sender);
+		};
+			
+		Box box = Box.New(Orientation.Horizontal, 10);
+		box.Append(profileName);
+		box.Append(spacer);
+		box.Append(manageProfileButton);
+		box.Append(selectButton);
+			
+		ListBoxRow row = ListBoxRow.New();
+		
+		row.SetChild(box);
+		row.SetActivatable(false);
+		row.SetMargin(10);
+		return row;
 	}
 
 	private void SelectGame(Game game, Button buttonPressed) {
@@ -526,13 +557,13 @@ public class MainWindow : Window {
 		Program.SetProfile(profile);
 		currentProfileLabel.SetText(profile.Name);
 		
-		PopulateProfilesList(profiles, game.ProfileFolderName);
+		PopulateProfilesList(profiles, profiles.FirstOrDefault(p => (p!.FolderName == game.ProfileFolderName), null));
 		PopulateModsList();
 		EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 	}
 
 	private void SelectProfile(Profile profile, Button buttonPressed) {
-		if (currentExtrasCategories == ExtraCategories.Profiles) 
+		if (currentExtraCategories == ExtraCategories.Profiles) 
 			EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 		foreach (Button button in selectProfileButtons) {
 			button.SetSensitive(true);
