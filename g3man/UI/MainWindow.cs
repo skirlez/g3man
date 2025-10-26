@@ -563,13 +563,13 @@ public class MainWindow : Window {
 	}
 
 	private void SelectProfile(Profile profile, Button buttonPressed) {
+		Program.SetProfile(profile);
 		if (currentExtraCategories == ExtraCategories.Profiles) 
 			EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 		foreach (Button button in selectProfileButtons) {
 			button.SetSensitive(true);
 		}
 		buttonPressed.SetSensitive(false);
-		Program.SetProfile(profile);
 		currentProfileLabel.SetText(profile.Name);
 		PopulateModsList();
 	}
