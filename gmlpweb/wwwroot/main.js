@@ -1,19 +1,24 @@
 async function onBlazorInitialized() {
-  hljs.highlightAll();
+  patchDisplay.textContent = patchEditor.value;
+  codeDisplay.textContent = codeEditor.value;
+  applyPatch();
 }
 
-const exampleButton = document.getElementById("example");
-const codeEditor = document.getElementById("codeEditor");
-const codeDisplay = document.getElementById("codeDisplay");
+const patchOption = document.getElementById("patch");
+const decompileOption = document.getElementById("decompile");
+const disassembleOption = document.getElementById("disassemble");
+
 const patchEditor = document.getElementById("patchEditor");
 const patchDisplay = document.getElementById("patchDisplay");
-const result = document.getElementById("result");
+const codeEditor = document.getElementById("codeEditor");
+const codeDisplay = document.getElementById("codeDisplay");
+const patchedCode = document.getElementById("patchedCode");
 const terminal = document.getElementById("terminal");
 
 function refreshHighlights() {
   codeDisplay.removeAttribute("data-highlighted");
   patchDisplay.removeAttribute("data-highlighted");
-  result.removeAttribute("data-highlighted");
+  patchedCode.removeAttribute("data-highlighted");
   hljs.highlightAll();
 }
 
@@ -27,62 +32,55 @@ codeEditor.addEventListener("input", (event) => {
   applyPatch();
 });
 
+patchOption.onclick = () => {
+  applyPatch();
+};
+
+decompileOption.onclick = () => {
+  applyPatch();
+};
+
+disassembleOption.onclick = () => {
+  applyPatch();
+};
+
 async function applyPatch() {
-  const patched = await DotNet.invokeMethodAsync(
+  let patched = await DotNet.invokeMethodAsync(
     "gmlpweb",
     "patch",
     patchEditor.value,
-    codeEditor.value);
-    
-  if (patched.type === 0) {
-    result.textContent = patched.result;
-    terminal.textContent = "All quiet on the western front.";
-    terminal.classList.remove("error");
-  }
-  else if (patched.type === 1) {
+    codeEditor.value,
+  );
+
+  if (patched.type === 1) {
+    // error
     terminal.classList.add("error");
     terminal.textContent = patched.result;
-  }
-  else {
-    console.log(patched.result);
+    return;
+  } else if (patched.type === 2) {
+    // exception
     terminal.classList.add("error");
     terminal.textContent = patched.result;
+    return;
   }
+
+  if (disassembleOption.checked) {
+    patched.result = await DotNet.invokeMethodAsync(
+      "gmlpweb",
+      "compile_and_disassemble",
+      patched.result,
+    );
+  } else if (decompileOption.checked) {
+    patched.result = await DotNet.invokeMethodAsync(
+      "gmlpweb",
+      "compile_and_decompile",
+      patched.result,
+    );
+  }
+
+  patchedCode.textContent = patched.result;
+  terminal.textContent = "All quiet on the western front.";
+  terminal.classList.remove("error");
+
   refreshHighlights();
 }
-
-exampleButton.addEventListener("click", (event) => {
-  patchEditor.value = `meta:
-target=test
-critical=false
-patch:
-find_line_with('Up key')
-write_after('    show_message("Patch applied!");')`;
-  codeEditor.value = `if (keyboard_check_pressed(vk_up))
-{
-    show_message("Up key hit!");
-}
-else if (keyboard_check_pressed(vk_down))
-{
-    show_message("Down key hit!");
-}`;
-  result.textContent = `if (keyboard_check_pressed(vk_up))
-{
-    show_message("Up key hit!");
-    show_message("Patch applied!");
-}
-else if (keyboard_check_pressed(vk_down))
-{
-    show_message("Down key hit!");
-}`;
-
-  patchDisplay.textContent = patchEditor.value;
-  patchDisplay.removeAttribute("data-highlighted");
-
-  codeDisplay.textContent = codeEditor.value;
-  codeDisplay.removeAttribute("data-highlighted");
-
-  result.removeAttribute("data-highlighted");
-
-  hljs.highlightAll();
-});

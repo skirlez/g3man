@@ -16,27 +16,70 @@
 
     <body>
         <header>
-            <section id="title">
-                <span>gmlpweb</span>
-                <button id="example">example</button>
-            </section>
+            <span id="title">gmlp<sup>web</sup></span>
             <a href="https://github.com/skirlez/g3man"
                 ><img src="static/github-mark-white.svg" alt="GitHub Logo"
             /></a>
         </header>
         <main id="app">
-            <section>
-                <div class="layered">
-                    <textarea id="patchEditor" spellcheck="false"></textarea>
+            <section id="editors">
+                <article id="patchContainer" class="layered">
+                    <textarea id="patchEditor" spellcheck="false">
+// adding code after a condition
+find_line_with('if (condition)')
+move(1)
+write_after('show_message("Patch applied!");')
+
+// adding more conditions to an if statement
+move_to_start()
+write_before('added_condition = true')
+find_line_with('if (condition)')
+write_after('&& added_condition')
+
+// removing unwanted code
+move_to_end()
+reverse_find_line_with('Condition not met')
+write_before('if false')
+open_brace_before()
+close_brace_after()</textarea
+                    >
                     <pre><code id="patchDisplay" class="language-js"></code></pre>
-                </div>
+                </article>
+                <article id="codeContainer" class="layered">
+                    <textarea id="codeEditor" spellcheck="false">
+condition = true;
+
+if (condition)
+{
+    show_message("Condition met!");
+}
+else if (condition)
+{
+    show_message("Condition not met...");
+}</textarea
+                    >
+                    <pre><code id="codeDisplay" class="language-gml"></code></pre>
+                </article>
             </section>
-            <pre><code id="result" class="language-gml"></code></pre>
-            <section class="layered">
-                <textarea id="codeEditor" spellcheck="false"></textarea>
-                <pre><code id="codeDisplay" class="language-gml"></code></pre>
+            <section id="output">
+                <article id="patchedCodeContainer">
+                    <article id="options">
+                        <input type="radio" id="patch" name="options" />
+                        <label for="patch">just patch</label>
+                        <input
+                            type="radio"
+                            id="decompile"
+                            name="options"
+                            checked
+                        />
+                        <label for="decompile">also decompile</label>
+                        <input type="radio" id="disassemble" name="options" />
+                        <label for="disassemble">also disassemble</label>
+                    </article>
+                    <pre><code id="patchedCode" class="language-gml"></code></pre>
+                </article>
+                <code id="terminal">All quiet on the western front.</code>
             </section>
-            <code id="terminal">All quiet on the western front.</code>
         </main>
 
         <div id="blazor-error-ui">

@@ -127,7 +127,7 @@ public class Program {
 		return new DecompileContext(context, codeEntry, settings).DecompileToString();
 	}
 	
-	[JSInvokable("compile_and_dissassemble")]
+	[JSInvokable("compile_and_disassemble")]
 	public static string CompileAndDisassemble(string code) {
 		importGroup.QueueReplace(codeEntry, code);
 		importGroup.Import();
