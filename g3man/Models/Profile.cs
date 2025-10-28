@@ -12,6 +12,10 @@ public class Profile {
 	public string ModdedSaveName;
 	public string[] ModOrder;
 
+	public string Description;
+	public string[] Credits;
+	public string[] Links;
+
 	private static readonly Logger logger = new Logger("PROFILE-PARSER");
 
 	public Profile(string name, string folderName, bool separateModdedSave, string moddedSaveName, string[] modOrder) {
@@ -20,6 +24,10 @@ public class Profile {
 		SeparateModdedSave = separateModdedSave;
 		ModdedSaveName = moddedSaveName;
 		ModOrder = modOrder;
+
+		Description = "";
+		Credits = [];
+		Links = [];
 	}
 
 	public Profile(JsonElement root, string folderName) {
@@ -27,6 +35,9 @@ public class Profile {
 		FolderName = folderName;
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
 		ModOrder = JsonUtil.GetStringArrayOrThrow(root, "mod_order");
+		Description = JsonUtil.GetStringOrThrow(root, "description");
+		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits");
+		Links = JsonUtil.GetStringArrayOrThrow(root, "links");
 	}
 
 	public static List<Profile> Parse(string directory) {
@@ -69,7 +80,11 @@ public class Profile {
 			["name"] = Name,
 			["separate_modded_save"] = SeparateModdedSave,
 			["modded_save_name"] = ModdedSaveName,
-			["mod_order"] = new JsonArray(ModOrder.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>())
+			["mod_order"] = new JsonArray(ModOrder.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>()),
+			
+			["description"] = Description,
+			["credits"] = new JsonArray(Credits.Select(credit => JsonValue.Create(credit)).ToArray<JsonNode?>()),
+			["links"] = new JsonArray(Links.Select(link => JsonValue.Create(link)).ToArray<JsonNode?>())
 		};
 	}
 	

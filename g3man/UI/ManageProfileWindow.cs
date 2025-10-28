@@ -1,4 +1,5 @@
 using g3man.Models;
+using Gdk;
 using Gtk;
 
 namespace g3man.UI;
@@ -9,22 +10,22 @@ public class ManageProfileWindow : Window {
 	
 	public ManageProfileWindow(MainWindow owner, Profile profile, int? index) {
 		SetSizeRequest(400, 300);
-		SetResizable(false);
+		SetTitle("Manage Profile");
 		this.owner = owner;
 		this.profile = profile;
 		Box box = Box.New(Orientation.Vertical, 10);
 		box.SetMargin(10);
+		
 			
 		Label nameLabel = Label.New("Name");
 		nameLabel.SetHalign(Align.Start);
 		Entry nameEntry = Entry.New();
-		nameEntry.SetMaxWidthChars(30);
 		nameEntry.SetText(profile.Name);
-
+		
+		
 		Box nameBox = Box.New(Orientation.Vertical, 5);
-		nameBox.SetHalign(Align.Start);
-		box.Append(nameLabel);
-		box.Append(nameEntry);
+		nameBox.Append(nameLabel);
+		nameBox.Append(nameEntry);
 		
 		CheckButton moddedSaveCheck = CheckButton.New();
 		moddedSaveCheck.SetLabel("Separate modded save");
@@ -33,7 +34,6 @@ public class ManageProfileWindow : Window {
 		Label saveNameLabel = Label.New("Modded save name");
 		saveNameLabel.SetHalign(Align.Start);
 		Entry saveNameEntry = Entry.New();
-		saveNameEntry.SetMaxWidthChars(30);
 		saveNameEntry.SetText(profile.ModdedSaveName);
 
 		Box saveNameBox = Box.New(Orientation.Vertical, 5);
@@ -46,22 +46,40 @@ public class ManageProfileWindow : Window {
 		void moddedSaveToggled(bool value) {
 			saveNameBox.SetSensitive(value);
 		}
-
+		
+		/*
+		Label descriptionLabel = Label.New("Description");
+		descriptionLabel.SetHalign(Align.Start);
+		Entry descriptionEntry = Entry.New();
+		descriptionEntry.SetText(profile.Description);
+		
+		Box descriptionBox = Box.New(Orientation.Vertical, 5);
+		descriptionBox.Append(descriptionLabel);
+		descriptionBox.Append(descriptionEntry);
+		*/
+		
+		Button editMetadataButton = Button.NewWithLabel("Edit metadata");
+		editMetadataButton.SetHalign(Align.Start);
+		
 		bool isSelected = Program.GetProfile()! == profile;
 		
 		Button doneButton = Button.New();
 		doneButton.SetLabel(index is null ? "Create" : "Save");
 		
+		
 		Box fateBox = Box.New(Orientation.Horizontal, 5);
 		fateBox.SetHalign(Align.Center);
+		fateBox.SetValign(Align.End);
 		fateBox.Append(doneButton);
+		fateBox.SetVexpand(true);
 		
 		if (index is not null) {
 			Button deleteButton = Button.NewWithLabel("Delete");
 			deleteButton.OnClicked += (_, _) => {
 				bool success = profile.Delete(Program.GetGame()!.Directory);
 				if (!success) {
-					// TODO
+					PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
+					popup.Dialog();
 					return;
 				}
 				this.owner.UpdateProfilesList(null, index.Value, isSelected);
@@ -78,7 +96,9 @@ public class ManageProfileWindow : Window {
 			profile.ModdedSaveName = saveNameEntry.GetText();
 			bool success = profile.Write(Program.GetGame()!.Directory);
 			if (!success) {
-				// TODO
+				// TODO: this still updates the profile, which is kinda weird.
+				PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to save this profile", "Damn");
+				popup.Dialog();
 				return;
 			}
 			if (index is null)
@@ -91,6 +111,10 @@ public class ManageProfileWindow : Window {
 		box.Append(nameBox);
 		box.Append(moddedSaveCheck);
 		box.Append(saveNameBox);
+		box.Append(editMetadataButton);
+		//box.Append(Separator.New(Orientation.Horizontal));
+		//box.Append(Label.New("Distribution Metadata"));
+		//box.Append(descriptionBox);
 		box.Append(fateBox);
 		
 		
