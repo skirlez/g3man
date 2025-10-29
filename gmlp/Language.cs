@@ -361,12 +361,16 @@ public static class Language {
 					i += 2;
 					while (i < patch.Length && patch[i] != '\n')
 						i++;
+					lineNumber++;
 					continue;
 				}
-				else if (patch[i + 1] == '*') {
+				if (patch[i + 1] == '*') {
 					i += 2;
-					while (i + 1 < patch.Length && !(patch[i] == '*' && patch[i + 1] == '/'))
+					while (i + 1 < patch.Length && !(patch[i] == '*' && patch[i + 1] == '/')) {
+						if (patch[i] == '\n')
+							lineNumber++;
 						i++;
+					}
 					i++;
 					continue;
 				}
