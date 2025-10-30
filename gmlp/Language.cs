@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace gmlp;
@@ -102,15 +103,26 @@ public static class Language {
 		return (target, critical, pos);
 	}
 	
-	private static int findLineWith(int start, string[] lines, string code, string str, bool regex) {
+	private static int findLineWith(int start, string[] lines, string code, string str, bool isRegex) {
 		int positionSum = 0;
 		for (int j = 0; j < start; j++)
 			positionSum += lines[j].Length + 1;
 		
 		if (positionSum >= code.Length)
 			return -1;
+
+		int index;
+		if (isRegex) {
+			Regex regex = new Regex(str, RegexOptions.Multiline|RegexOptions.CultureInvariant);
+			Match match = regex.Match(code, positionSum);
+			if (!match.Success)
+				return -1;
+			index = match.Index;
+
+		}
+		else
+			index = code.IndexOf(str, positionSum, StringComparison.Ordinal);
 		
-		int index = code.IndexOf(str, positionSum, StringComparison.Ordinal);
 		if (index == -1)
 			return -1;
 		for (int j = start; j < lines.Length; j++) {
@@ -122,21 +134,37 @@ public static class Language {
 	}
 	
 	
-	private static int reverseFindLineWith(int start, string[] lines, string code, string str, bool regex) {
+	private static int reverseFindLineWith(int start, string[] lines, string code, string str, bool isRegex) {
 		int positionSum = 0;
 		for (int j = 0; j <= start; j++)
 			positionSum += lines[j].Length + 1;
-
-
-		int positionInFile;
-		if (positionSum == code.Length + 1) // final line might not have newline
-			positionInFile = code.Length;
-		else
-			positionInFile = positionSum;
-		int index = code.LastIndexOf(str, positionInFile, StringComparison.Ordinal);
-		if (index == -1)
-			return -1;
 		
+		int index;
+		if (isRegex) {
+			Regex regex = new Regex(str, RegexOptions.Multiline|RegexOptions.CultureInvariant);
+			Match match = regex.Match(code, 0);
+			if (!match.Success)
+				return -1;
+			while (true) {
+				Match next = match.NextMatch();
+				if (!next.Success || next.Index >= positionSum)
+					break;
+				match = next;
+			}
+
+			index = match.Index;
+		}
+		else {
+			int positionInFile;
+			if (positionSum == code.Length + 1) // final line might not have newline
+				positionInFile = code.Length;
+			else
+				positionInFile = positionSum;
+			index = code.LastIndexOf(str, positionInFile, StringComparison.Ordinal);
+			if (index == -1)
+				return -1;
+		}
+
 		for (int j = start; j >= 0; j--) {
 			positionSum -= lines[j].Length + 1;
 			if (positionSum <= index)
