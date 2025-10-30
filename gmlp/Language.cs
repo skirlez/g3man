@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace gmlp;
 
@@ -101,12 +102,55 @@ public static class Language {
 		return (target, critical, pos);
 	}
 	
+	private static int findLineWith(int start, string[] lines, string code, string str, bool regex) {
+		int positionSum = 0;
+		for (int j = 0; j < start; j++)
+			positionSum += lines[j].Length + 1;
+		
+		if (positionSum >= code.Length)
+			return -1;
+		
+		int index = code.IndexOf(str, positionSum, StringComparison.Ordinal);
+		if (index == -1)
+			return -1;
+		for (int j = start; j < lines.Length; j++) {
+			positionSum += lines[j].Length + 1; // incl newline
+			if (positionSum > index)
+				return j;
+		}
+		return -1;
+	}
+	
+	
+	private static int reverseFindLineWith(int start, string[] lines, string code, string str, bool regex) {
+		int positionSum = 0;
+		for (int j = 0; j <= start; j++)
+			positionSum += lines[j].Length + 1;
+
+
+		int positionInFile;
+		if (positionSum == code.Length + 1) // final line might not have newline
+			positionInFile = code.Length;
+		else
+			positionInFile = positionSum;
+		int index = code.LastIndexOf(str, positionInFile, StringComparison.Ordinal);
+		if (index == -1)
+			return -1;
+		
+		for (int j = start; j >= 0; j--) {
+			positionSum -= lines[j].Length + 1;
+			if (positionSum <= index)
+				return j;
+		}
+		return -1;
+	}
+	
 	public static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, bool bailOnSection, ref int patchIncrement) {
 		// TODO make sure code has \n line endings only
 		string[] lines = code.Split('\n');
 		UnitOperations unitOperations = record.GetUnitOperationsOrCreate(target, code);
-		
-		int filePos = 0;
+
+		List<int> fileLinePositions = [0];
 		while (pos < tokens.Length) {
 			Token token = tokens[pos];
 			if (token is SectionToken && bailOnSection) {
@@ -117,123 +161,137 @@ public static class Language {
 			NameToken nameToken = (NameToken)token;
 			switch (nameToken.Name) {
 				case "move_to_end": {
-					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-					pos++;
-					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
-					pos++;
-					filePos = lines.Length - 1;
+					(_, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, []);
+					if (fileLinePositions.Count == 1)
+						fileLinePositions[0] = lines.Length - 1;
+					else {
+						fileLinePositions.Clear();
+						fileLinePositions.Add(lines.Length - 1);
+					}
 					break;
 				}
 				case "move_to_start": {
-					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-					pos++;
-					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
-					pos++;
-					filePos = 0;
+					(_, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, []);
+					if (fileLinePositions.Count == 1)
+						fileLinePositions[0] = 0;
+					else {
+						fileLinePositions.Clear();
+						fileLinePositions.Add(0);
+					}
 					break;
 				}
 				case "move_to":
 				case "move": {
-					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-					pos++;
-					NumberToken numberToken =
-						(NumberToken)Expect(tokens, pos + 1, typeof(NumberToken), startToken.LineNumber);
-					pos++;
-					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), numberToken.LineNumber);
-					pos++;
+					(Token[] parameters, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(NumberToken));
+					NumberToken numberToken = (NumberToken)parameters[0];
+					
+					if (nameToken.Name == "move_to") {
+						if (fileLinePositions.Count == 1)
+							fileLinePositions[0] = numberToken.Number - 1;
+						else {
+							fileLinePositions.Clear();
+							fileLinePositions.Add(numberToken.Number - 1);
+						}
+					}
+					else {
+						for (int i = 0; i < fileLinePositions.Count; i++) {
+							fileLinePositions[i] += numberToken.Number;
+						}
+					}
 
-					if (nameToken.Name == "move_to")
-						filePos = numberToken.Number - 1;
-					else
-						filePos += numberToken.Number;
+
 
 					break;
 				}
-				case "find_line_with": {
-					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-					pos++;
-					StringToken stringToken =
-						(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
-					pos++;
-					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
-					pos++;
 
-					
-					int positionSum = 0;
-					for (int i = 0; i < filePos; i++) {
-						positionSum += lines[i].Length + 1;
-					}
-					int index = code.IndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
-					
-					for (int i = filePos; i < lines.Length; i++) {
-						positionSum += lines[i].Length + 1; // incl newline
-						if (positionSum > index) {
-							filePos = i;
-							break;
-						}
+				
+				
+				case "find_line_with": {
+					(Token[] parameters, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
+					StringToken stringToken = (StringToken)parameters[0];
+					for (int i = 0; i < fileLinePositions.Count; i++) {
+						fileLinePositions[i] = findLineWith(fileLinePositions[i], lines, code, stringToken.Text, stringToken.Regex);
 					}
 					break;
 				}
 				case "reverse_find_line_with": {
-					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-					pos++;
-					StringToken stringToken =
-						(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
-					pos++;
-					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
-					pos++;
-					
-					
-					int positionSum = 0;
-					for (int i = 0; i <= filePos; i++) {
-						positionSum += lines[i].Length + 1;
+					(Token[] parameters, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
+					StringToken stringToken = (StringToken)parameters[0];
+					for (int i = 0; i < fileLinePositions.Count; i++) {
+						fileLinePositions[i] = reverseFindLineWith(fileLinePositions[i], lines, code, stringToken.Text, stringToken.Regex);
 					}
-					if (positionSum == code.Length + 1) // final line might not have newline
-						positionSum = code.Length;
-					int index = code.LastIndexOf(stringToken.Text, positionSum, StringComparison.Ordinal);
+					break;
+				}
+				
+				
+				
+				case "find_all_lines_with":
+				case "reverse_find_all_lines_with": {
+					// UGLY
+					Func<int, string[], string, string, bool, int> function = nameToken.Name == "find_all_lines_with" ? findLineWith : reverseFindLineWith;
+					int direction = nameToken.Name == "find_all_lines_with" ? 1 : -1;
 					
-					for (int i = filePos; i >= 0; i--) {
-						positionSum -= lines[i].Length + 1;
-						if (positionSum < index) {
-							filePos = i;
-							break;
-						}
+					(Token[] parameters, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
+					StringToken stringToken = (StringToken)parameters[0];
+
+					List<int> newFilePositions = new List<int>();
+					for (int i = 0; i < fileLinePositions.Count; i++) {
+						int newPos = function(fileLinePositions[i], lines, code, stringToken.Text, stringToken.Regex);
+						while (newPos != -1 && newPos < lines.Length) {
+							newFilePositions.Add(newPos);
+							newPos = function(newPos + direction, lines, code, stringToken.Text, stringToken.Regex);
+						} 
 					}
+					newFilePositions.Sort();
+					fileLinePositions = newFilePositions;
+					break;
+				}
+				case "consolidate_into_top":
+				case "consolidate_into_bottom": {
+					(Token[] parameters, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(NumberToken));
+					NumberToken numberToken = (NumberToken)parameters[0];
+					int number = int.Min(fileLinePositions.Count, numberToken.Number);
+					if (nameToken.Name == "consolidate_into_top")
+						fileLinePositions.RemoveRange(number, fileLinePositions.Count - number);
+					else
+						fileLinePositions.RemoveRange(0, fileLinePositions.Count - number);
 					
 					
 					break;
 				}
+
 				case "open_brace_before":
 				case "open_brace_after":
 				case "close_brace_before":
 				case "close_brace_after": {
-					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-					pos++;
-					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), startToken.LineNumber);
-					pos++;
+					(_, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, []);
 
-					List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-					(OperationType type, char character) = BraceFunctionTypes[nameToken.Name];
-					
-					linePatches.Add(new PatchOperation($"{character}", critical, type, owner, patchIncrement));
-					patchIncrement++;
+					for (int i = 0; i < fileLinePositions.Count; i++) {
+						int filePos = fileLinePositions[i];
+						
+						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
+						(OperationType type, char character) = BraceFunctionTypes[nameToken.Name];
+
+						linePatches.Add(new PatchOperation($"{character}", critical, type, owner, patchIncrement));
+						patchIncrement++;
+					}
+
 					break;
 				}
 				case "write_before":
 				case "write_replace":
 				case "write_after": {
-					Token startToken = Expect(tokens, pos + 1, typeof(ParensStartToken), nameToken.LineNumber);
-					pos++;
-					StringToken stringToken =
-						(StringToken)Expect(tokens, pos + 1, typeof(StringToken), startToken.LineNumber);
-					pos++;
-					Token endToken = Expect(tokens, pos + 1, typeof(ParensEndToken), stringToken.LineNumber);
-					pos++;
+					(Token[] parameters, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
+					StringToken stringToken = (StringToken)parameters[0];
 
-					List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-					OperationType type = WriteFunctionTypes[nameToken.Name];
-					linePatches.Add(new PatchOperation(stringToken.Text, critical, type, owner, patchIncrement));
-					patchIncrement++;
+					for (int i = 0; i < fileLinePositions.Count; i++) {
+						int filePos = fileLinePositions[i];
+						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
+						OperationType type = WriteFunctionTypes[nameToken.Name];
+						linePatches.Add(new PatchOperation(stringToken.Text, critical, type, owner, patchIncrement));
+						patchIncrement++;
+					}
+
 					break;
 				}
 				default:
@@ -346,8 +404,9 @@ public static class Language {
 
 	public class ParensEndToken(int lineNumber) : Token(lineNumber);
 
-	public class StringToken(string text, int lineNumber) : Token(lineNumber) {
+	public class StringToken(string text, bool regex, int lineNumber) : Token(lineNumber) {
 		public readonly string Text = text;
+		public readonly bool Regex = regex;
 	}
 
 	public static Token[] Tokenize(string patch) {
@@ -444,8 +503,17 @@ public static class Language {
 				tokens.Add(new ParensEndToken(lineNumber));
 				continue;
 			}
+			
+			if (c == '\'' || (c == '@' || c == 'r') && build.Length == 0) {
+				if (c == 'r') {
+					if (i + 1 >= patch.Length || patch[i + 1] != '\'') {
+						build += c;
+						continue;
+					}
 
-			if (c == '\'' || c == '@') {
+					i++;
+				}
+				
 				if (!string.IsNullOrWhiteSpace(build)) {
 					tokens.Add(new NameToken(build, lineNumber));
 				}
@@ -454,11 +522,12 @@ public static class Language {
 					i++;
 					if (i >= patch.Length || patch[i] != '\'') {
 						throw new InvalidPatchException(
-							$"At line {lineNumber}: Expected a string after the \'@\' character");
+							$"At line {lineNumber}: Expected a string after the \'{c}\' character");
 					}
 				}
 				
-				bool stripNewlines = c != '@'; 
+				bool stripNewlines = c != '@';
+				bool regex = (c == 'r');
 				
 
 				int lineNumberStart = lineNumber;
@@ -493,7 +562,7 @@ public static class Language {
 				i++;
 
 				if (!string.IsNullOrWhiteSpace(text)) {
-					tokens.Add(new StringToken(text, lineNumberStart));
+					tokens.Add(new StringToken(text, regex, lineNumberStart));
 				}
 
 				continue;
@@ -503,6 +572,25 @@ public static class Language {
 		}
 
 		return tokens.ToArray();
+	}
+	
+	
+	private static (Token[], int) ExpectFunctionSignature(Token[] tokens, int pos, int lastLineNumber, params Type[] types) {
+		pos++;
+		Token parenthesisStart = Expect(tokens, pos, typeof(ParensStartToken), lastLineNumber);
+		pos++;
+		lastLineNumber = parenthesisStart.LineNumber;
+		
+		Token[] ret = new Token[types.Length];
+		for (int i = 0; i < types.Length; i++) {
+			Token t = Expect(tokens, pos, types[i], lastLineNumber);
+			ret[i] = t;
+			pos++;
+			lastLineNumber = t.LineNumber;
+		}
+		
+		Token parenthesisEnd = Expect(tokens, pos, typeof(ParensEndToken), lastLineNumber);
+		return (ret, pos);
 	}
 	
 	private static Token Expect(Token[] tokens, int pos, Type type, int lastLineNumber) {

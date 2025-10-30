@@ -5,7 +5,8 @@ namespace gmlp.Tests;
 public class LanguageTests {
 
 	public static void TestAll() {
-		LanguageTest[] tests = [new WritesTest(), new BracesTest(), new StringTest(), new AtStringTest(), new CriticalPriorityTest()];
+		LanguageTest[] tests = [new WritesTest(), new BracesTest(), new StringTest(), new AtStringTest(), new CriticalPriorityTest(), new ForkTest(), new ForkTestReverse()];
+
 		foreach (LanguageTest test in tests) {
 			Console.WriteLine($"Running test: {test.Name}");
 			string result = test.GetResult();
