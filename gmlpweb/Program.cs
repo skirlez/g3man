@@ -107,6 +107,9 @@ public class Program {
 				false, ref increment);
 			Language.ApplyPatches(record, source, []);
 		}
+		catch (PatchExecutionException e) {
+			return new { result = e.Message, type = 1 };
+		}
 		catch (InvalidPatchException e) {
 			return new { result = e.Message, type = 1 };
 		}
