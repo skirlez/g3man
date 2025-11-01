@@ -34,8 +34,8 @@ write_after('2')
 cccc
 aaaa
 
-2
 1
+2
 bbbb
 dddd
 """;

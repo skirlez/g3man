@@ -552,7 +552,33 @@ public static class Language {
 				}
 
 				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
+				
+				/*
+				 BULLSHIT: merge together write_after/_* calls
+				 IN SHORT, if we don't do this, subsequent write_after calls in the same patch will appear out of order,
+				 which isn't very user friendly.
+				*/
+				IEnumerable<IGrouping<PatchOwner, PatchOperation>> sameOwners = operations.GroupBy(op => op.Owner);
+				foreach (IGrouping<PatchOwner, PatchOperation> ownerGroup in sameOwners) {
+					IEnumerable<IGrouping<OperationType, PatchOperation>> afterTypeGroups = ownerGroup.ToList()
+						.Where(op =>
+							op.Type is OperationType.WriteAfter 
+								or OperationType.WriteAfterElse 
+								or OperationType.WriteAfterElseIf
+						).GroupBy(op2 => op2.Type);
 
+					foreach (IGrouping<OperationType, PatchOperation> typeGroup in afterTypeGroups) {
+						PatchOperation chosen = typeGroup.First(); 
+						foreach (PatchOperation op in typeGroup) {
+							if (op == chosen)
+								continue;
+							chosen.Text = chosen.Text.Insert(0, op.Text + "\n");
+							operations.Remove(op);
+						}
+					}
+				}
+				
+				
 				StringBuilder before = new StringBuilder();
 				StringBuilder after = new StringBuilder();
 				StringBuilder afterElseIf = new StringBuilder();

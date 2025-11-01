@@ -34,7 +34,7 @@ public class UnitOperations(string code) {
 }
 
 public class PatchOperation(string text, bool critical, OperationType type, PatchOwner owner, int increment) {
-	public readonly string Text = text;
+	public string Text = text;
 	public readonly bool Critical = critical;
 	public readonly OperationType Type = type;
 	
