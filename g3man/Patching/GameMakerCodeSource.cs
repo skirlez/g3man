@@ -10,7 +10,6 @@ namespace g3man.Patching;
 public class GameMakerCodeSource(UndertaleData data, GlobalDecompileContext context) : CodeSource {
 	internal static readonly DecompileSettings Settings = new DecompileSettings {
 		UnknownArgumentNamePattern = "arg{0}",
-		RemoveSingleLineBlockBraces = true,
 		EmptyLineAroundBranchStatements = true,
 		EmptyLineBeforeSwitchCases = true
 	};

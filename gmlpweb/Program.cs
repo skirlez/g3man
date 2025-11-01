@@ -18,7 +18,6 @@ public class Program {
 	private static CodeImportGroup importGroup;
 	private static DecompileSettings settings = new DecompileSettings() {
 		UnknownArgumentNamePattern = "arg{0}",
-		RemoveSingleLineBlockBraces = true,
 		EmptyLineAroundBranchStatements = true,
 		EmptyLineBeforeSwitchCases = true
 	};

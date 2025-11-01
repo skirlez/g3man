@@ -54,6 +54,8 @@ public class PatchOperation(string text, bool critical, OperationType type, Patc
 
 public enum OperationType {
 	WriteBefore,
+	WriteReplace,
 	WriteAfter,
-	WriteReplace
+	WriteAfterElseIf,
+	WriteAfterElse,
 }

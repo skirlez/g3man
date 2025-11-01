@@ -6,7 +6,7 @@ public class LanguageTests {
 
 	public static void TestAll() {
 		LanguageTest[] tests = [new WritesTest(), new BracesTest(), new StringTest(), new AtStringTest(), new CriticalPriorityTest(), new ForkTest(), new ForkTestReverse(),
-			new RegexTest(), new ScopeTest()];
+			new RegexTest(), new ScopeTest(), new ImplicitOrderingTest()];
 
 		foreach (LanguageTest test in tests) {
 			Console.WriteLine($"Running test: {test.Name}");

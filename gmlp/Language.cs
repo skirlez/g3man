@@ -16,7 +16,9 @@ public static class Language {
 	private static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
 		{ "write_before", OperationType.WriteBefore },
 		{ "write_replace", OperationType.WriteReplace },
-		{ "write_after", OperationType.WriteAfter }
+		{ "write_after", OperationType.WriteAfter },
+		{ "write_after_else_if",  OperationType.WriteAfterElseIf },
+		{ "write_after_else", OperationType.WriteAfterElse },
 	};
 
 	private static readonly Dictionary<string, (OperationType, char)> BraceFunctionTypes =
@@ -480,7 +482,9 @@ public static class Language {
 				}
 				case "write_before":
 				case "write_replace":
-				case "write_after": {
+				case "write_after":
+				case "write_after_else":
+				case "write_after_else_if": {
 					(Token[] parameters, pos) =
 						ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
 					StringToken stringToken = (StringToken)parameters[0];
@@ -495,6 +499,7 @@ public static class Language {
 
 					break;
 				}
+				
 				default:
 					throw new InvalidPatchException(
 						$"At line {nameToken.LineNumber}: unknown operation {nameToken.Name}");
@@ -550,6 +555,8 @@ public static class Language {
 
 				StringBuilder before = new StringBuilder();
 				StringBuilder after = new StringBuilder();
+				StringBuilder afterElseIf = new StringBuilder();
+				StringBuilder afterElse = new StringBuilder();
 				foreach (PatchOperation op in operations) {
 					switch (op.Type) {
 						case OperationType.WriteBefore:
@@ -561,13 +568,23 @@ public static class Language {
 						case OperationType.WriteAfter:
 							after.Append("\n" + op.Text);
 							break;
+						case OperationType.WriteAfterElseIf:
+							afterElseIf.Append("\nelse if " + op.Text);
+							break;
+						case OperationType.WriteAfterElse:
+							afterElse.Append("\n" + op.Text);
+							break;
 						default:
 							break;
 					}
 				}
 
-
-				lines[line] = $"{before}{lines[line]}{after}";
+				string afterElseResult;
+				if (afterElse.Length == 0)
+					afterElseResult = "";
+				else
+					afterElseResult = $"\nelse {{ {afterElse}\n}}";
+				lines[line] = $"{before}{lines[line]}{afterElseIf}{afterElseResult}{after}";
 			}
 
 			string finalResult = string.Join("\n", lines);
