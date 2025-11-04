@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using g3man.Models;
 using g3man.Util;
 
 namespace g3man.Models;
@@ -17,7 +18,8 @@ public class Mod {
 	public string TargetPatcherVersion;
 	public PatchLocation[] Patches;
 	public string DatafilePath;
-	public string PostMergeScriptPath;
+	public string PreProcessScriptPath;
+	public string PostProcessScriptPath;
 	public string[] Credits;
 	public string[] Links;
 	
@@ -49,16 +51,17 @@ public class Mod {
 		ModId = JsonUtil.GetStringOrThrow(root, "mod_id");
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		Description = JsonUtil.GetStringOrThrow(root, "description");
-		IconPath = JsonUtil.GetStringOrThrow(root, "icon_path");
-		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits");
-		Links = JsonUtil.GetStringArrayOrThrow(root, "links");
+		IconPath = JsonUtil.GetStringOrThrow(root, "icon_path", "");
+		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits", []);
+		Links = JsonUtil.GetStringArrayOrThrow(root, "links", []);
 		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"), false);
 		TargetGameVersion = JsonUtil.GetStringOrThrow(root, "target_game_version");
 		TargetPatcherVersion = JsonUtil.GetStringOrThrow(root, "target_patcher_version");
-		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches")
+		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches", [])
 			.Select(x => new PatchLocation(x)).ToArray();
-		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path");
-		PostMergeScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path");
+		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path", "");
+		PreProcessScriptPath = JsonUtil.GetStringOrThrow(root, "pre_merge_script_path", "");
+		PostProcessScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
 		
 		Depends = JsonUtil.GetObjectArrayOrThrow(root, "depends")
 			.Select(x => new RelatedMod(x)).ToArray();
@@ -160,13 +163,12 @@ public enum OrderRequirement {
 }
 public class InvalidOrderRequirementException(string message) : InvalidModException(message);
 
-
 public readonly struct SemVer() {
 	public readonly int Major;
 	public readonly int Minor;
 	public readonly int Patch;
 
-	public SemVer(string version, bool starAllowed) : this() {
+	public SemVer(string version, bool starAllowed = false) : this() {
 		const string help1 = "Mods should have versions of the form \"major.minor.patch\", like \"1.0.0\", or \"2.3.4\"";
 		const string help2 = "Mod relations should have versions of the form \"major.minor.patch\" (with shortening and '*' allowed), like \"1.0.0\", \"2.3\", or \"3.6.*\"";
 		string help = starAllowed ? help2 : help1;
@@ -224,27 +226,66 @@ public readonly struct SemVer() {
 public class InvalidSemVerException(string message) : InvalidModException(message);
 
 public readonly struct SemVerRequirement() {
-	private readonly SemVer Version;
-	public SemVerRequirement(string version) : this() {
-		Version = new SemVer(version, true);
+	private readonly (SemVer, SemVerComparison)[] Conditions;
+
+	private (SemVerComparison, int) GetComparison(string requirementString) {
+		char first = requirementString[0];
+		char second = requirementString[1];
+		if (first == '=')
+			return (SemVerComparison.ExplicitEquals, 1);
+		if (first == '>') {
+			if (second == '=')
+				return (SemVerComparison.GreaterEquals, 2);
+			return (SemVerComparison.Greater, 1);
+		}
+		if (first == '<') {
+			if (second == '=')
+				return (SemVerComparison.LesserEquals, 2);
+			return (SemVerComparison.Lesser, 1);
+		}
+		return (SemVerComparison.ImplicitEquals, 0);
+	}
+	public SemVerRequirement(string[] requirementStrings) : this() {
+		Conditions = new (SemVer, SemVerComparison)[requirementStrings.Length];
+		for (int i = 0; i < requirementStrings.Length; i++) {
+			string requirementString = requirementStrings[i];
+			if (requirementString.Length < 2)
+				throw new InvalidSemVerRequirementException("Version requirement string is too short! ");
+
+			(SemVerComparison comparison, int start) = GetComparison(requirementString);
+			string version = requirementString.Substring(start);
+			Conditions[i] = (new SemVer(version, true), comparison);
+		}
 	}
 
-	public bool IsCompatibleWith(SemVer dependencyVersion) {
-		if (Version.Major == -1)
-			return true;
-		if (Version.Major != dependencyVersion.Major)
-			return false;
-		if (Version.Minor == -1)
-			return true;
-		if (Version.Minor > dependencyVersion.Minor)
-			return false;
-		if (Version.Patch == -1)
-			return true;
-		return Version.Patch <= dependencyVersion.Patch;
+	public bool IsCompatibleWith(SemVer other) {
+		foreach ((SemVer version, SemVerComparison comparison) in Conditions) {
+			if (version.Major == -1)
+				return true;
+			switch (comparison) {
+				case SemVerComparison.ImplicitEquals:
+				case SemVerComparison.ExplicitEquals:
+					if (version.Major != other.Major)
+						return false;
+					if (version.Minor == -1)
+						return true;
+					if (version.Minor != other.Minor)
+						return false;
+					if (version.Patch == -1)
+						return true;
+					if (comparison == SemVerComparison.ImplicitEquals)
+						return (version.Patch <= other.Patch);
+					return (version.Patch == other.Patch);
+			}
+
+			
+		}
+		return true;
 	}
+	
 
 	public override string ToString() {
-		return Version.ToString();
+		return "TODO";
 	}
 }
 public enum SemVerComparison {
@@ -252,6 +293,7 @@ public enum SemVerComparison {
 	LesserEquals,
 	Greater,
 	Lesser,
-	Equals
+	ImplicitEquals,
+	ExplicitEquals
 }
 public class InvalidSemVerRequirementException(string message) : InvalidModException(message);

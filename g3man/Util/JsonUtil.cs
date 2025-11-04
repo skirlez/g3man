@@ -27,7 +27,15 @@ public static class JsonUtil {
 		return inner.GetBoolean();
 	}
 	
-	public static string GetStringOrThrow(JsonElement element, string field) {
+	/**
+	* Returns a string property with the name `field`. 
+	* If it does not exist, throws `InvalidDataException`.
+	* If Fallback is specified and not null, instead of throwing when the key is missing,
+	* it uses the fallback.
+	*/
+	public static string GetStringOrThrow(JsonElement element, string field, string? fallback = null) {
+		if (fallback is not null && !element.TryGetProperty(field, out _))
+			return fallback;
 		JsonElement inner = GetPropertyOrThrow(element, field);
 		if (inner.ValueKind != JsonValueKind.String)
 			throw new InvalidDataException($"Field {field} is of the wrong type (Expected a string, but got {inner.ValueKind.ToString()})");
@@ -40,9 +48,16 @@ public static class JsonUtil {
 		JsonElement inner = GetPropertyOrThrow(element, field);
 		if (inner.ValueKind != JsonValueKind.Number)
 			throw new InvalidDataException($"Field {field} is of the wrong type (Expected a number, but got {inner.ValueKind.ToString()})");
-		return inner.GetInt32();
+		try {
+			return inner.GetInt32();
+		}
+		catch (FormatException e) {
+			throw new InvalidDataException($"Field {field} should be a number, but is not an integer/is too big/is too small/is weird");
+		}
 	}
-	public static string[] GetStringArrayOrThrow(JsonElement element, string field) {
+	public static string[] GetStringArrayOrThrow(JsonElement element, string field, string[]? fallback = null) {
+		if (fallback is not null && !element.TryGetProperty(field, out _))
+			return fallback;
 		JsonElement inner = GetPropertyOrThrow(element, field);
 		
 		if (inner.ValueKind != JsonValueKind.Array)
@@ -58,8 +73,9 @@ public static class JsonUtil {
 		}
 		return final.ToArray();
 	}
-	
-	public static JsonElement[] GetObjectArrayOrThrow(JsonElement element, string field) {
+	public static JsonElement[] GetObjectArrayOrThrow(JsonElement element, string field, JsonElement[]? fallback = null) {
+		if (fallback is not null && !element.TryGetProperty(field, out _))
+			return fallback;
 		JsonElement inner = GetPropertyOrThrow(element, field);
 		
 		if (inner.ValueKind != JsonValueKind.Array)
@@ -72,6 +88,16 @@ public static class JsonUtil {
 			}
 		}
 		return array;
+	}
+	
+	public static string[] GetStringOrStringArrayOrThrow(JsonElement element, string field) {
+		JsonElement inner = GetPropertyOrThrow(element, field);
+		
+		if (inner.ValueKind == JsonValueKind.String)
+			return [GetStringOrThrow(element, field)];
+		if (inner.ValueKind == JsonValueKind.Array)
+			return GetStringArrayOrThrow(element, field);
+		throw new InvalidDataException($"Field {field} is of the wrong type (Expected a string or a string array, but got {inner.ValueKind.ToString()})");
 	}
 	
 	/*
