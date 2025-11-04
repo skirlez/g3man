@@ -131,15 +131,51 @@ public class Patcher {
 		
 		data.GeneralInfo.FunctionClassifications |= modData.GeneralInfo.FunctionClassifications;
 	}
-	
+
+
 	public void Patch(List<Mod> mods, Profile profile, Game game, Action<string, bool> statusCallback) {
 		void setStatus(string message, bool leave = false) {
 			logger.Info(message);
 			statusCallback(message, leave);
 		}
+
+		Dictionary<string, Mod> IdMap = mods.ToDictionary(mod => mod.ModId);
+		List<string> issues = new List<string>();
+		
+		// Check for dependency and issues
+		Parallel.ForEach(mods, mod => {
+			foreach (RelatedMod related in mod.Depends) {
+				Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
+				if (dependency is null) {
+					lock (issues) {
+						issues.Add($"Mod {mod.DisplayName} depends on mod with ID {related.ModId} (version {related.Version}), but it is not present");
+					}
+					return;
+				}
+				if (!related.Version.IsCompatibleWith(dependency.Version)) {
+					issues.Add($"Mod {mod.DisplayName} depends on the mod {dependency.DisplayName}, but the version present is too old "
+						+ $"(required: {related.Version}, present: {dependency.Version})");
+				}
+
+				int index = mods.IndexOf(mod);
+				int dependencyIndex = mods.IndexOf(dependency);
+				switch (related.OrderRequirement) {
+					case OrderRequirement.AfterUs:
+						if (dependencyIndex < index)
+							issues.Add($"Mod {mod.DisplayName} depends on the mod {dependency.DisplayName}, but the dependency must be loaded AFTER it in the order");
+						break;
+					case OrderRequirement.BeforeUs:
+						if (dependencyIndex > index)
+							break;
+						issues.Add($"Mod {mod.DisplayName} depends on the mod {dependency.DisplayName}, but the dependency must be loaded BEFORE it in the order");
+						break;
+					default:
+						break;
+				}
+			}
+		});
 		
 		UndertaleData data;
-		
 		statusCallback($"Waiting for game data to load...", false);
 
 		lock (Program.DataLoader.Lock) {

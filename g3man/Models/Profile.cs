@@ -13,6 +13,7 @@ public class Profile {
 	public string[] ModOrder;
 
 	public string Description;
+	public string Version;
 	public string[] Credits;
 	public string[] Links;
 
@@ -26,6 +27,7 @@ public class Profile {
 		ModOrder = modOrder;
 
 		Description = "";
+		Version = "";
 		Credits = [];
 		Links = [];
 	}
@@ -36,6 +38,7 @@ public class Profile {
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
 		ModOrder = JsonUtil.GetStringArrayOrThrow(root, "mod_order");
 		Description = JsonUtil.GetStringOrThrow(root, "description");
+		Version = JsonUtil.GetStringOrThrow(root, "version");
 		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits");
 		Links = JsonUtil.GetStringArrayOrThrow(root, "links");
 	}
@@ -83,6 +86,7 @@ public class Profile {
 			["mod_order"] = new JsonArray(ModOrder.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>()),
 			
 			["description"] = Description,
+			["version"] = Version,
 			["credits"] = new JsonArray(Credits.Select(credit => JsonValue.Create(credit)).ToArray<JsonNode?>()),
 			["links"] = new JsonArray(Links.Select(link => JsonValue.Create(link)).ToArray<JsonNode?>())
 		};
@@ -114,5 +118,9 @@ public class Profile {
 		}
 
 		return false;
+	}
+
+	public void UpdateOrder(List<Mod> modsList) {
+		ModOrder = modsList.Select(mod => mod.ModId).ToArray();
 	}
 }

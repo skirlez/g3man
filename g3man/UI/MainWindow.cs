@@ -270,12 +270,39 @@ public class MainWindow : Window {
 		openModsFolderButton.Label = "Open mods folder";
 		
 		Button refreshButton = Button.NewWithLabel("Refresh");
-		refreshButton.OnClicked += (_, _) => PopulateModsList();
+		refreshButton.OnClicked += (_, _) => {
+			Program.GetProfile()!.UpdateOrder(modsList);
+			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
+			PopulateModsList();
+		};
 		
 		Button moveModsUp = Button.New();
 		moveModsUp.Label = "↑";
 		Button moveModsDown = Button.New();
 		moveModsDown.Label = "↓";
+
+		moveModsUp.OnClicked += reorderMods;
+		moveModsDown.OnClicked += reorderMods;
+
+		void reorderMods(Button sender, EventArgs _) {
+			int direction = (sender == moveModsUp ? -1 : 1);
+			ListBoxRow? selected = modsListBox.GetSelectedRow();
+			if (selected is null)
+				return;
+			ListBoxRow? next = modsListBox.GetRowAtIndex(selected.GetIndex() + direction);
+			if (next is null)
+				return;
+			int index = selected.GetIndex();
+			modsListBox.UnselectAll();
+			modsListBox.Remove(selected);
+			modsListBox.Insert(selected, index + direction);
+			modsListBox.SelectRow(selected);
+
+			// we assume the list is identical to the listbox (so this operation will be valid)
+			Mod mod = modsList[index];
+			modsList.RemoveAt(index);
+			modsList.Insert(index + direction, mod);
+		}
 		
 		Button installFromZipButton = Button.New();
 		installFromZipButton.Label = "Install from ZIP";
@@ -411,6 +438,10 @@ public class MainWindow : Window {
 		modsList = Mod.Parse(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);
+		{
+			List<string> temp = profile.ModOrder.ToList();
+			modsList.Sort((mod1, mod2) => int.Sign(temp.IndexOf(mod1.ModId) - temp.IndexOf(mod2.ModId)));
+		}
 		foreach (Mod mod in modsList) {
 			ListBoxRow row = ListBoxRow.New();
 			CheckButton modEnabled = CheckButton.New();
