@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using g3man.Models;
 using g3man.Util;
 using gmlp;
@@ -138,43 +139,15 @@ public class Patcher {
 			logger.Info(message);
 			statusCallback(message, leave);
 		}
-
-		Dictionary<string, Mod> IdMap = mods.ToDictionary(mod => mod.ModId);
-		List<string> issues = new List<string>();
-		
-		// Check for dependency and issues
-		Parallel.ForEach(mods, mod => {
-			foreach (RelatedMod related in mod.Depends) {
-				Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
-				if (dependency is null) {
-					lock (issues) {
-						issues.Add($"Mod {mod.DisplayName} depends on mod with ID {related.ModId} (version {related.Version}), but it is not present");
-					}
-					return;
-				}
-				if (!related.Version.IsCompatibleWith(dependency.Version)) {
-					issues.Add($"Mod {mod.DisplayName} depends on the mod {dependency.DisplayName}, but the version present is too old "
-						+ $"(required: {related.Version}, present: {dependency.Version})");
-				}
-
-				int index = mods.IndexOf(mod);
-				int dependencyIndex = mods.IndexOf(dependency);
-				switch (related.OrderRequirement) {
-					case OrderRequirement.AfterUs:
-						if (dependencyIndex < index)
-							issues.Add($"Mod {mod.DisplayName} depends on the mod {dependency.DisplayName}, but the dependency must be loaded AFTER it in the order");
-						break;
-					case OrderRequirement.BeforeUs:
-						if (dependencyIndex > index)
-							break;
-						issues.Add($"Mod {mod.DisplayName} depends on the mod {dependency.DisplayName}, but the dependency must be loaded BEFORE it in the order");
-						break;
-					default:
-						break;
-				}
+		List<string> issues = CheckDependsAndBreaks(mods);
+		if (issues.Count > 0) {
+			StringBuilder sb = new StringBuilder("Encountered issues that are preventing patching!");
+			foreach (string issue in issues) {
+				sb.Append("\n" + issue);
 			}
-		});
-		
+			statusCallback(sb.ToString(), true);
+			return;
+		}
 		UndertaleData data;
 		statusCallback($"Waiting for game data to load...", false);
 
@@ -290,5 +263,96 @@ public class Patcher {
 	public static bool IsDataPatched(UndertaleData data) {
 		return false;
 	}
-	
+
+
+	public List<string> CheckDependsAndBreaks(List<Mod> mods) {
+		List<string> issues = new List<string>();
+		Dictionary<string, Mod> IdMap = mods.ToDictionary(mod => mod.ModId);
+		Parallel.Invoke(
+			() => Parallel.ForEach(mods, mod => CheckDepends(mods, mod, IdMap, issues)),
+			() => Parallel.ForEach(mods, mod => CheckBreaks(mods, mod, IdMap, issues))
+		);
+
+		return issues;
+	}
+
+	private void CheckDepends(List<Mod> mods, Mod mod, Dictionary<string, Mod> IdMap, List<string> issues) {
+		foreach (RelatedMod related in mod.Depends) {
+			Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
+			if (dependency is null) {
+				lock (issues) {
+					issues.Add($"Mod {mod.DisplayName} depends on mod with ID {related.ModId} (version {related.Version}), but it is not present");
+				}
+				return;
+			}
+			if (!related.Version.IsCompatibleWith(dependency.Version)) {
+				lock (issues) {
+					issues.Add(
+						$"Mod \"{mod.DisplayName}\" depends on the mod \"{dependency.DisplayName}\", but the version present isn't compatible "
+						+ $"(required: {related.Version}, present: {dependency.Version})");
+				}
+			}
+
+			int index = mods.IndexOf(mod);
+			int dependencyIndex = mods.IndexOf(dependency);
+			switch (related.OrderRequirement) {
+				case OrderRequirement.AfterUs:
+					if (dependencyIndex < index) {
+						lock (issues) {
+							issues.Add(
+								$"Mod \"{mod.DisplayName}\" depends on the mod \"{dependency.DisplayName}\", but the dependency must be loaded AFTER it in the order");
+						}
+					}
+
+					break;
+				case OrderRequirement.BeforeUs:
+					if (dependencyIndex > index)
+						break;
+					lock (issues) {
+						issues.Add(
+							$"Mod \"{mod.DisplayName}\" depends on the mod \"{dependency.DisplayName}\", but the dependency must be loaded BEFORE it in the order");
+					}
+
+					break;
+			}
+		}
+	}
+	private void CheckBreaks(List<Mod> mods, Mod mod, Dictionary<string, Mod> IdMap, List<string> issues) {
+		foreach (RelatedMod related in mod.Depends) {
+			Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
+			if (dependency is null)
+				return;
+			if (related.Version.IsCompatibleWith(dependency.Version)) {
+				return;
+			}
+			
+			string help = $"Either reorder the mods, or find a version of \"{dependency.DisplayName}\" that is below {related.Version}";
+			int index = mods.IndexOf(mod);
+			int dependencyIndex = mods.IndexOf(dependency);
+			switch (related.OrderRequirement) {
+				case OrderRequirement.AfterUs:
+					if (dependencyIndex < index) {
+						lock (issues) {
+							issues.Add(
+								$"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" is loaded AFTER it in the order");
+						}
+					}
+
+					break;
+				case OrderRequirement.BeforeUs:
+					if (dependencyIndex > index)
+						break;
+					lock (issues) {
+						issues.Add(
+							$"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" is loaded BEFORE it in the order");
+					}
+
+					break;
+				case OrderRequirement.Irrelevant:
+					issues.Add(
+						$"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" exists.");
+					break;
+			}
+		}
+	}
 }

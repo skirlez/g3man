@@ -84,7 +84,6 @@ public class Profile {
 			["separate_modded_save"] = SeparateModdedSave,
 			["modded_save_name"] = ModdedSaveName,
 			["mod_order"] = new JsonArray(ModOrder.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>()),
-			
 			["description"] = Description,
 			["version"] = Version,
 			["credits"] = new JsonArray(Credits.Select(credit => JsonValue.Create(credit)).ToArray<JsonNode?>()),

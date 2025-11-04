@@ -52,7 +52,7 @@ public class Mod {
 		IconPath = JsonUtil.GetStringOrThrow(root, "icon_path");
 		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits");
 		Links = JsonUtil.GetStringArrayOrThrow(root, "links");
-		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"));
+		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"), false);
 		TargetGameVersion = JsonUtil.GetStringOrThrow(root, "target_game_version");
 		TargetPatcherVersion = JsonUtil.GetStringOrThrow(root, "target_patcher_version");
 		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches")
@@ -90,13 +90,20 @@ public class Mod {
 				logger.Error("Couldn't find or load mod.json at " + fullPath + ":\n" + e.Message);
 				return;
 			}
-			
+
+			void onError(Exception e) {
+				logger.Error("Invalid mod.json at " + fullPath + ":\n" + e.Message);
+			}
+
 			try {
 				Mod mod = new Mod(jsonDoc.RootElement, Path.GetFileName(modFolder));
 				mods.Add(mod);
 			}
 			catch (InvalidDataException e) {
-				logger.Error("Invalid mod.json at " + fullPath + ":\n" + e.Message);
+				onError(e);
+			}
+			catch (InvalidModException e) {
+				onError(e);
 			}
 		});
 
@@ -104,7 +111,7 @@ public class Mod {
 		return mods.ToList();
 	}
 }
-
+public class InvalidModException(string message) : Exception(message);
 
 public class PatchLocation {
 	public string Path;
@@ -120,7 +127,7 @@ public class PatchLocation {
 		};
 	}
 }
-public class InvalidPatchTypeException(string message) : Exception(message);
+public class InvalidPatchTypeException(string message) : InvalidModException(message);
 
 
 public enum PatchFormatType {
@@ -151,35 +158,47 @@ public enum OrderRequirement {
 	AfterUs,
 	Irrelevant
 }
-public class InvalidOrderRequirementException(string message) : Exception(message);
+public class InvalidOrderRequirementException(string message) : InvalidModException(message);
 
 
 public readonly struct SemVer() {
-	public readonly uint Major;
-	public readonly uint Minor;
-	public readonly uint Patch;
+	public readonly int Major;
+	public readonly int Minor;
+	public readonly int Patch;
 
-	public SemVer(string version) : this() {
-		const string help = "Mods should have versions of the form\"major.minor.patch\", like \"1.0.0\"";
+	public SemVer(string version, bool starAllowed) : this() {
+		const string help1 = "Mods should have versions of the form \"major.minor.patch\", like \"1.0.0\", or \"2.3.4\"";
+		const string help2 = "Mod relations should have versions of the form \"major.minor.patch\" (with shortening and '*' allowed), like \"1.0.0\", \"2.3\", or \"3.6.*\"";
+		string help = starAllowed ? help2 : help1;
 		string[] sections = version.Split(".");
+
+		int ParseSection(string section) {
+			if (starAllowed && section == "*")
+				return -1;
+			return int.Parse(section);
+		}
+
+		if (!starAllowed && sections.Length != 3) {
+			throw new InvalidSemVerException($"Field \"version\" has too little dots. {help}");
+		}
 		try {
 			switch (sections.Length) {
 				case 0:
 					throw new InvalidSemVerException($"Field \"version\" is blank. {help}");
 				case 1:
-					Major = uint.Parse(sections[0]);
-					Minor = 0;
-					Patch = 0;
+					Major = ParseSection(sections[0]);
+					Minor = -1;
+					Patch = -1;
 					break;
 				case 2:
-					Major = uint.Parse(sections[0]);
-					Minor = uint.Parse(sections[1]);
-					Patch = 0;
+					Major = ParseSection(sections[0]);
+					Minor = ParseSection(sections[1]);
+					Patch = -1;
 					break;
 				case 3:
-					Major = uint.Parse(sections[0]);
-					Minor = uint.Parse(sections[1]);
-					Patch = uint.Parse(sections[3]);
+					Major = ParseSection(sections[0]);
+					Minor = ParseSection(sections[1]);
+					Patch = ParseSection(sections[2]);
 					break;
 				default:
 					throw new InvalidSemVerException($"Field \"version\" has too many dots. {help}");
@@ -190,58 +209,42 @@ public readonly struct SemVer() {
 				throw new InvalidSemVerException($"Field \"version\" does not have valid numbers. {help}");
             throw;
         }
+		if ((Major == -1 && Minor != -1) || (Major == -1 && Patch != -1) || (Minor == -1 && Patch != -1)) {
+			throw new InvalidSemVerException(
+				"In Field \"version\", '*' should only appear at the end, and no numbers can show up after it.");
+		}
 	}
 	public override string ToString() {
-		return $"{Major}.{Minor}.{Patch}";
+		string ma = (Major == -1) ? "*" : $"{Major}";
+		string mi = (Minor == -1) ? "*" : $"{Minor}";
+		string p = (Patch == -1) ? "*" : $"{Patch}";
+		return $"{ma}.{mi}.{p}";
 	}
 }
-public class InvalidSemVerException(string message) : Exception(message);
+public class InvalidSemVerException(string message) : InvalidModException(message);
 
 public readonly struct SemVerRequirement() {
 	private readonly SemVer Version;
-	private readonly SemVerComparison Comparison;
 	public SemVerRequirement(string version) : this() {
-		if (version.Length == 0)
-			throw new InvalidSemVerException("Field \"version\" is empty.");
-		string[] sections = Regex.Split(version, "(>=|<=|>|<|=)");
-		if (sections.Length >= 2)
-			throw new InvalidSemVerRequirementException("Field \"version\" does not contain a valid version requirement."
-				+ "Version requirements look like (comparison)(major.minor.version). Examples: >=1.3.2, 3.2.1, <4.3.5");
-		if (sections.Length == 1) {
-			Version = new SemVer(sections[0]);
-			Comparison = SemVerComparison.Equals;
-		}
-		else {
-			Version = new SemVer(sections[1]);
-			Comparison = sections[0] switch {
-				">=" => SemVerComparison.GreaterEquals,
-				"<=" => SemVerComparison.LesserEquals,
-				">" => SemVerComparison.Greater,
-				"<" => SemVerComparison.Lesser,
-				"=" => SemVerComparison.Equals,
-				_ => throw new InvalidSemVerRequirementException($"Field \"Version\" starts with invalid string \"{sections[0]}\"."
-					+ "Valid starting strings are \"\", \">=\", \"<=\", \">\", \"<\", and \"=\"."),
-			};
-		}
+		Version = new SemVer(version, true);
 	}
 
 	public bool IsCompatibleWith(SemVer dependencyVersion) {
-		bool equals = (dependencyVersion.Major == Version.Major)
-			&& dependencyVersion.Minor == Version.Minor
-			&& dependencyVersion.Patch == Version.Patch;
-		switch (Comparison) {
-			case SemVerComparison.Equals:
-				return equals;
-				break;
-			case SemVerComparison.Greater:
-				break;
-			case SemVerComparison.Lesser:
-				break;
-			case SemVerComparison.GreaterEquals:
-				break;
-			case SemVerComparison.LesserEquals:
-				break;
-		}
+		if (Version.Major == -1)
+			return true;
+		if (Version.Major != dependencyVersion.Major)
+			return false;
+		if (Version.Minor == -1)
+			return true;
+		if (Version.Minor > dependencyVersion.Minor)
+			return false;
+		if (Version.Patch == -1)
+			return true;
+		return Version.Patch <= dependencyVersion.Patch;
+	}
+
+	public override string ToString() {
+		return Version.ToString();
 	}
 }
 public enum SemVerComparison {
@@ -251,4 +254,4 @@ public enum SemVerComparison {
 	Lesser,
 	Equals
 }
-public class InvalidSemVerRequirementException(string message) : Exception(message);
+public class InvalidSemVerRequirementException(string message) : InvalidModException(message);

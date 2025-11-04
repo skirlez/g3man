@@ -19,6 +19,7 @@ public class PatcherWindow : Window {
 		statusLabel.SetJustify(Justification.Center);
 		statusLabel.SetValign(Align.Center);
 		statusLabel.SetHalign(Align.Center);
+		statusLabel.SetMargin(20);
 		statusLabel.SetVexpand(true);
 		
 		closeButton = Button.NewWithLabel("Close");
