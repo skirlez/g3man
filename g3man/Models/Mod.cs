@@ -24,6 +24,7 @@ public class Mod {
 	public string[] Links;
 	
 	public RelatedMod[] Depends;
+	public RelatedMod[] Suggests;
 	public RelatedMod[] Breaks;
 
 	public string FolderName;
@@ -50,7 +51,7 @@ public class Mod {
 	private Mod(JsonElement root, string folderName) {
 		ModId = JsonUtil.GetStringOrThrow(root, "mod_id");
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
-		Description = JsonUtil.GetStringOrThrow(root, "description");
+		Description = JsonUtil.GetStringOrThrow(root, "description", "");
 		IconPath = JsonUtil.GetStringOrThrow(root, "icon_path", "");
 		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits", []);
 		Links = JsonUtil.GetStringArrayOrThrow(root, "links", []);
@@ -64,6 +65,8 @@ public class Mod {
 		PostProcessScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
 		
 		Depends = JsonUtil.GetObjectArrayOrThrow(root, "depends")
+			.Select(x => new RelatedMod(x)).ToArray();
+		Suggests = JsonUtil.GetObjectArrayOrThrow(root, "suggests", [])
 			.Select(x => new RelatedMod(x)).ToArray();
 		Breaks = JsonUtil.GetObjectArrayOrThrow(root, "breaks")
 			.Select(x => new RelatedMod(x)).ToArray();
@@ -144,8 +147,8 @@ public class RelatedMod {
 
 	public RelatedMod(JsonElement root) {
 		ModId = JsonUtil.GetStringOrThrow(root, "mod_id");
-		Version = new SemVerRequirement(JsonUtil.GetStringOrThrow(root, "version"));
-		string orderRequirement = JsonUtil.GetStringOrThrow(root, "order_requirement");
+		Version = new SemVerRequirement(JsonUtil.GetStringOrStringArrayOrThrow(root, "version"));
+		string orderRequirement = JsonUtil.GetStringOrThrow(root, "order");
 		OrderRequirement = orderRequirement switch {
 			"before_us" => OrderRequirement.BeforeUs,
 			"after_us" => OrderRequirement.AfterUs,
@@ -168,19 +171,17 @@ public readonly struct SemVer() {
 	public readonly int Minor;
 	public readonly int Patch;
 
-	public SemVer(string version, bool starAllowed = false) : this() {
+	public SemVer(string version, bool shorteningAllowed = false) : this() {
 		const string help1 = "Mods should have versions of the form \"major.minor.patch\", like \"1.0.0\", or \"2.3.4\"";
-		const string help2 = "Mod relations should have versions of the form \"major.minor.patch\" (with shortening and '*' allowed), like \"1.0.0\", \"2.3\", or \"3.6.*\"";
-		string help = starAllowed ? help2 : help1;
+		const string help2 = "Mod relations should have versions of the form \"major.minor.patch\" (with shortening allowed), like \"1.0.0\" or \"2.3\"";
+		string help = shorteningAllowed ? help2 : help1;
 		string[] sections = version.Split(".");
 
 		int ParseSection(string section) {
-			if (starAllowed && section == "*")
-				return -1;
 			return int.Parse(section);
 		}
 
-		if (!starAllowed && sections.Length != 3) {
+		if (!shorteningAllowed && sections.Length != 3) {
 			throw new InvalidSemVerException($"Field \"version\" has too little dots. {help}");
 		}
 		try {
@@ -189,13 +190,13 @@ public readonly struct SemVer() {
 					throw new InvalidSemVerException($"Field \"version\" is blank. {help}");
 				case 1:
 					Major = ParseSection(sections[0]);
-					Minor = -1;
-					Patch = -1;
+					Minor = 0;
+					Patch = 0;
 					break;
 				case 2:
 					Major = ParseSection(sections[0]);
 					Minor = ParseSection(sections[1]);
-					Patch = -1;
+					Patch = 0;
 					break;
 				case 3:
 					Major = ParseSection(sections[0]);
@@ -211,16 +212,9 @@ public readonly struct SemVer() {
 				throw new InvalidSemVerException($"Field \"version\" does not have valid numbers. {help}");
             throw;
         }
-		if ((Major == -1 && Minor != -1) || (Major == -1 && Patch != -1) || (Minor == -1 && Patch != -1)) {
-			throw new InvalidSemVerException(
-				"In Field \"version\", '*' should only appear at the end, and no numbers can show up after it.");
-		}
 	}
 	public override string ToString() {
-		string ma = (Major == -1) ? "*" : $"{Major}";
-		string mi = (Minor == -1) ? "*" : $"{Minor}";
-		string p = (Patch == -1) ? "*" : $"{Patch}";
-		return $"{ma}.{mi}.{p}";
+		return $"{Major}.{Minor}.{Patch}";
 	}
 }
 public class InvalidSemVerException(string message) : InvalidModException(message);
@@ -231,8 +225,10 @@ public readonly struct SemVerRequirement() {
 	private (SemVerComparison, int) GetComparison(string requirementString) {
 		char first = requirementString[0];
 		char second = requirementString[1];
+		if (first == '~')
+			return (SemVerComparison.RoughlyEquals, 1);
 		if (first == '=')
-			return (SemVerComparison.ExplicitEquals, 1);
+			return (SemVerComparison.Equals, 1);
 		if (first == '>') {
 			if (second == '=')
 				return (SemVerComparison.GreaterEquals, 2);
@@ -243,7 +239,7 @@ public readonly struct SemVerRequirement() {
 				return (SemVerComparison.LesserEquals, 2);
 			return (SemVerComparison.Lesser, 1);
 		}
-		return (SemVerComparison.ImplicitEquals, 0);
+		return (SemVerComparison.RoughlyEquals, 0);
 	}
 	public SemVerRequirement(string[] requirementStrings) : this() {
 		Conditions = new (SemVer, SemVerComparison)[requirementStrings.Length];
@@ -259,41 +255,88 @@ public readonly struct SemVerRequirement() {
 	}
 
 	public bool IsCompatibleWith(SemVer other) {
-		foreach ((SemVer version, SemVerComparison comparison) in Conditions) {
-			if (version.Major == -1)
+		foreach ((SemVer requirement, SemVerComparison comparison) in Conditions) {
+			bool compatible = isCompatibleWith(requirement, comparison, other);
+			if (compatible)
 				return true;
-			switch (comparison) {
-				case SemVerComparison.ImplicitEquals:
-				case SemVerComparison.ExplicitEquals:
-					if (version.Major != other.Major)
-						return false;
-					if (version.Minor == -1)
-						return true;
-					if (version.Minor != other.Minor)
-						return false;
-					if (version.Patch == -1)
-						return true;
-					if (comparison == SemVerComparison.ImplicitEquals)
-						return (version.Patch <= other.Patch);
-					return (version.Patch == other.Patch);
-			}
-
-			
 		}
-		return true;
+		return false;
+	}
+
+	private static bool isCompatibleWith(SemVer requirement, SemVerComparison comparison, SemVer other) {
+		bool exactEqual = requirement.Major == other.Major 
+		                  && requirement.Minor == other.Minor 
+		                  && requirement.Patch == other.Patch;
+		bool greater = semVerGreaterCompatible(other, requirement);
+		bool lesser = semVerGreaterCompatible(requirement, other);
+		switch (comparison) {
+			case SemVerComparison.RoughlyEquals:
+				if (requirement.Major != other.Major)
+					return false;
+				if (requirement.Minor != other.Minor)
+					return false;
+				return (requirement.Patch <= other.Patch);
+			case SemVerComparison.Equals:
+				return exactEqual;
+			case SemVerComparison.Greater:
+				return greater;
+			case SemVerComparison.Lesser:
+				return lesser;
+			case SemVerComparison.GreaterEquals:
+				return exactEqual || greater;
+			case SemVerComparison.LesserEquals:
+				return exactEqual || lesser;
+			default:
+				return false;
+		}
 	}
 	
+	private static bool semVerGreaterCompatible(SemVer one, SemVer two) {
+		if (one.Major > two.Major)
+			return true;
+		if (one.Major < two.Major)
+			return false;
+		if (one.Minor > two.Minor)
+			return true;
+		if (one.Minor < two.Minor)
+			return false;
+		return one.Patch < two.Patch;
+	}
 
 	public override string ToString() {
-		return "TODO";
+		if (Conditions.Length == 0)
+			return "None";
+		
+		string result = conditionToString(Conditions[0].Item1, Conditions[0].Item2);
+		for (int i = 1; i < Conditions.Length; i++) {
+			result += $" OR {conditionToString(Conditions[i].Item1, Conditions[i].Item2)}";
+		}
+
+		return result;
+	}
+
+	private string conditionToString(SemVer version, SemVerComparison comparison) {
+		string operation = comparison switch {
+			SemVerComparison.Equals => "=",
+			SemVerComparison.RoughlyEquals => "~",
+			SemVerComparison.Greater => ">",
+			SemVerComparison.Lesser => "<",
+			SemVerComparison.GreaterEquals => ">=",
+			SemVerComparison.LesserEquals => "<=",
+
+			_ => "="
+		};
+
+		return $"{operation}{version}";
 	}
 }
+
 public enum SemVerComparison {
 	GreaterEquals,
 	LesserEquals,
 	Greater,
 	Lesser,
-	ImplicitEquals,
-	ExplicitEquals
+	RoughlyEquals,
+	Equals
 }
 public class InvalidSemVerRequirementException(string message) : InvalidModException(message);

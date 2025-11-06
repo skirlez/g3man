@@ -45,25 +45,29 @@ public static class Program {
 	}
 	
 	public static int Main(string[] args) {
-		DataLoader = new DataLoader();
-		JsonElement? configJson = Config.Read();
-		if (configJson is null)
-			Config = new Config();
-		else
-			Config = new Config(configJson.Value);
+		if (args.Length == 0) {
+			DataLoader = new DataLoader();
+			JsonElement? configJson = Config.Read();
+			if (configJson is null)
+				Config = new Config();
+			else
+				Config = new Config(configJson.Value);
 
-		if (Config.Initializer == Initializer.Gtk)
-			application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
-		else
-			application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
-		InitializedUsing = Config.Initializer;
+			if (Config.Initializer == Initializer.Gtk)
+				application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+			else
+				application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+			InitializedUsing = Config.Initializer;
 
-		application.OnActivate += (_, _) => {
-			window = new MainWindow();
-			application.AddWindow(window);
-			window.Show();
-		};
-		return application.RunWithSynchronizationContext([]);
+			application.OnActivate += (_, _) => {
+				window = new MainWindow();
+				application.AddWindow(window);
+				window.Show();
+			};
+			return application.RunWithSynchronizationContext([]);
+		}
+		
+		return 0;
 	}
 	
 

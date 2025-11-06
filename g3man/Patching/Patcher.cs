@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 using g3man.Models;
 using g3man.Util;
@@ -14,12 +15,93 @@ public class Patcher {
 	public const string CleanDataName = "clean_data.g3man";
 	public const string TempDataName = "temp_data.g3man";
 
+	enum OverlapBehavior {
+		ImplicitlyExcludeExplicitlyOverride,
+		ExplicitlyExcludeImplicitlyOverride,
+		AllExplicit,
+	}
+	private OverlapBehavior overlapBehavior = OverlapBehavior.ImplicitlyExcludeExplicitlyOverride;
+	private const string OVERRIDE_PREFIX = "g3man_override_";
+	private const string EXCLUDE_PREFIX = "g3man_fake_";
+
+	
+	/**
+	 * If the resource should be excluded according to the patcher's settings, return the object it
+	 * is supposed to mimic.
+	 * Otherwise returns null.
+	 */
+	private T? GetMimicedResource<T>(IList<T> list, T resource) where T : UndertaleNamedResource {
+		string name = resource.Name.Content;
+		if (overlapBehavior == OverlapBehavior.ImplicitlyExcludeExplicitlyOverride) {
+			return list.ByName(name);
+		}
+
+		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyExcludeImplicitlyOverride 
+		             || overlapBehavior == OverlapBehavior.AllExplicit);
+		if (name.StartsWith(EXCLUDE_PREFIX))
+			return default(T);
+		return list.ByName(name.Substring(EXCLUDE_PREFIX.Length));
+	}
+	
+	/**
+	 * If the resource should override some other resource according to the patcher's settings, return the object it should replace.
+	 * Otherwise returns null.
+	 */
+	private T? GetResourceToOverride<T>(IList<T> list, T resource) where T : UndertaleNamedResource {
+		string name = resource.Name.Content;
+		if (overlapBehavior == OverlapBehavior.ImplicitlyExcludeExplicitlyOverride ||
+		    overlapBehavior == OverlapBehavior.AllExplicit) {
+			if (!name.StartsWith(OVERRIDE_PREFIX))
+				return default(T);
+			return list.ByName(name.Substring(OVERRIDE_PREFIX.Length));
+		}
+		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyExcludeImplicitlyOverride);
+		T? old = list.ByName(name);
+		return old;
+	}
+	
+	private void MergeLists<T>(IList<T> to, IList<T> from, Func<T, bool>? process = null) where T : UndertaleNamedResource {
+		foreach (T resource in from) {
+			if (GetMimicedResource(to, resource) is null)
+				continue;
+			if (process is not null) {
+				if (!process(resource))
+					continue;
+			}
+			to.Add(resource);
+			
+		}
+		HandleOverrides(to, from);
+	}
+
+	private void HandleOverrides<T>(IList<T> to, IList<T> from) where T : UndertaleNamedResource {
+		List<T> overriders = from.Where(resource => resource.Name.Content.StartsWith(OVERRIDE_PREFIX)).ToList();
+		foreach (T overrider in overriders) {
+			T? old = GetResourceToOverride(to, overrider);
+			if (old is null) {
+				continue;
+			}
+			// This is a bit dumb but it's probably the cleanest way to go about this.
+			// UndertaleModTool doesn't keep track of indices to the Data's resource lists, but just keeps references.
+			// For example, UndertaleGameObject stores the reference to the UndertaleSprite it uses. If we were to replace the sprite at that index,
+			// It would not do anything for the object's sprite. So, we set each field of the instance.
+			
+			// Specifically we swap their fields because I'm worried about the saving possibly not working because of unwritten pointers,
+			// if that turns out to not be an issue the swap can be removed.
+			FieldInfo[] fields = old.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+			foreach (FieldInfo field in fields) {
+				object? temp = field.GetValue(overrider);
+				field.SetValue(overrider, field.GetValue(temp));
+				field.SetValue(old, temp);
+			}
+		}
+	}
 	/**
 	 * Merges (as in, copies all data) from `modData` into `data`.
 	 * 
 	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
 	 */
-	private static void Merge(UndertaleData data, UndertaleData modData) {
+	private void Merge(UndertaleData data, UndertaleData modData) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
 		data.GeneralInfo.LastObj += modData.GeneralInfo.LastObj - 100000;
@@ -38,9 +120,8 @@ public class Patcher {
 			data.EmbeddedTextures.Add(newTexture);
 			dict.Add(embeddedTexture, lastTexturePage);
 		}
-
-		foreach (UndertaleSprite sprite in modData.Sprites) {
-			data.Sprites.Add(sprite);
+		
+		MergeLists(data.Sprites, modData.Sprites, sprite => {
 			foreach (UndertaleSprite.TextureEntry textureEntry in sprite.Textures) {
 				int newIndex = dict[textureEntry.Texture.TexturePage];
 				textureEntry.Texture.TexturePage = data.EmbeddedTextures[newIndex];
@@ -48,18 +129,20 @@ public class Patcher {
 				textureEntry.Texture.Name = new UndertaleString("PageItem " + lastTexturePageItem);
 				data.TexturePageItems.Add(textureEntry.Texture);
 			}
-		}
+			return true;
+		});
+		
+		HandleOverrides(data.Sprites, modData.Sprites);
 
 		// TODO: Is This OK
-		foreach (UndertaleSound sound in modData.Sounds) {
+		MergeLists(data.Sounds, modData.Sounds, sound => {
 			sound.AudioGroup = data.AudioGroups[0];
-			data.Sounds.Add(sound);
 			data.EmbeddedAudio.Add(sound.AudioFile);
-		}
-
-		foreach (UndertaleCode code in modData.Code)
-			data.Code.Add(code);
-
+			return true;
+		});
+		
+		MergeLists(data.Code, modData.Code);
+		
 		foreach (UndertaleFunction function in modData.Functions) {
 			data.Functions.Add(function);
 			function.NameStringID += stringListLength;
@@ -82,47 +165,47 @@ public class Patcher {
 
 		foreach (UndertaleCodeLocals locals in modData.CodeLocals) 
 			data.CodeLocals.Add(locals);
-		foreach (UndertaleScript script in modData.Scripts) 
-			data.Scripts.Add(script);
 		
-		foreach (UndertaleGameObject gameObject in modData.GameObjects) {
-			/*
-			if (data.GameObjects.ByName(gameObject.Name.Content) != null)
-				continue;
-			*/
+		MergeLists(data.Scripts, modData.Scripts);
+		MergeLists(data.GameObjects,  modData.GameObjects, gameObject => {
 			UndertaleGameObject parent = gameObject.ParentId;
-			if (parent is not null) {
-				string name = parent.Name.Content;
-				const string parentPrefix = "g3man_fake_";
-				if (name.StartsWith(parentPrefix) && name.Length > parentPrefix.Length) {
-					string nameWithoutPrefix = name.Substring(parentPrefix.Length);
-					UndertaleGameObject parentFromGame = data.GameObjects.ByName(nameWithoutPrefix);
-					if (parentFromGame is not null) {
-						gameObject.ParentId = parentFromGame;
-					}
-				}
-			}
-			data.GameObjects.Add(gameObject);
-		}
+			if (parent is null)
+				return true;
+			UndertaleGameObject? parentFromGame = GetMimicedResource(data.GameObjects, parent);
+			if (parentFromGame is not null)
+				gameObject.ParentId = parentFromGame;
+			return true;
+		});
 
-		foreach (UndertaleRoom room in modData.Rooms) {
-			data.Rooms.Add(room);
+		
+		MergeLists(data.Rooms, modData.Rooms, room => {
 			foreach (UndertaleRoom.Layer layer in room.Layers) {
 				if (layer.LayerType != UndertaleRoom.LayerType.Instances) 
 					continue;
 				foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
 					gameObject.InstanceID += addInstanceId;
 			}
+			return true;
+		});
+
+		foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modData.GeneralInfo.RoomOrder) {
+			if (GetMimicedResource(data.Rooms, room.Resource) is not null)
+				continue;
+			data.GeneralInfo.RoomOrder.Add(room);
 		}
 
-		foreach (UndertaleAnimationCurve curve in modData.AnimationCurves)
-			data.AnimationCurves.Add(curve);
+
+		MergeLists(data.AnimationCurves, modData.AnimationCurves);
+
 		
-		foreach (UndertaleSequence sequence in modData.Sequences)
-			data.Sequences.Add(sequence);
 		
-		foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modData.GeneralInfo.RoomOrder)
-			data.GeneralInfo.RoomOrder.Add(room);
+		// TODO: test these
+		MergeLists(data.ParticleSystems, modData.ParticleSystems);
+		MergeLists(data.ParticleSystemEmitters, modData.ParticleSystemEmitters);
+		MergeLists(data.Sequences, modData.Sequences);
+		MergeLists(data.Timelines, modData.Timelines);
+		MergeLists(data.Paths, modData.Paths);
+		MergeLists(data.Shaders, modData.Shaders);
 		
 		foreach (UndertaleGlobalInit script in modData.GlobalInitScripts)
 			data.GlobalInitScripts.Add(script);
@@ -142,9 +225,11 @@ public class Patcher {
 		List<string> issues = CheckDependsAndBreaks(mods);
 		if (issues.Count > 0) {
 			StringBuilder sb = new StringBuilder("Encountered issues that are preventing patching!");
-			foreach (string issue in issues) {
-				sb.Append("\n" + issue);
+			for (int i = 0; i < issues.Count; i++) {
+				var issue = issues[i];
+				sb.Append($"\n{i + 1}. {issue}");
 			}
+
 			statusCallback(sb.ToString(), true);
 			return;
 		}
@@ -318,40 +403,44 @@ public class Patcher {
 		}
 	}
 	private void CheckBreaks(List<Mod> mods, Mod mod, Dictionary<string, Mod> IdMap, List<string> issues) {
-		foreach (RelatedMod related in mod.Depends) {
+		foreach (RelatedMod related in mod.Breaks) {
 			Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
 			if (dependency is null)
 				return;
-			if (related.Version.IsCompatibleWith(dependency.Version)) {
+			if (!related.Version.IsCompatibleWith(dependency.Version)) {
 				return;
 			}
 			
-			string help = $"Either reorder the mods, or find a version of \"{dependency.DisplayName}\" that is below {related.Version}";
+			string versionHelp = $"Find a version of \"{dependency.DisplayName}\" that does not meet the version requirement: {related.Version}";
+			string allHelp = $"Reorder the mods/{versionHelp}";
+			
+			string? issue = null;
 			int index = mods.IndexOf(mod);
 			int dependencyIndex = mods.IndexOf(dependency);
 			switch (related.OrderRequirement) {
 				case OrderRequirement.AfterUs:
-					if (dependencyIndex < index) {
-						lock (issues) {
-							issues.Add(
-								$"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" is loaded AFTER it in the order");
-						}
+					if (dependencyIndex > index) {
+						issue = $"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" is loaded AFTER it in the order";
 					}
 
 					break;
 				case OrderRequirement.BeforeUs:
-					if (dependencyIndex > index)
+					if (dependencyIndex < index)
 						break;
-					lock (issues) {
-						issues.Add(
-							$"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" is loaded BEFORE it in the order");
-					}
-
+					issue =	$"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" is loaded BEFORE it in the order";
 					break;
 				case OrderRequirement.Irrelevant:
-					issues.Add(
-						$"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" exists.");
+					issue = $"Mod \"{mod.DisplayName}\" is marked as broken if the mod \"{dependency.DisplayName}\" exists.";
 					break;
+			}
+
+			if (issue is not null) {
+				lock (issues) {
+					if (related.OrderRequirement == OrderRequirement.Irrelevant)
+						issues.Add($"{issue}\n{versionHelp}");
+					else
+						issues.Add($"{issue}\n{allHelp}");
+				}	
 			}
 		}
 	}

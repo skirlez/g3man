@@ -119,7 +119,7 @@ public class Profile {
 		return false;
 	}
 
-	public void UpdateOrder(List<Mod> modsList) {
+	public void UpdateOrderAndEnabled(List<Mod> modsList, Dictionary<Mod, bool> enabledMods) {
 		ModOrder = modsList.Select(mod => mod.ModId).ToArray();
 	}
 }

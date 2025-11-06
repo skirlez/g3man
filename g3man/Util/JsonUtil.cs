@@ -55,6 +55,7 @@ public static class JsonUtil {
 			throw new InvalidDataException($"Field {field} should be a number, but is not an integer/is too big/is too small/is weird");
 		}
 	}
+
 	public static string[] GetStringArrayOrThrow(JsonElement element, string field, string[]? fallback = null) {
 		if (fallback is not null && !element.TryGetProperty(field, out _))
 			return fallback;

@@ -17,6 +17,7 @@ public class MainWindow : Window {
 	
 	private ListBox modsListBox;
 	private List<Mod> modsList;
+	private Dictionary<Mod, bool> enabledMods;
 	
 	private Label noModsLabel;
 	
@@ -271,7 +272,7 @@ public class MainWindow : Window {
 		
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += (_, _) => {
-			Program.GetProfile()!.UpdateOrder(modsList);
+			Program.GetProfile()!.UpdateOrderAndEnabled(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
 			PopulateModsList();
 		};
@@ -436,6 +437,7 @@ public class MainWindow : Window {
 		Debug.Assert(profile is not null);
 		
 		modsList = Mod.Parse(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
+		
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);
 		{
