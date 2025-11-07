@@ -17,23 +17,23 @@ if (a) {
 		return [
 """
 find_line_with('}')
-write_after_else_if('(b == 0) {
-should be second
-}')
-""",
-"""
-find_line_with('}')
-write_after_else('should be middle')
-""",
-"""
-find_line_with('}')
-write_after_else_if('(c == 0) {
+write_else_if('(c == 0) {
 should be first
 }')
 """,
 """
 find_line_with('}')
-write_after('should be last')
+write_else('should be third')
+""",
+"""
+find_line_with('}')
+write_else_if('(b == 0) {
+should be second
+}')
+""",
+"""
+find_line_with('}')
+write('should be last')
 """,
 		];
 	}
@@ -53,7 +53,7 @@ else if (b == 0) {
 should be second
 }
 else { 
-should be middle
+should be third
 }
 should be last
 

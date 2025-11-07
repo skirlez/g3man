@@ -27,15 +27,13 @@ a
 		return [
 """
 find_line_with('{')
-move(1)
 enter_scope() move_to_end()
-write_after('end of outer scope')
+write('end of outer scope')
 exit_scope()
 move_to_end()
 reverse_find_line_with('{')
-move(1)
 enter_scope() move_to_end()
-write_after('end of inner scope')
+write('end of inner scope')
 """
 		];
 	}

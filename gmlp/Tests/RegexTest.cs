@@ -17,10 +17,11 @@ f = "end"
 		return [
 """
 find_line_with(r'\d+')
-write_after('number above me')
+write('number above me')
 move_to_end()
 reverse_find_line_with(r'\d+')
-write_before('number below me')
+move(-1)
+write_last('number below me')
 """
 		];
 	}

@@ -13,27 +13,27 @@ ddddd;
 		return [
 """
 find_line_with('aaaaabbbbb')
-write_after('1')
+write('1')
 """,
 
 """
 find_line_with('
 aaaaabbbbb')
-write_after('2')
+write('2')
 """,
 
 """
 find_line_with('
 aaaaabbbbb
 ')
-write_after('3')
+write('3')
 """,
 
 """
 find_line_with(
 'aaaaabbbbb'
 )
-write_after(
+write(
 '
 4
 ')
@@ -46,10 +46,10 @@ write_after(
 """
 ccccc;
 aaaaabbbbb;
-4
-3
-2
 1
+2
+3
+4
 ddddd;
 """;
 	}

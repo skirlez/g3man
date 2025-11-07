@@ -14,20 +14,13 @@ namespace gmlp;
 */
 public static class Language {
 	private static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
-		{ "write_before", OperationType.WriteBefore },
 		{ "write_replace", OperationType.WriteReplace },
-		{ "write_after", OperationType.WriteAfter },
-		{ "write_after_else_if",  OperationType.WriteAfterElseIf },
-		{ "write_after_else", OperationType.WriteAfterElse },
+		{ "write", OperationType.Write },
+		{ "write_last", OperationType.WriteLast },
+		{ "write_else_if",  OperationType.WriteElseIf },
+		{ "write_else", OperationType.WriteElse },
 	};
-
-	private static readonly Dictionary<string, (OperationType, char)> BraceFunctionTypes =
-		new Dictionary<string, (OperationType, char)> {
-			{ "open_brace_before", (OperationType.WriteBefore, '{') },
-			{ "open_brace_after", (OperationType.WriteAfter, '{') },
-			{ "close_brace_before", (OperationType.WriteBefore, '}') },
-			{ "close_brace_after", (OperationType.WriteAfter, '}') }
-		};
+	
 
 
 	public static void ExecuteEntirePatch(string patchText, CodeSource data, PatchesRecord record, PatchOwner owner) {
@@ -227,6 +220,9 @@ public static class Language {
 	public static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical,
 		PatchOwner owner, PatchesRecord record, bool bailOnSection, ref int patchIncrement) {
 		// TODO make sure code has \n line endings only
+		
+		// we prepend a "\n" for line 0
+		code = "\n" + code;
 		string[] lines = code.Split('\n');
 		UnitOperations unitOperations = record.GetUnitOperationsOrCreate(target, code);
 
@@ -234,7 +230,7 @@ public static class Language {
 		string lastRemovalReason = "";
 		while (pos < tokens.Length) {
 			if (carets.Count == 0) {
-				throw new PatchExecutionException($"All carets have been removed (have been sent out of their scope, or have searched for nonexistent lines). Log from last caret:\n{lastRemovalReason}");
+				break;
 			}
 			
 			Token token = tokens[pos];
@@ -251,12 +247,12 @@ public static class Language {
 					for (int i = 0; i < carets.Count; i++) {
 						Caret caret = carets[i];
 						int stack = 0;
-						for (int j = caret.Line - 1; j >= 0; j--) {
+						for (int j = caret.Line; j >= 0; j--) {
 							if (lines[j].EndsWith('}'))
 								stack++;
 							else if (lines[j].EndsWith('{')) {
 								if (stack == 0) {
-									caret.StartLine = j + 1;
+									caret.StartLine = j;
 									goto Found;
 								}
 
@@ -330,12 +326,12 @@ public static class Language {
 					NumberToken numberToken = (NumberToken)parameters[0];
 					
 					if (nameToken.Name == "move_to") {
-						int line = numberToken.Number - 1;
+						int line = numberToken.Number;
 						for (int i = 0; i < carets.Count; i++) {
 							Caret caret = carets[i];
 							if (line > caret.EndLine || line < caret.StartLine) {
 								lastRemovalReason = $"Removed because tried running move_to({numberToken.Number}), " 
-									+ $"which pushed me out of my scope (lines {caret.StartLine+1}-{caret.EndLine+1})";
+									+ $"which pushed me out of my scope (lines {caret.StartLine}-{caret.EndLine})";
 								carets.RemoveAt(i);
 								i--;
 								continue;
@@ -350,8 +346,8 @@ public static class Language {
 							Caret caret = carets[i];
 							int newLine = caret.Line + numberToken.Number;
 							if (newLine > caret.EndLine || newLine< caret.StartLine) {
-								lastRemovalReason = $"Removed because tried running move({numberToken.Number}) while on line {caret.Line+1}, " 
-									+ $"which pushed me out of my scope (lines {caret.StartLine+1}-{caret.EndLine+1})";
+								lastRemovalReason = $"Removed because tried running move({numberToken.Number}) while on line {caret.Line}, " 
+									+ $"which pushed me out of my scope (lines {caret.StartLine}-{caret.EndLine})";
 								carets.RemoveAt(i);
 								i--;
 								continue;
@@ -372,12 +368,12 @@ public static class Language {
 						int newLinePos = findLineWith(caret.Line, lines, code, stringToken.Text, stringToken.Regex);
 						if (newLinePos > caret.EndLine || newLinePos < caret.StartLine) {
 							if (newLinePos == -1) {
-								lastRemovalReason = $"Removed because tried running find_line_with('{stringToken.Text}') while on line {caret.Line+1} " +
-									$"in the scope from lines {caret.StartLine+1}-{caret.EndLine+1}, but no line was found";
+								lastRemovalReason = $"Removed because tried running find_line_with('{stringToken.Text}') while on line {caret.Line} " +
+									$"in the scope from lines {caret.StartLine}-{caret.EndLine}, but no line was found";
 							}
 							else {
-								lastRemovalReason = $"Removed because tried running find_line_with('{stringToken.Text}') while on line {caret.Line+1}, " 
-								+ $"but the line was found outside my scope (found at {newLinePos+1}, scope is from lines {caret.StartLine+1}-{caret.EndLine+1})";
+								lastRemovalReason = $"Removed because tried running find_line_with('{stringToken.Text}') while on line {caret.Line}, " 
+								+ $"but the line was found outside my scope (found at {newLinePos}, scope is from lines {caret.StartLine}-{caret.EndLine})";
 							}
 							carets.RemoveAt(i);
 							i--;
@@ -399,12 +395,12 @@ public static class Language {
 							reverseFindLineWith(caret.Line, lines, code, stringToken.Text, stringToken.Regex);
 						if (newLinePos > caret.EndLine || newLinePos < caret.StartLine) {
 							if (newLinePos == -1) {
-								lastRemovalReason = $"Removed because tried running reverse_find_line_with('{stringToken.Text}') while on line {caret.Line+1} " +
-									$"in the scope from lines {caret.StartLine+1}-{caret.EndLine+1}, but no line was found";
+								lastRemovalReason = $"Removed because tried running reverse_find_line_with('{stringToken.Text}') while on line {caret.Line} " +
+									$"in the scope from lines {caret.StartLine}-{caret.EndLine}, but no line was found";
 							}
 							else {
-								lastRemovalReason = $"Removed because tried running reverse_find_line_with('{stringToken.Text}') while on line {caret.Line+1}, " 
-									+ $"but the line was found outside my scope (found at {newLinePos+1}, scope is from lines {caret.StartLine+1}-{caret.EndLine+1})";
+								lastRemovalReason = $"Removed because tried running reverse_find_line_with('{stringToken.Text}') while on line {caret.Line}, " 
+									+ $"but the line was found outside my scope (found at {newLinePos}, scope is from lines {caret.StartLine}-{caret.EndLine})";
 							}
 							carets.RemoveAt(i);
 							i--;
@@ -462,29 +458,14 @@ public static class Language {
 
 					break;
 				}
-
-				case "open_brace_before":
-				case "open_brace_after":
-				case "close_brace_before":
-				case "close_brace_after": {
-					(_, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, []);
-					for (int i = 0; i < carets.Count; i++) {
-						int filePos = carets[i].Line;
-
-						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						(OperationType type, char character) = BraceFunctionTypes[nameToken.Name];
-
-						linePatches.Add(new PatchOperation($"{character}", critical, type, owner, patchIncrement));
-						patchIncrement++;
-					}
-
-					break;
-				}
-				case "write_before":
+				
 				case "write_replace":
-				case "write_after":
-				case "write_after_else":
-				case "write_after_else_if": {
+					
+				case "write":
+				case "write_last":
+					
+				case "write_else":
+				case "write_else_if": {
 					(Token[] parameters, pos) =
 						ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
 					StringToken stringToken = (StringToken)parameters[0];
@@ -509,6 +490,10 @@ public static class Language {
 			pos++;
 		}
 
+		if (carets.Count == 0) {
+			throw new PatchExecutionException($"All carets have been removed (have been sent out of their scope, or have searched for nonexistent lines). Log from last caret:\n{lastRemovalReason}");
+		}
+
 		return pos;
 	}
 
@@ -523,7 +508,7 @@ public static class Language {
 			string file = recordPair.Key;
 
 			UnitOperations unitOperations = recordPair.Value;
-			string[] lines = unitOperations.Code.Split('\n');
+			string[] lines = unitOperations.Code.Split('\n').ToArray();
 
 			foreach (KeyValuePair<int, List<PatchOperation>> unitPatchPair in unitOperations.GetData()) {
 				int line = unitPatchPair.Key;
@@ -554,17 +539,15 @@ public static class Language {
 				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 				
 				/*
-				 BULLSHIT: merge together write_after/_* calls
-				 IN SHORT, if we don't do this, subsequent write_after calls in the same patch will appear out of order,
+				 BULLSHIT: merge together write_last calls
+				 IN SHORT, if we don't do this, subsequent write_last calls in the same patch will appear out of order,
 				 which isn't very user friendly.
 				*/
 				IEnumerable<IGrouping<PatchOwner, PatchOperation>> sameOwners = operations.GroupBy(op => op.Owner);
 				foreach (IGrouping<PatchOwner, PatchOperation> ownerGroup in sameOwners) {
 					IEnumerable<IGrouping<OperationType, PatchOperation>> afterTypeGroups = ownerGroup.ToList()
 						.Where(op =>
-							op.Type is OperationType.WriteAfter 
-								or OperationType.WriteAfterElse 
-								or OperationType.WriteAfterElseIf
+							op.Type is OperationType.WriteLast
 						).GroupBy(op2 => op2.Type);
 
 					foreach (IGrouping<OperationType, PatchOperation> typeGroup in afterTypeGroups) {
@@ -579,26 +562,28 @@ public static class Language {
 				}
 				
 				
-				StringBuilder before = new StringBuilder();
+				
 				StringBuilder after = new StringBuilder();
+				StringBuilder afterLast = new StringBuilder();
+				
 				StringBuilder afterElseIf = new StringBuilder();
 				StringBuilder afterElse = new StringBuilder();
 				foreach (PatchOperation op in operations) {
 					switch (op.Type) {
-						case OperationType.WriteBefore:
-							before.Insert(0, op.Text + "\n");
-							break;
 						case OperationType.WriteReplace:
 							lines[line] = op.Text;
 							break;
-						case OperationType.WriteAfter:
-							after.Append("\n" + op.Text);
+						case OperationType.Write:
+							after.Insert(0, "\n" + op.Text);
 							break;
-						case OperationType.WriteAfterElseIf:
-							afterElseIf.Append("\nelse if " + op.Text);
+						case OperationType.WriteLast:
+							afterLast.Append("\n" + op.Text);
 							break;
-						case OperationType.WriteAfterElse:
-							afterElse.Append("\n" + op.Text);
+						case OperationType.WriteElseIf:
+							afterElseIf.Insert(0, "\nelse if " + op.Text);
+							break;
+						case OperationType.WriteElse:
+							afterElse.Insert(0, "\n" + op.Text);
 							break;
 						default:
 							break;
@@ -610,10 +595,11 @@ public static class Language {
 					afterElseResult = "";
 				else
 					afterElseResult = $"\nelse {{ {afterElse}\n}}";
-				lines[line] = $"{before}{lines[line]}{afterElseIf}{afterElseResult}{after}";
+				lines[line] = $"{lines[line]}{afterElseIf}{afterElseResult}{after}{afterLast}";
 			}
-
-			string finalResult = string.Join("\n", lines);
+			
+			// remove starting newline
+			string finalResult = string.Join("\n", lines).Remove(0, 1);
 			try {
 				source.Replace(file, finalResult);
 			}

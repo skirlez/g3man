@@ -28,20 +28,19 @@
 // adding code after a condition
 find_line_with('if (condition)')
 move(1)
-write_after('show_message("Patch applied!");')
+write('show_message("Patch applied!");')
 
 // adding more conditions to an if statement
 move_to_start()
-write_before('added_condition = true')
+write('added_condition = true')
 find_line_with('if (condition)')
-write_after('&& added_condition')
+write('&& added_condition')
 
 // removing unwanted code
 move_to_end()
 reverse_find_line_with('I hope')
-write_before('if false')
-open_brace_before()
-close_brace_after()</textarea
+move(-1) write('if false {')
+move(1) write('}')</textarea
                     >
                     <pre><code id="patchDisplay" class="language-js"></code></pre>
                 </article>

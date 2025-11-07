@@ -19,7 +19,7 @@ bbb;
 move_to_end()
 reverse_find_all_lines_with('ee')
 consolidate_into_bottom(2)
-write_after('fff')
+write('fff')
 """
 		];
 	}
