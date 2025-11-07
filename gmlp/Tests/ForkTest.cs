@@ -17,9 +17,9 @@ bbb;
 """
 find_all_lines_with('aaaaa;')
 consolidate_into_top(3)
-write_after('ccc')
+write('ccc')
 move_to_end()
-write_after('end')
+write('end')
 """
 		];
 	}

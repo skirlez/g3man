@@ -14,32 +14,32 @@ e
 	public override string[] GetPatchSections() {
 		return [
 """
-write_before('start')
-find_line_with('b')
-write_before('before b')
+write('start')
+find_line_with('b') move(-1)
+write('before b')
 move_to_end()
-write_after('end')
+write('end')
 """,
 
 """
-write_before('start 2')
-find_line_with('b')
-write_before('also before b')
+write('start 2')
+find_line_with('b') move(-1)
+write('also before b')
 """,
 
 """
 find_line_with('c')
-write_after('after c')
+write('after c')
 """,
 
 """
 find_line_with('e')
-write_after('after e')
+write('after e')
 """,
 
 """
 move_to_end()
-write_after('end 2')
+write('end 2')
 """
 		];
 	}
@@ -56,9 +56,9 @@ c
 after c
 d
 e
-end 2
-after e
 end
+after e
+end 2
 """;
 	}
 }

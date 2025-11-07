@@ -17,13 +17,13 @@ dddd
 find_line_with(
 @'
 bbbb')
-write_after('1')
+write('1')
 
 move_to_end()
 reverse_find_line_with(
 @'
 bbbb')
-write_after('2')
+write('2')
 """,
 
 		];
