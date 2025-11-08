@@ -19,7 +19,7 @@ public class Mod {
 	public PatchLocation[] Patches;
 	public string DatafilePath;
 	public string PreProcessScriptPath;
-	public string PostProcessScriptPath;
+	public string PostMergeScriptPath;
 	public string[] Credits;
 	public string[] Links;
 	
@@ -62,7 +62,7 @@ public class Mod {
 			.Select(x => new PatchLocation(x)).ToArray();
 		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path", "");
 		PreProcessScriptPath = JsonUtil.GetStringOrThrow(root, "pre_merge_script_path", "");
-		PostProcessScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
+		PostMergeScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
 		
 		Depends = JsonUtil.GetObjectArrayOrThrow(root, "depends")
 			.Select(x => new RelatedMod(x)).ToArray();

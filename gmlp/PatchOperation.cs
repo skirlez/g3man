@@ -52,8 +52,19 @@ public class PatchOperation(string text, bool critical, OperationType type, Patc
 	}
 }
 
+// this is really dumb. this is the only operation with a subclass, since it's the only one that needs more than a string
+public class ReplaceSubstringPatchOperation(string oldStr, string newStr, bool regex, bool critical, PatchOwner owner, int increment)
+	: PatchOperation(newStr, critical, OperationType.WriteReplaceSubstring, owner, increment) {
+
+	public string OldText = oldStr;
+	public bool Regex = regex;
+}
+
 public enum OperationType {
 	WriteReplace,
+	WriteReplaceSubstring,
+	WriteBefore,
+	WriteBeforeLast,
 	Write,
 	WriteLast,
 	WriteElseIf,

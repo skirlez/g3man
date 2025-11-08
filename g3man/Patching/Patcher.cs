@@ -4,9 +4,12 @@ using System.Text;
 using g3man.Models;
 using g3man.Util;
 using gmlp;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
 using UndertaleModLib;
 using UndertaleModLib.Decompiler;
 using UndertaleModLib.Models;
+using UndertaleModLib.Util;
 
 namespace g3man.Patching;
 
@@ -24,6 +27,19 @@ public class Patcher {
 	private const string OVERRIDE_PREFIX = "g3man_override_";
 	private const string EXCLUDE_PREFIX = "g3man_fake_";
 
+	// mostly the same as undertalemodcli
+	private ScriptOptions scriptOptions = ScriptOptions.Default
+		.AddImports(
+			"UndertaleModLib", "UndertaleModLib.Models", "UndertaleModLib.Decompiler",
+			"UndertaleModLib.Scripting", "UndertaleModLib.Compiler",
+			"UndertaleModLib.Util", "System", "System.IO", "System.Collections.Generic",
+			"System.Text.RegularExpressions")
+		.AddReferences(typeof(UndertaleObject).GetTypeInfo().Assembly,
+			typeof(System.Text.RegularExpressions.Regex).GetTypeInfo().Assembly,
+			typeof(TextureWorker).GetTypeInfo().Assembly,
+			typeof(ImageMagick.MagickImage).GetTypeInfo().Assembly,
+			typeof(Underanalyzer.Decompiler.DecompileContext).Assembly)
+		.WithEmitDebugInformation(true);
 	
 	/**
 	 * If the resource should be excluded according to the patcher's settings, return the object it
@@ -62,7 +78,7 @@ public class Patcher {
 	
 	private void MergeLists<T>(IList<T> to, IList<T> from, Func<T, bool>? process = null) where T : UndertaleNamedResource {
 		foreach (T resource in from) {
-			if (GetMimicedResource(to, resource) is null)
+			if (GetMimicedResource(to, resource) is not null)
 				continue;
 			if (process is not null) {
 				if (!process(resource))
@@ -177,6 +193,11 @@ public class Patcher {
 			return true;
 		});
 
+		foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modData.GeneralInfo.RoomOrder) {
+			if (GetMimicedResource(data.Rooms, room.Resource) is not null)
+				continue;
+			data.GeneralInfo.RoomOrder.Add(room);
+		}
 		
 		MergeLists(data.Rooms, modData.Rooms, room => {
 			foreach (UndertaleRoom.Layer layer in room.Layers) {
@@ -188,11 +209,7 @@ public class Patcher {
 			return true;
 		});
 
-		foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modData.GeneralInfo.RoomOrder) {
-			if (GetMimicedResource(data.Rooms, room.Resource) is not null)
-				continue;
-			data.GeneralInfo.RoomOrder.Add(room);
-		}
+
 
 
 		MergeLists(data.AnimationCurves, modData.AnimationCurves);
@@ -245,17 +262,46 @@ public class Patcher {
 
 		string modsFolder = Path.Combine(game.Directory, "g3man", profile.FolderName, "mods");
 		foreach (Mod mod in mods) {
-			if (mod.DatafilePath == "")
-				continue;
-			setStatus($"Merging: {mod.DisplayName}");
-			string fullDatafilePath = Path.Combine(modsFolder, mod.FolderName, mod.DatafilePath);
-			try {
-				using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
-				UndertaleData modData = UndertaleIO.Read(stream);
-				Merge(data, modData);
+			UndertaleData? modData = null;
+			if (mod.DatafilePath != "") {
+				setStatus($"Merging: {mod.DisplayName}");
+				string fullDatafilePath = Path.Combine(modsFolder, mod.FolderName, mod.DatafilePath);
+				try {
+					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
+					modData = UndertaleIO.Read(stream);
+					Merge(data, modData);
+				}
+				catch (Exception e) {
+					logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e.Message);
+					setStatus($"Failed to load the datafile of {mod.DisplayName}. Check the log.", true);
+					return;
+				}
 			}
-			catch (Exception e) {
-				logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e.Message);
+
+			if (mod.PostMergeScriptPath != "") {
+				setStatus($"Running script: {mod.PostMergeScriptPath}");
+				string fullStringPath = Path.Combine(modsFolder, mod.FolderName, mod.PostMergeScriptPath);
+				string code;
+				
+				try {
+					code = File.ReadAllText(fullStringPath);
+				}
+				catch (Exception e) {
+					setStatus($"Failed to read script belonging to {mod.DisplayName}. Check the log.", true);
+					logger.Error(e.ToString());
+					return;
+				}
+				// makes errors point to the path of the script
+				code = $"#line 1 \"{fullStringPath}\"\n" + code;
+				try {
+					
+					CSharpScript.EvaluateAsync(code, scriptOptions, new ScriptGlobals(data, modData));
+				}
+				catch (Exception e) {
+					setStatus($"Script belonging to {mod.DisplayName} threw an exception. Check the log.", true);
+					logger.Error(e.ToString());
+					return;
+				}
 			}
 		}
 
@@ -270,7 +316,7 @@ public class Patcher {
 		// TODO: this can be parallelized in a lot of different ways.
 		foreach (Mod mod in mods) {
 			int index = mods.IndexOf(mod);
-			setStatus($"Patching: {mod.DisplayName}");
+			setStatus($"Reading patches from: {mod.DisplayName}");
 			foreach (PatchLocation patchLocation in mod.Patches) {
 				// the only one right now
 				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
@@ -302,7 +348,7 @@ public class Patcher {
 						return true;
 					}
 					catch (InvalidPatchException e) {
-						setStatus($"Failed to read patch file at {relativePath}: {e.Message}");
+						setStatus($"Failed to read patch file at {relativePath}: {e.Message}", true);
 					}
 					catch (Exception e) {
 						setStatus("Error occured during patching! Check the log.", true);
@@ -320,12 +366,14 @@ public class Patcher {
 			Language.ApplyPatches(record, source, order);
 		}
 		catch (PatchApplicationException e) {
-			setStatus(e.HumanError());
+			setStatus(e.HumanError(), true);
 			if (e.GetBadCode() is not null)
 				logger.Error("This code failed to compile:\n" + e.GetBadCode()!);
 			return;
 		}
-		
+
+		if (profile.SeparateModdedSave)
+			data.GeneralInfo.Name.Content = profile.ModdedSaveName;
 		setStatus("Saving file");
 		try {
 			string tempFilePath = Path.Combine(game.Directory, TempDataName);
@@ -444,4 +492,9 @@ public class Patcher {
 			}
 		}
 	}
+}
+
+public class ScriptGlobals(UndertaleData data, UndertaleData modData) {
+	public UndertaleData Data = data;
+	public UndertaleData? ModData = modData;
 }
