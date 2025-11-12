@@ -235,11 +235,14 @@ public class Patcher {
 
 
 	public void Patch(List<Mod> mods, Profile profile, Game game, Action<string, bool> statusCallback) {
+		
+		
+		
 		void setStatus(string message, bool leave = false) {
 			logger.Info(message);
 			statusCallback(message, leave);
 		}
-		List<string> issues = CheckDependsAndBreaks(mods);
+		List<string> issues = CheckPatchPreventionIssues(mods);
 		if (issues.Count > 0) {
 			StringBuilder sb = new StringBuilder("Encountered issues that are preventing patching!");
 			for (int i = 0; i < issues.Count; i++) {
@@ -278,9 +281,9 @@ public class Patcher {
 				}
 			}
 
-			if (mod.PostMergeScriptPath != "") {
-				setStatus($"Running script: {mod.PostMergeScriptPath}");
-				string fullStringPath = Path.Combine(modsFolder, mod.FolderName, mod.PostMergeScriptPath);
+			if (mod.PostProcessScriptPath != "") {
+				setStatus($"Running script: {mod.PostProcessScriptPath}");
+				string fullStringPath = Path.Combine(modsFolder, mod.FolderName, mod.PostProcessScriptPath);
 				string code;
 				
 				try {
@@ -398,15 +401,26 @@ public class Patcher {
 	}
 
 
-	public List<string> CheckDependsAndBreaks(List<Mod> mods) {
+	public List<string> CheckPatchPreventionIssues(List<Mod> mods) {
 		List<string> issues = new List<string>();
 		Dictionary<string, Mod> IdMap = mods.ToDictionary(mod => mod.ModId);
-		Parallel.Invoke(
+		List<Action> actions = [
 			() => Parallel.ForEach(mods, mod => CheckDepends(mods, mod, IdMap, issues)),
 			() => Parallel.ForEach(mods, mod => CheckBreaks(mods, mod, IdMap, issues))
-		);
+		];
+		if (!Program.Config.AllowModScripting)
+			actions.Add(() => Parallel.ForEach(mods, mod => CheckModScripts(issues, mod)));
+		Parallel.Invoke(actions.ToArray());
 
 		return issues;
+	}
+
+	private void CheckModScripts(List<string> issues, Mod mod) {
+		if (mod.PostProcessScriptPath.Length != 0) {
+			lock (issues) {
+				issues.Add($"Mod \"{mod.DisplayName}\" wants to run scripts, but mod scripting is disabled! Go to settings to enable it.");
+			}
+		}
 	}
 
 	private void CheckDepends(List<Mod> mods, Mod mod, Dictionary<string, Mod> IdMap, List<string> issues) {

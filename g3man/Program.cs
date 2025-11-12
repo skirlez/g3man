@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System.CommandLine;
+using System.CommandLine.Parsing;
+using System.Diagnostics;
 using System.Text.Json;
 using g3man.Models;
 using g3man.UI;
@@ -66,7 +68,16 @@ public static class Program {
 			};
 			return application.RunWithSynchronizationContext([]);
 		}
-		
+
+		RootCommand root = new RootCommand("IDK");
+
+		Command patch = new Command("patch");
+		root.Subcommands.Add(patch);
+
+		ParseResult result = root.Parse(args);
+		foreach (ParseError parseError in result.Errors) {
+			Console.Error.WriteLine(parseError.Message);
+		}
 		return 0;
 	}
 	

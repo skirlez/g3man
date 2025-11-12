@@ -12,7 +12,8 @@ public class Config {
 	
 	public Program.Theme Theme;
 	public Program.Initializer Initializer;
-	
+	public bool AllowModScripting;
+
 	public Config() {
 		GameDirectories = [];
 		Initializer = Program.Initializer.Adwaita;
@@ -24,12 +25,18 @@ public class Config {
 		
 		int initializer = JsonUtil.GetNumberOrThrow(root, "initializer");
 		if (initializer < 0 || initializer > 1)
-			throw new InvalidDataException("Field \"initializer\" must be in the range of 0-1 (inclusive)");
+			initializer = 0;
 		Initializer = (Program.Initializer)initializer;
-			int theme = JsonUtil.GetNumberOrThrow(root, "theme");
-			if (theme < 0 || theme > 2)
-				throw new InvalidDataException("Field \"theme\" must be in the range of 0-2 (inclusive)");
+		
+		int theme = JsonUtil.GetNumberOrThrow(root, "theme");
+		if (theme < 0 || theme > 2)
+			theme = 0;
 		Theme = (Program.Theme)theme;
+		
+		int allowModScripting = JsonUtil.GetNumberOrThrow(root, "allow_mod_scripting");
+		if (allowModScripting < 0 || allowModScripting > 1)
+			allowModScripting = 0;
+		AllowModScripting = allowModScripting == 1;
 	}
 
 	public JsonObject ToJson() {
@@ -37,7 +44,8 @@ public class Config {
 			["format_version"] = 1,
 			["game_directories"] = new JsonArray(GameDirectories.Select(directory => (JsonNode)directory).ToArray()),
 			["initializer"] = (int)Initializer,
-			["theme"] = (int)Theme
+			["theme"] = (int)Theme,
+			["allow_mod_scripting"] = AllowModScripting ? 1 : 0
 		};
 	}
 	

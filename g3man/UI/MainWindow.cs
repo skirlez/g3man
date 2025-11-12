@@ -381,9 +381,31 @@ public class MainWindow : Window {
 		initializerBox.Append(initializerDropDown);
 		initializerBox.Append(initializerRestartLabel);
 		initializerBox.SetHalign(Align.Start);
-		initializerBox.SetMargin(10);
-
 		
+		Label allowModScriptingLabel =  Label.New("Allow mods to run C# scripts");
+		ComboBoxText allowModScriptsDropDown = ComboBoxText.New();
+		allowModScriptsDropDown.AppendText("Disallow");
+		allowModScriptsDropDown.AppendText("Allow");
+		allowModScriptsDropDown.SetActive(Program.Config.AllowModScripting ? 1 : 0);
+		allowModScriptsDropDown.OnChanged += (_, _) => {
+			Program.Config.AllowModScripting = allowModScriptsDropDown.GetActive() == 1;
+		};
+		Button infoButton = Button.NewWithLabel("?");
+		infoButton.OnClicked += (sender, args) => {
+			PopupWindow popup = new PopupWindow(this, "Info", 
+				"This option allows mods to run C# scripts."
+					+ "\nSome mods need them, but remember that these scripts could"
+					+ "\npotentially do anything to your computer!",
+				"I will be careful");
+			
+			popup.Dialog();
+		};
+		infoButton.SetSizeRequest(20, 20);
+		
+		Box allowModScriptsBox = Box.New(Orientation.Horizontal, 5);
+		allowModScriptsBox.Append(allowModScriptingLabel);
+		allowModScriptsBox.Append(allowModScriptsDropDown);
+		allowModScriptsBox.Append(infoButton);
 		
 		
 		Button saveSettingsButton = Button.New();
@@ -399,8 +421,10 @@ public class MainWindow : Window {
 			page.Append(themeBox);
 #endif
 		page.Append(initializerBox);
+		page.Append(allowModScriptsBox);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
+		page.SetSpacing(10);
 	}
 	
 
