@@ -15,6 +15,8 @@ namespace gmlp;
 public static class Language {
 	private static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
 		{ "write_replace", OperationType.WriteReplace },
+		{ "write_before", OperationType.WriteBefore },
+		{ "write_before_last", OperationType.WriteBeforeLast },
 		{ "write", OperationType.Write },
 		{ "write_last", OperationType.WriteLast },
 		{ "write_else_if",  OperationType.WriteElseIf },
@@ -31,20 +33,24 @@ public static class Language {
 		while (pos < tokens.Length) {
 			int lastLineNumber = tokens[pos].LineNumber;
 			if (tokens[pos] is SectionToken metaSectionToken && metaSectionToken.Section == "meta") {
-				(string target, bool critical, pos) = ExecuteMetadataSection(tokens, pos + 1);
+				(string[] targets, bool critical, pos) = ExecuteMetadataSection(tokens, pos + 1);
 
-				CodeFile? codeFile = data.GetCodeFile(target);
-				if (codeFile is null)
-					throw new InvalidPatchException($"Target \"{target}\" does not exist");
-				string code = codeFile.GetAsString();
+				int startPos = pos;
+				foreach (string target in targets) {
+					pos = startPos;
+					CodeFile? codeFile = data.GetCodeFile(target);
+					if (codeFile is null)
+						throw new InvalidPatchException($"Target \"{target}\" does not exist");
+					string code = codeFile.GetAsString();
 
-				if (pos < tokens.Length && tokens[pos] is SectionToken patchSectionToken &&
-					patchSectionToken.Section == "patch") {
-					pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, true,
-						ref patchIncrement);
-				}
-				else {
-					throw new InvalidPatchException($"Incomplete patch; meta section without patch section");
+					if (pos < tokens.Length && tokens[pos] is SectionToken patchSectionToken &&
+						patchSectionToken.Section == "patch") {
+						pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, true,
+							ref patchIncrement);
+					}
+					else {
+						throw new InvalidPatchException($"Incomplete patch; meta section without patch section");
+					}
 				}
 			}
 			else {
@@ -55,9 +61,9 @@ public static class Language {
 	}
 
 
-	private static (string target, bool critical, int pos) ExecuteMetadataSection(Token[] tokens, int pos) {
+	private static (string[] target, bool critical, int pos) ExecuteMetadataSection(Token[] tokens, int pos) {
 		bool critical = true;
-		string? target = null;
+		List<string> targets = [];
 		while (pos < tokens.Length) {
 			Token token = tokens[pos];
 			if (token is NameToken nameToken) {
@@ -77,13 +83,25 @@ public static class Language {
 						critical = valueToken.Name == "true";
 						break;
 					}
-					case "target": {
+					case "targets": {
+						
 						Token equalsToken = Expect(tokens, pos + 1, typeof(EqualsToken), nameToken.LineNumber);
 						pos++;
-						NameToken targetToken =
-							(NameToken)Expect(tokens, pos + 1, typeof(NameToken), equalsToken.LineNumber);
-						pos++;
-						target = targetToken.Name;
+						int lastLineNumber = equalsToken.LineNumber;
+						while (true) {
+							NameToken targetToken =
+								(NameToken)Expect(tokens, pos + 1, typeof(NameToken), lastLineNumber);
+							targets.Add(targetToken.Name);
+							pos++;
+							if (pos + 1 < tokens.Length) {
+								Token next = tokens[pos + 1];
+								if (next is not CommaToken)
+									break;
+								lastLineNumber = next.LineNumber;
+								pos++;
+							}
+						}
+						
 						break;
 					}
 					default:
@@ -98,10 +116,10 @@ public static class Language {
 			pos++;
 		}
 
-		if (target is null)
-			throw new InvalidPatchException($"Meta section must contain \"target\"");
+		if (targets.Count == 0)
+			throw new InvalidPatchException($"Meta section must contain at least one target in \"targets\"");
 
-		return (target, critical, pos);
+		return (targets.ToArray(), critical, pos);
 	}
 
 	private static int findLineWith(int start, string[] lines, string code, string str, bool isRegex) {
@@ -461,6 +479,9 @@ public static class Language {
 				
 				case "write_replace":
 					
+				case "write_before":
+				case "write_before_last":
+					
 				case "write":
 				case "write_last":
 					
@@ -480,7 +501,23 @@ public static class Language {
 
 					break;
 				}
-				
+
+				case "write_replace_substring": {
+					(Token[] parameters, pos) =
+						ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken), typeof(StringToken));
+					StringToken oldStringToken = (StringToken)parameters[0];
+					StringToken newStringToken = (StringToken)parameters[1];
+
+					for (int i = 0; i < carets.Count; i++) {
+						int filePos = carets[i].Line;
+						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
+						linePatches.Add(new ReplaceSubstringPatchOperation(oldStringToken.Text, newStringToken.Text, critical, oldStringToken.Regex, owner, patchIncrement));
+						patchIncrement++;
+					}
+
+					break;
+				}
+
 				default:
 					throw new InvalidPatchException(
 						$"At line {nameToken.LineNumber}: unknown operation {nameToken.Name}");
@@ -539,6 +576,7 @@ public static class Language {
 				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 				
 				/*
+				
 				 BULLSHIT: merge together write_last calls
 				 IN SHORT, if we don't do this, subsequent write_last calls in the same patch will appear out of order,
 				 which isn't very user friendly.
@@ -547,7 +585,8 @@ public static class Language {
 				foreach (IGrouping<PatchOwner, PatchOperation> ownerGroup in sameOwners) {
 					IEnumerable<IGrouping<OperationType, PatchOperation>> afterTypeGroups = ownerGroup.ToList()
 						.Where(op =>
-							op.Type is OperationType.WriteLast
+							op.Type is OperationType.WriteLast 
+									or OperationType.WriteBeforeLast
 						).GroupBy(op2 => op2.Type);
 
 					foreach (IGrouping<OperationType, PatchOperation> typeGroup in afterTypeGroups) {
@@ -566,12 +605,21 @@ public static class Language {
 				StringBuilder after = new StringBuilder();
 				StringBuilder afterLast = new StringBuilder();
 				
+				StringBuilder before = new StringBuilder();
+				StringBuilder beforeLast = new StringBuilder();
+				
 				StringBuilder afterElseIf = new StringBuilder();
 				StringBuilder afterElse = new StringBuilder();
 				foreach (PatchOperation op in operations) {
 					switch (op.Type) {
 						case OperationType.WriteReplace:
 							lines[line] = op.Text;
+							break;
+						case OperationType.WriteBefore:
+							before.Insert(0, op.Text + "\n");
+							break;
+						case OperationType.WriteBeforeLast:
+							beforeLast.Append(op.Text + "\n");
 							break;
 						case OperationType.Write:
 							after.Insert(0, "\n" + op.Text);
@@ -585,6 +633,16 @@ public static class Language {
 						case OperationType.WriteElse:
 							afterElse.Insert(0, "\n" + op.Text);
 							break;
+						case OperationType.WriteReplaceSubstring:
+							ReplaceSubstringPatchOperation rsop = (ReplaceSubstringPatchOperation)op;
+							if (!rsop.Regex) {
+								lines[line] = lines[line].Replace(rsop.OldText, rsop.Text);
+							}
+							else {
+								// TODO
+							}
+
+							break;
 						default:
 							break;
 					}
@@ -595,7 +653,7 @@ public static class Language {
 					afterElseResult = "";
 				else
 					afterElseResult = $"\nelse {{ {afterElse}\n}}";
-				lines[line] = $"{lines[line]}{afterElseIf}{afterElseResult}{after}{afterLast}";
+				lines[line] = $"{before}{beforeLast}{lines[line]}{afterElseIf}{afterElseResult}{after}{afterLast}";
 			}
 			
 			// remove starting newline
@@ -639,7 +697,8 @@ public static class Language {
 	public class ParensStartToken(int lineNumber) : Token(lineNumber);
 
 	public class ParensEndToken(int lineNumber) : Token(lineNumber);
-
+	
+	public class CommaToken(int lineNumber) : Token(lineNumber);
 	public class StringToken(string text, bool regex, int lineNumber) : Token(lineNumber) {
 		public readonly string Text = text;
 		public readonly bool Regex = regex;
@@ -744,6 +803,16 @@ public static class Language {
 				continue;
 			}
 
+			if (c == ',') {
+				if (!string.IsNullOrWhiteSpace(build)) {
+					tokens.Add(new NameToken(build, lineNumber));
+					build = "";
+				}
+				
+				tokens.Add(new CommaToken(lineNumber));
+				continue;
+			}
+
 			if (c == '\'' || (c == '@' || c == 'r') && build.Length == 0) {
 				if (c == 'r') {
 					if (i + 1 >= patch.Length || patch[i + 1] != '\'') {
@@ -786,9 +855,8 @@ public static class Language {
 					text += patch[i + 1];
 					i++;
 				}
-
-
-				while (stripNewlines && text[text.Length - 1] == '\n') {
+				
+				while (stripNewlines && text.Length > 0 && text[text.Length - 1] == '\n') {
 					text = text.Substring(0, text.Length - 1);
 				}
 
@@ -801,9 +869,8 @@ public static class Language {
 				// go over the ' we're currently on
 				i++;
 
-				if (!string.IsNullOrWhiteSpace(text)) {
-					tokens.Add(new StringToken(text, regex, lineNumberStart));
-				}
+
+				tokens.Add(new StringToken(text, regex, lineNumberStart));
 
 				continue;
 			}
@@ -827,6 +894,11 @@ public static class Language {
 			ret[i] = t;
 			pos++;
 			lastLineNumber = t.LineNumber;
+			if (i != types.Length - 1) {
+				CommaToken comma = (CommaToken)Expect(tokens, pos, typeof(CommaToken), lastLineNumber);
+				pos++;
+				lastLineNumber = comma.LineNumber;
+			}
 		}
 
 		Token parenthesisEnd = Expect(tokens, pos, typeof(ParensEndToken), lastLineNumber);
@@ -860,6 +932,8 @@ public static class Language {
 				return "an opening parenthesis";
 			case "ParensEndToken":
 				return "a closing parenthesis";
+			case "CommaToken":
+				return "a comma";
 			default:
 				return "67";
 		}
