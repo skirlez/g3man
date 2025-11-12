@@ -35,7 +35,6 @@ public class Profile {
 	public Profile(JsonElement root, string folderName) {
 		Name = JsonUtil.GetStringOrThrow(root, "name");
 		FolderName = folderName;
-		SeparateModdedSave = JsonUtil.GetBooleanOrThrow(root, "separate_modded_save");
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
 		ModOrder = JsonUtil.GetStringArrayOrThrow(root, "mod_order");
 		Description = JsonUtil.GetStringOrThrow(root, "description");

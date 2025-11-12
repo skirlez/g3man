@@ -22,13 +22,12 @@ public class Game {
 		Hash = hash;
 		ProfileFolderName = profileId;
 	}
-	public Game(JsonElement root, string directory) {
-		DisplayName = JsonUtil.GetWithContingency<string>(root, "display_name", JsonUtil.Contingency.ThrowOnAnything);
-		InternalName = JsonUtil.GetWithContingency<string>(root, "internal_name", JsonUtil.Contingency.ThrowOnAnything);
-		Hash = JsonUtil.GetWithContingency<string>(root, "hash", JsonUtil.Contingency.ThrowOnAnything);
-		ProfileFolderName = JsonUtil.GetWithContingency<string>(root, "profile_folder_name", JsonUtil.Contingency.ThrowOnAnything);
-
-		Directory = directory;
+	public Game(JsonElement root) {
+		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
+		InternalName = JsonUtil.GetStringOrThrow(root, "internal_name");
+		Directory = JsonUtil.GetStringOrThrow(root, "directory");
+		Hash = JsonUtil.GetStringOrThrow(root, "hash");
+		ProfileFolderName = JsonUtil.GetStringOrThrow(root, "profile_folder_name");
 	}
 	
 	public bool HasSameData(Game other) {
@@ -66,7 +65,7 @@ public class Game {
 				return;
 			}
 			try {
-				Game game = new Game(jsonDoc.RootElement, gameDirectory);
+				Game game = new Game(jsonDoc.RootElement);
 				games.Add(game);
 			}
 			catch (InvalidDataException e) {
