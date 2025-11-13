@@ -15,8 +15,8 @@ namespace g3man.Patching;
 
 public class Patcher {
 	private static readonly Logger logger = new Logger("PATCHER");
-	public const string CleanDataName = "clean_data.g3man";
-	public const string TempDataName = "temp_data.g3man";
+	public const string CleanDataName = "g3man_data.win";
+	public const string TempDataName = "g3man_temp_data.win";
 
 	enum OverlapBehavior {
 		ImplicitlyExcludeExplicitlyOverride,
@@ -117,7 +117,7 @@ public class Patcher {
 	 * 
 	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
 	 */
-	private void Merge(UndertaleData data, UndertaleData modData) {
+	private void merge(UndertaleData data, UndertaleData modData) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
 		data.GeneralInfo.LastObj += modData.GeneralInfo.LastObj - 100000;
@@ -235,13 +235,44 @@ public class Patcher {
 
 
 	public void Patch(List<Mod> mods, Profile profile, Game game, Action<string, bool> statusCallback) {
-		
-		
-		
+		string modsFolder = Path.Combine(game.Directory, "g3man", profile.FolderName, "mods");
 		void setStatus(string message, bool leave = false) {
 			logger.Info(message);
 			statusCallback(message, leave);
 		}
+		
+		bool runModScript(Mod mod, Func<Mod, string> getScriptPath, ScriptGlobals globals) {
+			string path = getScriptPath(mod);
+			if (path == "")
+				return true;
+			setStatus($"Running script: {path}");
+			string fullStringPath = Path.Combine(modsFolder, mod.FolderName, mod.PostMergeScriptPath);
+			string code;
+				
+			try {
+				code = File.ReadAllText(fullStringPath);
+			}
+			catch (Exception e) {
+				setStatus($"Failed to read script belonging to {mod.DisplayName}. Check the log.", true);
+				logger.Error(e.ToString());
+				return false;
+			}
+			
+			// makes errors point to the path of the script
+			code = $"#line 1 \"{fullStringPath}\"\n" + code;
+			try {
+				CSharpScript.EvaluateAsync(code, scriptOptions, globals);
+			}
+			catch (Exception e) {
+				setStatus($"Script belonging to {mod.DisplayName} threw an exception. Check the log.", true);
+				logger.Error(e.ToString());
+				return false;
+			}
+
+			return true;
+		}
+		
+
 		List<string> issues = CheckPatchPreventionIssues(mods);
 		if (issues.Count > 0) {
 			StringBuilder sb = new StringBuilder("Encountered issues that are preventing patching!");
@@ -258,21 +289,30 @@ public class Patcher {
 
 		lock (Program.DataLoader.Lock) {
 			while (!Program.DataLoader.CanSnatch()) {
+				if (Program.DataLoader.HasErrored()) {
+					statusCallback($"Failed to load game's data.win. I don't know what to do in this situation yet. TODO", true);
+					return;
+				}
 				Monitor.Wait(Program.DataLoader.Lock);
 			}
 			data = Program.DataLoader.Snatch();
 		}
 
-		string modsFolder = Path.Combine(game.Directory, "g3man", profile.FolderName, "mods");
+		
 		foreach (Mod mod in mods) {
 			UndertaleData? modData = null;
+			
 			if (mod.DatafilePath != "") {
 				setStatus($"Merging: {mod.DisplayName}");
 				string fullDatafilePath = Path.Combine(modsFolder, mod.FolderName, mod.DatafilePath);
 				try {
 					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
 					modData = UndertaleIO.Read(stream);
-					Merge(data, modData);
+					if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
+						return;
+					merge(data, modData);
+					if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
+						return;
 				}
 				catch (Exception e) {
 					logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e.Message);
@@ -280,43 +320,21 @@ public class Patcher {
 					return;
 				}
 			}
+			
+		}
 
-			if (mod.PostProcessScriptPath != "") {
-				setStatus($"Running script: {mod.PostProcessScriptPath}");
-				string fullStringPath = Path.Combine(modsFolder, mod.FolderName, mod.PostProcessScriptPath);
-				string code;
-				
-				try {
-					code = File.ReadAllText(fullStringPath);
-				}
-				catch (Exception e) {
-					setStatus($"Failed to read script belonging to {mod.DisplayName}. Check the log.", true);
-					logger.Error(e.ToString());
-					return;
-				}
-				// makes errors point to the path of the script
-				code = $"#line 1 \"{fullStringPath}\"\n" + code;
-				try {
-					
-					CSharpScript.EvaluateAsync(code, scriptOptions, new ScriptGlobals(data, modData));
-				}
-				catch (Exception e) {
-					setStatus($"Script belonging to {mod.DisplayName} threw an exception. Check the log.", true);
-					logger.Error(e.ToString());
-					return;
-				}
-			}
+
+		foreach (Mod mod in mods) {
+			if (!runModScript(mod, m => m.PrePatchScriptPath, new ScriptGlobals(data)))
+				return;
 		}
 
 		GlobalDecompileContext context = new GlobalDecompileContext(data);
 		PatchesRecord record = new PatchesRecord();
 		GameMakerCodeSource source = new GameMakerCodeSource(data, context);
-
-
+		
 		List<PatchOwner> order = mods.Select(mod => new PatchOwner(mod.ModId)).ToList();
 		
-		
-		// TODO: this can be parallelized in a lot of different ways.
 		foreach (Mod mod in mods) {
 			int index = mods.IndexOf(mod);
 			setStatus($"Reading patches from: {mod.DisplayName}");
@@ -392,8 +410,14 @@ public class Patcher {
 			return;
 		}
 		
+		foreach (Mod mod in mods) {
+			if (!runModScript(mod, m => m.PostPatchScriptPath, new ScriptGlobals(data)))
+				return;
+		}
+		
 		
 		setStatus("Done!", true);
+		
 	}
 	
 	public static bool IsDataPatched(UndertaleData data) {
@@ -418,7 +442,7 @@ public class Patcher {
 	}
 
 	private void CheckModScripts(List<string> issues, Mod mod) {
-		if (mod.PostProcessScriptPath.Length != 0) {
+		if (mod.HasAnyScripts()) {
 			lock (issues) {
 				issues.Add($"Mod \"{mod.DisplayName}\" wants to run scripts, but mod scripting is disabled! Go to settings to enable it.");
 			}
@@ -510,7 +534,7 @@ public class Patcher {
 	}
 }
 
-public class ScriptGlobals(UndertaleData data, UndertaleData modData) {
+public class ScriptGlobals(UndertaleData data, UndertaleData? modData = null) {
 	public UndertaleData Data = data;
 	public UndertaleData? ModData = modData;
 }

@@ -13,15 +13,25 @@ public class Mod {
 	public string DisplayName;
 	public string Description;
 	public string IconPath;
+	
+	public string[] Credits;
+	public string[] Links;
+	
+	public string Page;
+	public string Source;
+	public string[] Emails;
+	
 	public SemVer Version;
 	public string TargetGameVersion;
 	public string TargetPatcherVersion;
 	public PatchLocation[] Patches;
 	public string DatafilePath;
-	public string PreProcessScriptPath;
-	public string PostProcessScriptPath;
-	public string[] Credits;
-	public string[] Links;
+	
+	public string PreMergeScriptPath;
+	public string PostMergeScriptPath;
+	
+	public string PrePatchScriptPath;
+	public string PostPatchScriptPath;
 	
 	public RelatedMod[] Depends;
 	public RelatedMod[] Suggests;
@@ -55,25 +65,37 @@ public class Mod {
 		IconPath = JsonUtil.GetStringOrThrow(root, "icon_path", "");
 		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits", []);
 		Links = JsonUtil.GetStringArrayOrThrow(root, "links", []);
+		
+		Page = JsonUtil.GetStringOrThrow(root, "page", "");
+		Source = JsonUtil.GetStringOrThrow(root, "source", "");
+		Emails = JsonUtil.GetStringArrayOrThrow(root, "emails", []);
+		
 		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"), false);
-		TargetGameVersion = JsonUtil.GetStringOrThrow(root, "target_game_version");
+		TargetGameVersion = JsonUtil.GetStringOrThrow(root, "target_game_version", "");
 		TargetPatcherVersion = JsonUtil.GetStringOrThrow(root, "target_patcher_version");
 		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches", [])
 			.Select(x => new PatchLocation(x)).ToArray();
 		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path", "");
-		PreProcessScriptPath = JsonUtil.GetStringOrThrow(root, "pre_merge_script_path", "");
-		PostProcessScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
 		
-		Depends = JsonUtil.GetObjectArrayOrThrow(root, "depends")
+		PreMergeScriptPath = JsonUtil.GetStringOrThrow(root, "pre_merge_script_path", "");
+		PostMergeScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
+		
+		PrePatchScriptPath = JsonUtil.GetStringOrThrow(root, "pre_patch_script_path", "");
+		PostPatchScriptPath = JsonUtil.GetStringOrThrow(root, "post_patch_script_path", "");
+		
+		Depends = JsonUtil.GetObjectArrayOrThrow(root, "depends", [])
 			.Select(x => new RelatedMod(x)).ToArray();
 		Suggests = JsonUtil.GetObjectArrayOrThrow(root, "suggests", [])
 			.Select(x => new RelatedMod(x)).ToArray();
-		Breaks = JsonUtil.GetObjectArrayOrThrow(root, "breaks")
+		Breaks = JsonUtil.GetObjectArrayOrThrow(root, "breaks", [])
 			.Select(x => new RelatedMod(x)).ToArray();
 		
 		FolderName = folderName;
 	}
-	
+
+	public bool HasAnyScripts() {
+		return PreMergeScriptPath != "" || PostMergeScriptPath != "";
+	}
 	
 	public static List<Mod> Parse(string directory) {
 		ConcurrentBag<Mod> mods = new ConcurrentBag<Mod>();

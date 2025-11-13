@@ -12,7 +12,7 @@ public class DataLoader {
 	private volatile UndertaleData? data;
 	private readonly MemoryStream dataMemory = new MemoryStream();
 	private string lastHash = "";
-	public readonly LoaderLock Lock = new LoaderLock(LoaderAction.Proceed, null, false);
+	public readonly LoaderLock Lock = new LoaderLock();
 	private readonly Logger logger;
 	
 	public DataLoader() {
@@ -41,6 +41,7 @@ public class DataLoader {
 						Monitor.PulseAll(Lock);
 						Monitor.Wait(Lock);
 						Lock.IsLoading = true;
+						Lock.Errored = false;
 						logger.Debug("Loading data");
 					}
 					
@@ -48,6 +49,7 @@ public class DataLoader {
 					path = Lock.Path;
 					action = Lock.Action;
 				}
+
 				
 				if (action == LoaderAction.Proceed) {
 					try {
@@ -60,6 +62,7 @@ public class DataLoader {
 					}
 					catch (Exception e) {
 						logger.Debug("Failed to load datafile: " + e.Message);
+						Lock.Errored = true;
 					}
 				}
 				else if (action == LoaderAction.Clone) {
@@ -74,7 +77,10 @@ public class DataLoader {
 
 
 	public bool CanSnatch() {
-		return !Lock.IsLoading && Lock.Action != LoaderAction.Restart;
+		return !Lock.IsLoading && Lock.Action != LoaderAction.Restart && !Lock.Errored;
+	}
+	public bool HasErrored() {
+		return Lock.Errored;
 	}
 	public UndertaleData Snatch() {
 		Debug.Assert(Monitor.IsEntered(Lock));
@@ -121,10 +127,11 @@ public class DataLoader {
 	}
 
 
-	public class LoaderLock(LoaderAction action, string? path, bool isLoading) {
-		public LoaderAction Action = action;
-		public string? Path = path;
-		public bool IsLoading = isLoading;
+	public class LoaderLock() {
+		public LoaderAction Action = LoaderAction.Proceed;
+		public string? Path = null;
+		public bool IsLoading = false;
+		public bool Errored = false;
 	}
 
 	public enum LoaderAction {
