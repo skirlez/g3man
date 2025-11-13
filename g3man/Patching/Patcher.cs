@@ -401,17 +401,19 @@ public class Patcher {
 	}
 
 
-	public List<string> CheckPatchPreventionIssues(List<Mod> mods) {
+	private List<string> CheckPatchPreventionIssues(List<Mod> mods) {
 		List<string> issues = new List<string>();
 		Dictionary<string, Mod> IdMap = mods.ToDictionary(mod => mod.ModId);
-		List<Action> actions = [
-			() => Parallel.ForEach(mods, mod => CheckDepends(mods, mod, IdMap, issues)),
-			() => Parallel.ForEach(mods, mod => CheckBreaks(mods, mod, IdMap, issues))
-		];
-		if (!Program.Config.AllowModScripting)
-			actions.Add(() => Parallel.ForEach(mods, mod => CheckModScripts(issues, mod)));
-		Parallel.Invoke(actions.ToArray());
+		foreach (Mod mod in mods) {
+			CheckDepends(mods, mod, IdMap, issues);
+			CheckBreaks(mods, mod, IdMap, issues);
+		}
 
+		if (!Program.Config.AllowModScripting) {
+			foreach (Mod mod in mods) {
+				CheckModScripts(issues, mod);
+			}
+		}
 		return issues;
 	}
 
@@ -428,15 +430,15 @@ public class Patcher {
 			Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
 			if (dependency is null) {
 				lock (issues) {
-					issues.Add($"Mod {mod.DisplayName} depends on mod with ID {related.ModId} (version {related.Version}), but it is not present");
+					issues.Add($"Mod {mod.DisplayName} depends on mod with ID {related.ModId} (version {related.VersionRequirements}), but it is not present");
 				}
 				return;
 			}
-			if (!related.Version.IsCompatibleWith(dependency.Version)) {
+			if (!related.VersionRequirements.IsCompatibleWith(dependency.Version)) {
 				lock (issues) {
 					issues.Add(
 						$"Mod \"{mod.DisplayName}\" depends on the mod \"{dependency.DisplayName}\", but the version present isn't compatible "
-						+ $"(required: {related.Version}, present: {dependency.Version})");
+						+ $"(required: {related.VersionRequirements}, present: {dependency.Version})");
 				}
 			}
 
@@ -469,11 +471,11 @@ public class Patcher {
 			Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
 			if (dependency is null)
 				return;
-			if (!related.Version.IsCompatibleWith(dependency.Version)) {
+			if (!related.VersionRequirements.IsCompatibleWith(dependency.Version)) {
 				return;
 			}
 			
-			string versionHelp = $"Find a version of \"{dependency.DisplayName}\" that does not meet the version requirement: {related.Version}";
+			string versionHelp = $"Find a version of \"{dependency.DisplayName}\" that does not meet the version requirement: {related.VersionRequirements}";
 			string allHelp = $"Reorder the mods/{versionHelp}";
 			
 			string? issue = null;

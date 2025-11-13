@@ -142,13 +142,13 @@ public enum PatchFormatType {
 
 public class RelatedMod {
 	public string ModId;
-	public SemVerRequirement Version;
+	public SemVerRequirements VersionRequirements;
 	public OrderRequirement OrderRequirement;
 
 	public RelatedMod(JsonElement root) {
 		ModId = JsonUtil.GetStringOrThrow(root, "mod_id");
-		Version = new SemVerRequirement(JsonUtil.GetStringOrStringArrayOrThrow(root, "version"));
-		string orderRequirement = JsonUtil.GetStringOrThrow(root, "order");
+		VersionRequirements = new SemVerRequirements(JsonUtil.GetStringArrayOrThrow(root, "versions"));
+		string orderRequirement = JsonUtil.GetStringOrThrow(root, "order", "irrelevant");
 		OrderRequirement = orderRequirement switch {
 			"before_us" => OrderRequirement.BeforeUs,
 			"after_us" => OrderRequirement.AfterUs,
@@ -219,7 +219,7 @@ public readonly struct SemVer() {
 }
 public class InvalidSemVerException(string message) : InvalidModException(message);
 
-public readonly struct SemVerRequirement() {
+public readonly struct SemVerRequirements() {
 	private readonly (SemVer, SemVerComparison)[] Conditions;
 
 	private (SemVerComparison, int) GetComparison(string requirementString) {
@@ -241,7 +241,7 @@ public readonly struct SemVerRequirement() {
 		}
 		return (SemVerComparison.RoughlyEquals, 0);
 	}
-	public SemVerRequirement(string[] requirementStrings) : this() {
+	public SemVerRequirements(string[] requirementStrings) : this() {
 		Conditions = new (SemVer, SemVerComparison)[requirementStrings.Length];
 		for (int i = 0; i < requirementStrings.Length; i++) {
 			string requirementString = requirementStrings[i];

@@ -1,10 +1,11 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace g3man.Util;
 /*
  * Utility class for reading from a JsonDocument.
- * A lot of duplicated code, but it's worth it.
+ * TODO: I started rewriting this in the json_new branch but it sucks so bad there.
  */
 public static class JsonUtil {
 	private static JsonElement GetPropertyOrThrow(JsonElement element, string field) {
@@ -91,24 +92,33 @@ public static class JsonUtil {
 		return array;
 	}
 	
-	public static string[] GetStringOrStringArrayOrThrow(JsonElement element, string field) {
-		JsonElement inner = GetPropertyOrThrow(element, field);
-		
-		if (inner.ValueKind == JsonValueKind.String)
-			return [GetStringOrThrow(element, field)];
-		if (inner.ValueKind == JsonValueKind.Array)
-			return GetStringArrayOrThrow(element, field);
-		throw new InvalidDataException($"Field {field} is of the wrong type (Expected a string or a string array, but got {inner.ValueKind.ToString()})");
-	}
 	
-	/*
-	public static JsonElement[] GetArrayOrThrow(JsonElement element, string field) {
-		JsonElement inner = GetPropertyOrThrow(element, field);
-		
-		if (inner.ValueKind != JsonValueKind.Array)
-			throw new InvalidDataException($"Field {field} is of the wrong type (Expected an array, but got {inner.ValueKind.ToString()})");
+	
 
-		return inner.EnumerateArray().ToArray();
+
+	public static T GetOrDefaultClass<T>(JsonElement root, string field, T fallback) where T : class {
+		try {
+			return (fallback switch {
+				string => GetStringOrThrow(root, field) as T,
+				string[] => GetStringArrayOrThrow(root, field) as T,
+				JsonElement[] => GetObjectArrayOrThrow(root, field) as T,
+				_ => throw new ArgumentException($"Unsupported type ({typeof(T).Name})"),
+			})!;
+		}
+		catch (Exception _) {
+			return fallback;
+		}
 	}
-	*/
+	public static T GetOrDefault<T>(JsonElement root, string field, T fallback) where T : struct {
+		try {
+			return (fallback switch {
+				bool => Unsafe.BitCast<bool, T>(GetBooleanOrThrow(root, field)),
+				int => Unsafe.BitCast<int, T>(GetNumberOrThrow(root, field)),
+				_ => throw new ArgumentException(),
+			})!;
+		}
+		catch (Exception _) {
+			return fallback;
+		}
+	}
 }

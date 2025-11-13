@@ -21,19 +21,19 @@ public class Config {
 	}
 	
 	public Config(JsonElement root) {
-		GameDirectories = JsonUtil.GetStringArrayOrThrow(root, "game_directories").ToList();
-		
-		int initializer = JsonUtil.GetNumberOrThrow(root, "initializer");
+		GameDirectories = JsonUtil.GetOrDefaultClass(root, "game_directories", Array.Empty<string>()).ToList();
+
+		int initializer = JsonUtil.GetOrDefault(root, "initializer", 0);
 		if (initializer < 0 || initializer > 1)
 			initializer = 0;
 		Initializer = (Program.Initializer)initializer;
 		
-		int theme = JsonUtil.GetNumberOrThrow(root, "theme");
+		int theme = JsonUtil.GetOrDefault(root, "theme", 0);
 		if (theme < 0 || theme > 2)
 			theme = 0;
 		Theme = (Program.Theme)theme;
 		
-		int allowModScripting = JsonUtil.GetNumberOrThrow(root, "allow_mod_scripting");
+		int allowModScripting = JsonUtil.GetOrDefault(root, "mod_scripting_permissions", 0);
 		if (allowModScripting < 0 || allowModScripting > 1)
 			allowModScripting = 0;
 		AllowModScripting = allowModScripting == 1;
@@ -45,7 +45,7 @@ public class Config {
 			["game_directories"] = new JsonArray(GameDirectories.Select(directory => (JsonNode)directory).ToArray()),
 			["initializer"] = (int)Initializer,
 			["theme"] = (int)Theme,
-			["allow_mod_scripting"] = AllowModScripting ? 1 : 0
+			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0
 		};
 	}
 	

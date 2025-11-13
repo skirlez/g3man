@@ -34,14 +34,14 @@ public class PatcherWindow : Window {
 		Box box = Box.New(Orientation.Vertical, 10);
 		box.Append(statusLabel);
 		box.Append(closeButton);
-		
+
+		OnCloseRequest += (sender, args) => !closeButton.IsSensitive();
 		SetChild(box);
 	}
 
 	public void Dialog(List<Mod> mods) {
 		SetTransientFor(owner);
 		SetModal(true);
-		Present();
 		
 		new Thread(() => {
 			Patcher patcher = new Patcher();
@@ -49,6 +49,8 @@ public class PatcherWindow : Window {
 				Program.RunOnMainThreadEventually(() => {
 					statusLabel.SetText(status);
 					closeButton.SetSensitive(leave);
+					if (!IsVisible())
+						Present();
 				});
 			});
 		}).Start();
