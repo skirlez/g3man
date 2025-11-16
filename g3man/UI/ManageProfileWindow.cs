@@ -105,6 +105,7 @@ public class ManageProfileWindow : Window {
 				this.owner.AddToProfilesList(profile, false);
 			else
 				this.owner.UpdateProfilesList(profile, index.Value, isSelected);
+			
 			Close();
 		};
 		

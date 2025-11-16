@@ -11,7 +11,7 @@ public class Profile {
 	public bool SeparateModdedSave;
 	public string ModdedSaveName;
 	public string[] ModOrder;
-
+	public string[] ModsDisabled;
 	public string Description;
 	public string Version;
 	public string[] Credits;
@@ -26,6 +26,7 @@ public class Profile {
 		ModdedSaveName = moddedSaveName;
 		ModOrder = modOrder;
 
+		ModsDisabled = [];
 		Description = "";
 		Version = "";
 		Credits = [];
@@ -38,6 +39,7 @@ public class Profile {
 		SeparateModdedSave = JsonUtil.GetBooleanOrThrow(root, "separate_modded_save");
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
 		ModOrder = JsonUtil.GetStringArrayOrThrow(root, "mod_order");
+		ModsDisabled = JsonUtil.GetStringArrayOrThrow(root, "mods_disabled");
 		Description = JsonUtil.GetStringOrThrow(root, "description");
 		Version = JsonUtil.GetStringOrThrow(root, "version");
 		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits");
@@ -85,6 +87,7 @@ public class Profile {
 			["separate_modded_save"] = SeparateModdedSave,
 			["modded_save_name"] = ModdedSaveName,
 			["mod_order"] = new JsonArray(ModOrder.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>()),
+			["mods_disabled"] = new JsonArray(ModsDisabled.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>()),
 			["description"] = Description,
 			["version"] = Version,
 			["credits"] = new JsonArray(Credits.Select(credit => JsonValue.Create(credit)).ToArray<JsonNode?>()),
@@ -120,7 +123,14 @@ public class Profile {
 		return false;
 	}
 
-	public void UpdateOrderAndEnabled(List<Mod> modsList, Dictionary<Mod, bool> enabledMods) {
+	public void UpdateModsStatus(List<Mod> modsList, Dictionary<Mod, bool> enabledMods) {
 		ModOrder = modsList.Select(mod => mod.ModId).ToArray();
+		List<string> disabledIds = [];
+		foreach (var kvp in enabledMods) {
+			if (!kvp.Value)
+				disabledIds.Add(kvp.Key.ModId);
+		}
+
+		ModsDisabled = disabledIds.ToArray();
 	}
 }

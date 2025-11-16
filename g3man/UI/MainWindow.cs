@@ -272,7 +272,7 @@ public class MainWindow : Window {
 		
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += (_, _) => {
-			Program.GetProfile()!.UpdateOrderAndEnabled(modsList, enabledMods);
+			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
 			PopulateModsList();
 		};
@@ -325,8 +325,11 @@ public class MainWindow : Window {
 		applyButton.SetVexpand(true);
 		applyButton.SetMarginBottom(20);
 		applyButton.OnClicked += (_, _) => {
+			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
+			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
 			PatcherWindow window = new PatcherWindow(this);
-			window.Dialog(modsList);
+			List<Mod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
+			window.Dialog(enabledModsList);
 		};
 		
 		page.Append(modsListBox);
@@ -462,15 +465,32 @@ public class MainWindow : Window {
 		
 		modsList = Mod.Parse(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
 		
+		
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);
-		{
-			List<string> temp = profile.ModOrder.ToList();
-			modsList.Sort((mod1, mod2) => int.Sign(temp.IndexOf(mod1.ModId) - temp.IndexOf(mod2.ModId)));
-		}
+		
+		List<string> modOrder = profile.ModOrder.ToList();
+		modsList.Sort((mod1, mod2) => int.Sign(modOrder.IndexOf(mod1.ModId) - modOrder.IndexOf(mod2.ModId)));
+	
+		enabledMods = new Dictionary<Mod, bool>();
+		List<string> disabledIds = profile.ModsDisabled.ToList();
+
 		foreach (Mod mod in modsList) {
 			ListBoxRow row = ListBoxRow.New();
 			CheckButton modEnabled = CheckButton.New();
+			
+			if (!disabledIds.Contains(mod.ModId)) {
+				modEnabled.SetActive(true);
+				enabledMods.Add(mod, true);
+			}
+			else {
+				enabledMods.Add(mod, false);
+			}
+			modEnabled.OnToggled += (sender, _) => {
+				enabledMods.Remove(mod);
+				enabledMods.Add(mod, sender.Active);
+			};
+
 			Label modName = Label.New(mod.DisplayName);
 			Box modBox = Box.New(Orientation.Horizontal, 5);
 			modBox.Append(modEnabled);
