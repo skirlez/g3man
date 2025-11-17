@@ -614,7 +614,7 @@ public class MainWindow : Window {
 		
 		Program.SetGame(game);
 		currentGameLabel.SetText(game.DisplayName);
-		List<Profile> profiles = Profile.Parse(Path.Combine(game.Directory, "g3man"));
+		List<Profile> profiles = Profile.ParseAll(Path.Combine(game.Directory, "g3man"));
 		if (profiles.Count == 0)
 		{
 			EnableExtraCategories(ExtraCategories.Profiles);

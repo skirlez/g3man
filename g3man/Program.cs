@@ -68,17 +68,8 @@ public static class Program {
 			};
 			return application.RunWithSynchronizationContext([]);
 		}
-
-		RootCommand root = new RootCommand("IDK");
-
-		Command patch = new Command("patch");
-		root.Subcommands.Add(patch);
-
-		ParseResult result = root.Parse(args);
-		foreach (ParseError parseError in result.Errors) {
-			Console.Error.WriteLine(parseError.Message);
-		}
-		return 0;
+		
+		return CLI.Invoke(args);
 	}
 	
 

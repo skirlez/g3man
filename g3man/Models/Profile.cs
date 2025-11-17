@@ -46,7 +46,7 @@ public class Profile {
 		Links = JsonUtil.GetStringArrayOrThrow(root, "links");
 	}
 
-	public static List<Profile> Parse(string directory) {
+	public static List<Profile> ParseAll(string directory) {
 		ConcurrentBag<Profile> profiles = new ConcurrentBag<Profile>();
 		string[] profileFolders;
 		try {
@@ -58,26 +58,33 @@ public class Profile {
 		}
 
 		Parallel.ForEach(profileFolders, profileFolder => {
-			string fullPath = Path.Combine(profileFolder, "profile.json");
-			JsonDocument jsonDoc;
-			try {
-				string text = File.ReadAllText(fullPath); 
-				jsonDoc = JsonDocument.Parse(text);
-			}
-			catch (Exception e) {
-				logger.Error("Couldn't find or load profile.json at " + fullPath + ":\n" + e.Message);
-				return;
-			}
-			try {
-				Profile profile = new Profile(jsonDoc.RootElement, Path.GetFileName(profileFolder));
+			Profile? profile = Parse(profileFolder);
+			if (profile is not null)
 				profiles.Add(profile);
-			}
-			catch (InvalidDataException e) {
-				logger.Error("Invalid profile.json at " + fullPath + ":\n" + e.Message);
-			}
 		});
 
 		return profiles.ToList();
+	}
+	
+	public static Profile? Parse(string profileFolder) {
+		string fullPath = Path.Combine(profileFolder, "profile.json");
+		JsonDocument jsonDoc;
+		try {
+			string text = File.ReadAllText(fullPath); 
+			jsonDoc = JsonDocument.Parse(text);
+		}
+		catch (Exception e) {
+			logger.Error("Couldn't find or load profile.json at " + fullPath + ":\n" + e.Message);
+			return null;
+		}
+		try {
+			Profile profile = new Profile(jsonDoc.RootElement, Path.GetFileName(profileFolder));
+			return profile;
+		}
+		catch (InvalidDataException e) {
+			logger.Error("Invalid profile.json at " + fullPath + ":\n" + e.Message);
+		}
+		return null;
 	}
 
 	public JsonObject ToJson() {

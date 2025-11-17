@@ -1,0 +1,52 @@
+using System.CommandLine;
+using g3man.Models;
+
+namespace g3man;
+
+public class CLI {
+    public static int Invoke(string[] args) {
+        RootCommand root = new RootCommand("This program can apply g3man mods or g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
+
+        Command applyCommand = new Command("apply");
+        applyCommand.Description = "Apply g3man mods or profiles";
+        root.Subcommands.Add(applyCommand);
+
+        {
+            Command applyProfileCommand = new Command("profile");
+            applyProfileCommand.Description = "Applies a profile to a datafile and saves the resulting new datafile";
+            applyCommand.Subcommands.Add(applyProfileCommand);
+
+            Option<DirectoryInfo> profileLocation = new Option<DirectoryInfo>("--path", "-p");
+            profileLocation.Description = "Path to the profile folder containing profile.json";
+            profileLocation.Required = true;
+            profileLocation.Arity = ArgumentArity.ExactlyOne;
+            applyProfileCommand.Options.Add(profileLocation);
+
+            
+            Option<FileInfo> datafileLocation = new Option<FileInfo>("--datafile", "-d");
+            datafileLocation.Description = "Path to the game's clean datafile";
+            datafileLocation.Required = true;
+            datafileLocation.Arity = ArgumentArity.ExactlyOne;
+            applyProfileCommand.Options.Add(datafileLocation);
+
+            
+            Option<FileInfo> outLocation = new Option<FileInfo>("--out", "-o");
+            outLocation.Description = "Path to where the output datafile should be saved";
+            outLocation.Required = true;
+            outLocation.Arity = ArgumentArity.ExactlyOne;
+            applyProfileCommand.Options.Add(outLocation);
+      
+			applyProfileCommand.SetAction(parseResult => {
+                DirectoryInfo profileDirectoryInfo = parseResult.GetValue(profileLocation)!;
+                Profile? profile = Profile.Parse(profileDirectoryInfo.FullName);
+                if (profile == null) {
+                    return 1;
+                }
+                return 0;
+            }); 
+        }
+
+        ParseResult result = root.Parse(args);
+        return result.Invoke();
+    }
+}
