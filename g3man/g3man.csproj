@@ -14,8 +14,7 @@
     <IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsWindows)'=='true'">
-    <DefineConstants>WINDOWS</DefineConstants>
-    <DefineConstants>THEMESELECTOR</DefineConstants>
+    <DefineConstants>WINDOWS;THEMESELECTOR</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsOSX)'=='true'">
     <DefineConstants>OSX</DefineConstants>

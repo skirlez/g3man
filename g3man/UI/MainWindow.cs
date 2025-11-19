@@ -661,9 +661,9 @@ public class MainWindow : Window {
 			}
 			else {
 				Adw.StyleManager.GetDefault().SetColorScheme(theme switch {
-					Program.Theme.SystemDefault => ColorScheme.Default,
-					Program.Theme.Light => ColorScheme.ForceLight,
-					Program.Theme.Dark => ColorScheme.ForceDark,
+					Program.Theme.SystemDefault => Adw.ColorScheme.Default,
+					Program.Theme.Light => Adw.ColorScheme.ForceLight,
+					Program.Theme.Dark => Adw.ColorScheme.ForceDark,
 					_ => throw new UnreachableException()
 				});
 			}

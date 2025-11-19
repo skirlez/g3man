@@ -55,6 +55,12 @@ public static class Program {
 			else
 				Config = new Config(configJson.Value);
 
+			
+			#if WINDOWS
+				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
+				Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo");
+			#endif
+			
 			if (Config.Initializer == Initializer.Gtk)
 				application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
 			else
