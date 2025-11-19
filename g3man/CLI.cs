@@ -1,5 +1,7 @@
 using System.CommandLine;
 using g3man.Models;
+using g3man.Patching;
+using UndertaleModLib;
 
 namespace g3man;
 
@@ -37,11 +39,40 @@ public class CLI {
             applyProfileCommand.Options.Add(outLocation);
       
 			applyProfileCommand.SetAction(parseResult => {
-                DirectoryInfo profileDirectoryInfo = parseResult.GetValue(profileLocation)!;
+                DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
+                Console.WriteLine("Parsing profile and mods...");
                 Profile? profile = Profile.Parse(profileDirectoryInfo.FullName);
                 if (profile == null) {
                     return 1;
                 }
+
+                List<Mod> mods = Mod.Parse(Path.Combine(profileDirectoryInfo.FullName, "mods"));
+                if (mods.Count == 0) {
+                    return 1;
+                }
+                
+                FileInfo dataFileInfo = parseResult.GetRequiredValue(datafileLocation);
+                Console.WriteLine("Loading clean datafile...");
+                UndertaleData data;
+                try {
+                    using FileStream stream = new FileStream(dataFileInfo.FullName, FileMode.Open, FileAccess.Read);
+                    data = UndertaleIO.Read(stream);
+                }
+                catch (Exception e) {
+                    Console.Error.WriteLine(e.ToString());
+                    return 1;
+                }
+                
+                
+                FileInfo outFileInfo = parseResult.GetRequiredValue(outLocation);
+                
+                Patcher patcher = new Patcher();
+                patcher.Patch(mods, profile, profileDirectoryInfo.Parent!.FullName, data, outFileInfo.FullName,
+                    (status, leave) => {
+                        Console.WriteLine(status);        
+                    }
+                );
+                
                 return 0;
             }); 
         }

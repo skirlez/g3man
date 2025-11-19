@@ -44,14 +44,29 @@ public class PatcherWindow : Window {
 		SetModal(true);
 		
 		new Thread(() => {
+
+			void setStatus(string status, bool leave) {
+				statusLabel.SetText(status);
+				closeButton.SetSensitive(leave);
+				if (!IsVisible())
+					Present();
+			}
+			UndertaleData data;
+			lock (Program.DataLoader.Lock) {
+				while (!Program.DataLoader.CanSnatch()) {
+					if (Program.DataLoader.HasErrored()) {
+						setStatus($"Failed to load game's data.win. I don't know what to do in this situation yet. TODO", true);
+						return;
+					}
+					setStatus($"Waiting for game data to load...", false);
+					Monitor.Wait(Program.DataLoader.Lock);
+				}
+				data = Program.DataLoader.Snatch();
+			}
 			Patcher patcher = new Patcher();
-			patcher.Patch(mods, Program.GetProfile()!, Program.GetGame()!, (status, leave) => {
-				Program.RunOnMainThreadEventually(() => {
-					statusLabel.SetText(status);
-					closeButton.SetSensitive(leave);
-					if (!IsVisible())
-						Present();
-				});
+			patcher.Patch(mods, Program.GetProfile()!, 
+				Path.Combine(Program.GetGame()!.Directory, "g3man"), data, Program.GetGame()!.Directory, (status, leave) => {
+				Program.RunOnMainThreadEventually(() => setStatus(status, leave));
 			});
 		}).Start();
 

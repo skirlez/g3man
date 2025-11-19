@@ -234,8 +234,8 @@ public class Patcher {
 	}
 
 
-	public void Patch(List<Mod> mods, Profile profile, Game game, Action<string, bool> statusCallback) {
-		string modsFolder = Path.Combine(game.Directory, "g3man", profile.FolderName, "mods");
+	public void Patch(List<Mod> mods, Profile profile, string folderAboveProfile, UndertaleData data, string outDirectory, Action<string, bool> statusCallback) {
+		string modsFolder = Path.Combine(folderAboveProfile, profile.FolderName, "mods");
 		void setStatus(string message, bool leave = false) {
 			logger.Info(message);
 			statusCallback(message, leave);
@@ -284,20 +284,6 @@ public class Patcher {
 			statusCallback(sb.ToString(), true);
 			return;
 		}
-		UndertaleData data;
-		statusCallback($"Waiting for game data to load...", false);
-
-		lock (Program.DataLoader.Lock) {
-			while (!Program.DataLoader.CanSnatch()) {
-				if (Program.DataLoader.HasErrored()) {
-					statusCallback($"Failed to load game's data.win. I don't know what to do in this situation yet. TODO", true);
-					return;
-				}
-				Monitor.Wait(Program.DataLoader.Lock);
-			}
-			data = Program.DataLoader.Snatch();
-		}
-
 		
 		foreach (Mod mod in mods) {
 			UndertaleData? modData = null;
@@ -397,11 +383,11 @@ public class Patcher {
 			data.GeneralInfo.Name.Content = profile.ModdedSaveName;
 		setStatus("Saving file");
 		try {
-			string tempFilePath = Path.Combine(game.Directory, TempDataName);
+			string tempFilePath = Path.Combine(outDirectory, TempDataName);
 			using FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write);
 			UndertaleIO.Write(stream, data);
 			// TODO: change data.win
-			File.Move(tempFilePath, Path.Combine(game.Directory, "data.win"), true);
+			File.Move(tempFilePath, Path.Combine(outDirectory, "data.win"), true);
 			File.Delete(tempFilePath);
 		}
 		catch (Exception e) {
