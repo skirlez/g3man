@@ -1,4 +1,5 @@
 using g3man.Models;
+using g3man.Util;
 using Gdk;
 using Gtk;
 
@@ -89,9 +90,33 @@ public class ManageProfileWindow : Window {
 		}
 		
 		doneButton.OnClicked += (_, _) => {
+			if (index is null) {
+				string folderName = ToProfileFolderName(nameEntry.GetText());
+				string?[] folders;
+				try {
+					folders = Directory.GetDirectories(Path.Combine(Program.GetGame()!.Directory, "g3man")).Select(Path.GetFileName).ToArray();
+				}
+				catch (Exception e) {
+					Console.Error.WriteLine(e);
+					PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to save this profile", "Damn");
+					popup.Dialog();
+					return;
+				}
+				
+				if (folders.Contains(folderName)) {
+					PopupWindow popup = new PopupWindow(this,  "Conflict!" ,$"A profile with the name \"{folderName}\" already exists, so you'll need to change the name.", "Okay I'll Rename It");
+					popup.Dialog();
+					return;
+				}
+				if (folderName == IO.AppliedProfileSymlinkName) {
+					PopupWindow popup = new PopupWindow(this,  "STOP!!!!!!" ,$"\"{IO.AppliedProfileSymlinkName}\" is a reserved name. You can't name your profile something that results in that folder name.", "Alright");
+					popup.Dialog();
+					return;
+				}
+				profile.FolderName = folderName;
+			}
 			profile.Name = nameEntry.GetText();
-			if (index is null)
-				profile.FolderName = nameEntry.GetText().ToLowerInvariant();
+
 			profile.SeparateModdedSave = moddedSaveCheck.GetActive();
 			profile.ModdedSaveName = saveNameEntry.GetText();
 			bool success = profile.Write(Program.GetGame()!.Directory);
@@ -123,6 +148,10 @@ public class ManageProfileWindow : Window {
 		SetChild(box);
 	}
 
+	private string ToProfileFolderName(string profileDisplayName) {
+		return profileDisplayName.ToLowerInvariant().Replace(' ', '_');
+	}
+	
 	public void Dialog() {
 		SetTransientFor(owner);
 		SetModal(true);
