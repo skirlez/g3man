@@ -102,14 +102,13 @@ public class ManageProfileWindow : Window {
 					popup.Dialog();
 					return;
 				}
-				
-				if (folders.Contains(folderName)) {
-					PopupWindow popup = new PopupWindow(this,  "Conflict!" ,$"A profile with the name \"{folderName}\" already exists, so you'll need to change the name.", "Okay I'll Rename It");
+				if (folderName == IO.AppliedProfileSymlinkName) {
+					PopupWindow popup = new PopupWindow(this,  "STOP!!!!!!" ,$"\"{IO.AppliedProfileSymlinkName}\" is a reserved name. You can't name your profile something that results in that folder name.", "Alright");
 					popup.Dialog();
 					return;
 				}
-				if (folderName == IO.AppliedProfileSymlinkName) {
-					PopupWindow popup = new PopupWindow(this,  "STOP!!!!!!" ,$"\"{IO.AppliedProfileSymlinkName}\" is a reserved name. You can't name your profile something that results in that folder name.", "Alright");
+				if (folders.Contains(folderName)) {
+					PopupWindow popup = new PopupWindow(this,  "Conflict!" ,$"A profile with the name \"{folderName}\" already exists, so you'll need to change the name.", "Okay I'll Rename It");
 					popup.Dialog();
 					return;
 				}

@@ -48,4 +48,23 @@ public static class IO {
 			throw new Exception("Function not implemented for this OS");
 		#endif
 	}
+
+	public static void OpenFileExplorer(string directory) {
+		try {
+			#if LINUX
+				Process.Start("xdg-open", [directory]);
+			#elif WINDOWS
+				Process.Start(new ProcessStartInfo {
+					FileName = directory,
+					UseShellExecute = true,
+				});
+			#else
+				throw new Exception("Function not implemented for this OS");
+			#endif
+		}
+		catch (Exception e) {
+			Console.Error.WriteLine(e);
+		}
+	}
+	
 }

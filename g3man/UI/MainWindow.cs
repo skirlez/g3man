@@ -184,6 +184,18 @@ public class MainWindow : Window {
 
 		gameDirectoryEntry.SetMaxWidthChars(75);
 		Button browseButton = Button.NewWithLabel("Browse");
+		browseButton.OnClicked += (_, _) => {
+			FileDialog dialog =  new FileDialog();
+			dialog.Title = "Select a GameMaker game's folder";
+			Task<Gio.File?> task = dialog.SelectFolderAsync(this);
+			task.GetAwaiter().OnCompleted(() => {
+				if (!task.IsCompletedSuccessfully)
+					return;
+				Gio.File file = task.Result!;
+				gameDirectoryEntry.SetText(file.GetPath() ?? "");
+			});
+			
+		};
 		
 		Box gameDirectoryEntryBox = Box.New(Orientation.Horizontal, 10);
 		gameDirectoryEntryBox.Append(browseButton);
@@ -269,6 +281,9 @@ public class MainWindow : Window {
 		
 		Button openModsFolderButton = Button.New();
 		openModsFolderButton.Label = "Open mods folder";
+		openModsFolderButton.OnClicked += (_, _) => {
+			IO.OpenFileExplorer(Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName));
+		};
 		
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += (_, _) => {
