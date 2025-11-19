@@ -28,13 +28,13 @@ public static class ProgramPaths {
 	}
 	
 
-	public static string? GetDatafileFromDirectory(string directory) {
+	public static (string, string)? GetDatafileFromDirectory(string directory) {
 		// all technically valid gamemaker data filenames
 		string[] datafileNames = ["data.win", "game.unx", "game.ios", "game.droid"];
 		foreach (string name in datafileNames) {
 			string combined = Path.Combine(directory, name);
 			if (File.Exists(combined))
-				return combined;
+				return (name, combined);
 		}
 		return null;
 	}

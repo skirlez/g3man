@@ -7,6 +7,9 @@ namespace g3man;
 
 public class CLI {
     public static int Invoke(string[] args) {
+        Program.Config = new Config();
+        Program.Config.AllowModScripting = true;
+        
         RootCommand root = new RootCommand("This program can apply g3man mods or g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
 
         Command applyCommand = new Command("apply");
@@ -32,11 +35,17 @@ public class CLI {
             applyProfileCommand.Options.Add(datafileLocation);
 
             
-            Option<FileInfo> outLocation = new Option<FileInfo>("--out", "-o");
-            outLocation.Description = "Path to where the output datafile should be saved";
+            Option<DirectoryInfo> outLocation = new Option<DirectoryInfo>("--out", "-o");
+            outLocation.Description = "Directory where the output datafile should be saved";
             outLocation.Required = true;
             outLocation.Arity = ArgumentArity.ExactlyOne;
             applyProfileCommand.Options.Add(outLocation);
+            
+            
+            Option<String> outName = new Option<String>("--outname", "-n");
+            outLocation.Description = "What name should the output datafile have";
+            outLocation.Arity = ArgumentArity.ExactlyOne;
+            applyProfileCommand.Options.Add(outName);
       
 			applyProfileCommand.SetAction(parseResult => {
                 DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
@@ -46,7 +55,7 @@ public class CLI {
                     return 1;
                 }
 
-                List<Mod> mods = Mod.Parse(Path.Combine(profileDirectoryInfo.FullName, "mods"));
+                List<Mod> mods = Mod.ParseAll(Path.Combine(profileDirectoryInfo.FullName));
                 if (mods.Count == 0) {
                     return 1;
                 }
@@ -64,15 +73,26 @@ public class CLI {
                 }
                 
                 
-                FileInfo outFileInfo = parseResult.GetRequiredValue(outLocation);
+                DirectoryInfo outLocationInfo = parseResult.GetRequiredValue(outLocation);
+
+                string datafileName = parseResult.GetValue(outName) ?? "data.win";
                 
                 Patcher patcher = new Patcher();
-                patcher.Patch(mods, profile, profileDirectoryInfo.Parent!.FullName, data, outFileInfo.FullName,
+                UndertaleData? output = patcher.Patch(mods, profile, profileDirectoryInfo.FullName, data,
                     (status, leave) => {
-                        Console.WriteLine(status);        
+                         
                     }
                 );
-                
+                if (output == null)
+                    return 1;
+                try {
+                    IO.Apply(data,  outLocationInfo.FullName, profileDirectoryInfo.FullName, datafileName);
+                }
+                catch (Exception e) {
+                    Console.Error.WriteLine("Failed to save output data.win");
+                    Console.Error.WriteLine(e.ToString());
+                }
+
                 return 0;
             }); 
         }

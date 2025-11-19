@@ -31,9 +31,11 @@ public class GameAdderWindow : Window {
 	private record Success(Game Game, UndertaleData Data);
 	private record Error(string Reason, Exception? Exception);
 	private Result<Success, Error> LoadAndSetupGame() {
-		string? datafilePath = ProgramPaths.GetDatafileFromDirectory(directory);
-		if (datafilePath is null)
+		(string, string)? datafileInfo = ProgramPaths.GetDatafileFromDirectory(directory);
+		if (datafileInfo is null)
 			return new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile", null));
+		(string datafileName, string datafilePath) = datafileInfo.Value;
+		
 		byte[] hash;
 		UndertaleData data;
 		try {
@@ -63,6 +65,7 @@ public class GameAdderWindow : Window {
 		Game game = new Game(data.GeneralInfo.DisplayName.Content,
 			data.GeneralInfo.FileName.Content, 
 			directory, 
+			datafileName, 
 			BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant(), 
 			profile.FolderName);
 		
@@ -75,7 +78,7 @@ public class GameAdderWindow : Window {
 		}
 		
 		try {
-			File.Copy(datafilePath, Path.Combine(directory, Patcher.CleanDataName), true);
+			File.Copy(datafilePath, game.GetCleanDatafilePath(), true);
 		}
 		catch (Exception e) {
 			return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));

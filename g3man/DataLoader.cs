@@ -61,7 +61,7 @@ public class DataLoader {
 						readData = UndertaleIO.Read(dataMemory);
 					}
 					catch (Exception e) {
-						logger.Debug("Failed to load datafile: " + e.Message);
+						logger.Debug("Failed to load datafile: " + e);
 						Lock.Errored = true;
 					}
 				}

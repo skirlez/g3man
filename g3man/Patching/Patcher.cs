@@ -15,8 +15,8 @@ namespace g3man.Patching;
 
 public class Patcher {
 	private static readonly Logger logger = new Logger("PATCHER");
-	public const string CleanDataName = "g3man_data.win";
-	public const string TempDataName = "g3man_temp_data.win";
+	public const string CleanDataName = "g3man_clean_data.win";
+
 
 	enum OverlapBehavior {
 		ImplicitlyExcludeExplicitlyOverride,
@@ -179,9 +179,11 @@ public class Patcher {
 		
 		data.MaxLocalVarCount = Math.Max(data.MaxLocalVarCount, modData.MaxLocalVarCount);
 
-		foreach (UndertaleCodeLocals locals in modData.CodeLocals) 
-			data.CodeLocals.Add(locals);
-		
+		if (data.CodeLocals is not null) {
+			foreach (UndertaleCodeLocals locals in modData.CodeLocals)
+				data.CodeLocals.Add(locals);
+		}
+
 		MergeLists(data.Scripts, modData.Scripts);
 		MergeLists(data.GameObjects,  modData.GameObjects, gameObject => {
 			UndertaleGameObject parent = gameObject.ParentId;
@@ -234,8 +236,7 @@ public class Patcher {
 	}
 
 
-	public void Patch(List<Mod> mods, Profile profile, string folderAboveProfile, UndertaleData data, string outDirectory, Action<string, bool> statusCallback) {
-		string modsFolder = Path.Combine(folderAboveProfile, profile.FolderName, "mods");
+	public UndertaleData? Patch(List<Mod> mods, Profile profile, string profileLocation, UndertaleData data, Action<string, bool> statusCallback) {
 		void setStatus(string message, bool leave = false) {
 			logger.Info(message);
 			statusCallback(message, leave);
@@ -246,7 +247,7 @@ public class Patcher {
 			if (path == "")
 				return true;
 			setStatus($"Running script: {path}");
-			string fullStringPath = Path.Combine(modsFolder, mod.FolderName, mod.PostMergeScriptPath);
+			string fullStringPath = Path.Combine(profileLocation, mod.FolderName, mod.PostMergeScriptPath);
 			string code;
 				
 			try {
@@ -282,7 +283,7 @@ public class Patcher {
 			}
 
 			statusCallback(sb.ToString(), true);
-			return;
+			return null;
 		}
 		
 		foreach (Mod mod in mods) {
@@ -290,20 +291,20 @@ public class Patcher {
 			
 			if (mod.DatafilePath != "") {
 				setStatus($"Merging: {mod.DisplayName}");
-				string fullDatafilePath = Path.Combine(modsFolder, mod.FolderName, mod.DatafilePath);
+				string fullDatafilePath = Path.Combine(profileLocation, mod.FolderName, mod.DatafilePath);
 				try {
 					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
 					modData = UndertaleIO.Read(stream);
 					if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
-						return;
+						return null;
 					merge(data, modData);
 					if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
-						return;
+						return null;
 				}
 				catch (Exception e) {
-					logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e.Message);
+					logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e);
 					setStatus($"Failed to load the datafile of {mod.DisplayName}. Check the log.", true);
-					return;
+					return null;
 				}
 			}
 			
@@ -312,7 +313,7 @@ public class Patcher {
 
 		foreach (Mod mod in mods) {
 			if (!runModScript(mod, m => m.PrePatchScriptPath, new ScriptGlobals(data)))
-				return;
+				return null;
 		}
 
 		GlobalDecompileContext context = new GlobalDecompileContext(data);
@@ -328,22 +329,22 @@ public class Patcher {
 				// the only one right now
 				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
 
-				string modFolder = Path.Combine(modsFolder, mod.FolderName);
+				string modFolder = Path.Combine(profileLocation, mod.FolderName);
 				string fullPath = Path.Combine(modFolder, patchLocation.Path);
 				
 				if (Directory.Exists(fullPath)) {
 					foreach (string file in Directory.GetFiles(fullPath, "*.gmlp", SearchOption.AllDirectories)) {
 						if (!processPatch(file, Path.GetRelativePath(modFolder, file)))
-							return;
+							return null;
 					}
 				}
 				else if (File.Exists(fullPath)) {
 					if (!processPatch(fullPath, patchLocation.Path))
-						return;
+						return null;
 				}
 				else {
 					setStatus($"Mod {mod.DisplayName}: Invalid patch or patch directory {patchLocation.Path}", true);
-					return;
+					return null;
 				}
 				
 
@@ -376,34 +377,18 @@ public class Patcher {
 			setStatus(e.HumanError(), true);
 			if (e.GetBadCode() is not null)
 				logger.Error("This code failed to compile:\n" + e.GetBadCode()!);
-			return;
+			return null;
 		}
 
 		if (profile.SeparateModdedSave)
 			data.GeneralInfo.Name.Content = profile.ModdedSaveName;
-		setStatus("Saving file");
-		try {
-			string tempFilePath = Path.Combine(outDirectory, TempDataName);
-			using FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write);
-			UndertaleIO.Write(stream, data);
-			// TODO: change data.win
-			File.Move(tempFilePath, Path.Combine(outDirectory, "data.win"), true);
-			File.Delete(tempFilePath);
-		}
-		catch (Exception e) {
-			setStatus("Error occured while saving! Check the log.", true);
-			logger.Error("Failed to save datafile: " + e);
-			return;
-		}
 		
 		foreach (Mod mod in mods) {
 			if (!runModScript(mod, m => m.PostPatchScriptPath, new ScriptGlobals(data)))
-				return;
+				return null;
 		}
 		
-		
-		setStatus("Done!", true);
-		
+		return data;
 	}
 	
 	public static bool IsDataPatched(UndertaleData data) {

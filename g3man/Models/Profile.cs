@@ -38,12 +38,13 @@ public class Profile {
 		FolderName = folderName;
 		SeparateModdedSave = JsonUtil.GetBooleanOrThrow(root, "separate_modded_save");
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
-		ModOrder = JsonUtil.GetStringArrayOrThrow(root, "mod_order");
-		ModsDisabled = JsonUtil.GetStringArrayOrThrow(root, "mods_disabled");
-		Description = JsonUtil.GetStringOrThrow(root, "description");
-		Version = JsonUtil.GetStringOrThrow(root, "version");
-		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits");
-		Links = JsonUtil.GetStringArrayOrThrow(root, "links");
+		
+		ModOrder = JsonUtil.GetOrDefaultClass(root, "mod_order", Array.Empty<string>());
+		ModsDisabled = JsonUtil.GetOrDefaultClass(root, "mods_disabled", Array.Empty<string>());
+		Description = JsonUtil.GetOrDefaultClass(root, "description", "");
+		Version = JsonUtil.GetOrDefaultClass(root, "version", "");
+		Credits = JsonUtil.GetOrDefaultClass(root, "credits", Array.Empty<string>());
+		Links = JsonUtil.GetOrDefaultClass(root, "links", Array.Empty<string>());
 	}
 
 	public static List<Profile> ParseAll(string directory) {
@@ -105,9 +106,11 @@ public class Profile {
 	public bool Write(string directory) {
 		try {
 			string profileFolder = Path.Combine(directory, "g3man", FolderName);
-			Directory.CreateDirectory(Path.Combine(profileFolder, "mods"));
+			Directory.CreateDirectory(profileFolder);
 
-			string jsonText = ToJson().ToJsonString();
+			string jsonText = ToJson().ToJsonString(new JsonSerializerOptions() {
+				WriteIndented = true
+			});
 			File.WriteAllText(Path.Combine(profileFolder, "profile.json"), jsonText);
 			return true;
 		}

@@ -48,14 +48,14 @@ g3man attempts to solve these problems while staying firmly in GameMaker-Land, a
 	g3man will copy everything from your data.win to the base game's data.win, merging them.
 
 	This solves a problem I've seen in many attempts at GameMaker mod loaders/patchers - 
-	you have to add (and maintain!!) a way for people to add new assets.
+	you have to create (and maintain!) a way for people to add new assets.
 
 	This approach also has several benefits:
 	- You get to use the GameMaker IDE to define the new data
 	- Depending on the nature of your mod, you can run it from the IDE, and use the GameMaker debugger/profiler
 	- You can still distribute differential patches like .xdelta for your mod, for users who wish to run just your mod and don't want to download g3man
 
-	A small downside is that your asset indices get offset. You have to use asset_get_index() to get their index every time (i.e. instead of `spr_player`, you have to reference it using `asset_get_index("spr_player")`), as the indices for each asset will only be known post-merge.
+	A small downside is that your asset indices get offset, since they are placed after the original game's assets. You have to use asset_get_index() to get their index every time (i.e. instead of `spr_player`, you have to reference it using `asset_get_index("spr_player")`), as the indices for each asset will only be known post-merge.
 
 
 Since g3man operates on the data.win only, it only partially supports GameMaker games compiled with YYC (games where the code is transpiled to C++, compiled, then embedded into the executable).
@@ -67,7 +67,16 @@ To my knowledge, the only option available for YYC code modding right now is YYT
 
 - Support for all GameMaker games compiled with VM mode (theoretically)
 - A profile system to easily switch between sets of mods
+- Mod scripting: mods can run .csx scripts, like UndertaleModTool
 - Support for both Linux and Windows
+
+## Mods made with g3man
+
+[Void Stranger Endless Void](https://github.com/skirlez/void-stranger-endless-void/): a level builder for Void Stranger
+
+[Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the [example mod](https://github.com/Skirlez/nubbys-forgery-example-mod): an API for Nubby's Number Factory, and a mod that depends on it to add new things to the game
+
+Have YOU made ANYTHING with g3man? I would love to add more to this list! Please open an issue regarding your creation, even if it's something really small.
 
 ## Building g3man
 
@@ -82,7 +91,7 @@ dotnet build g3man
 1. Install GTK4 and libadwaita
 2. Download .NET 8 SDK
 3. Clone the repository
-4. `dotnet build g3man`
+4. Run `dotnet build g3man` inside the repository folder
 
 ### Windows
 
@@ -92,7 +101,7 @@ dotnet build g3man
 4. Add `C:/msys64/mingw64/bin` to PATH (or wherever you placed msys64 if you changed it)
 5. Download .NET 8 SDK
 6. Clone the repository
-7. `dotnet build g3man`
+7. Run `dotnet build g3man` inside the repository folder
 
 
 ## Building gmlpweb
@@ -106,7 +115,6 @@ dotnet build gmlpweb
 1. Download .NET 8 SDK
 2. Clone the repository
 3. `dotnet build gmlpweb`
-
 
 
 ## Contributing

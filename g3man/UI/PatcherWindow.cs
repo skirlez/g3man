@@ -44,7 +44,6 @@ public class PatcherWindow : Window {
 		SetModal(true);
 		
 		new Thread(() => {
-
 			void setStatus(string status, bool leave) {
 				statusLabel.SetText(status);
 				closeButton.SetSensitive(leave);
@@ -64,10 +63,23 @@ public class PatcherWindow : Window {
 				data = Program.DataLoader.Snatch();
 			}
 			Patcher patcher = new Patcher();
-			patcher.Patch(mods, Program.GetProfile()!, 
-				Path.Combine(Program.GetGame()!.Directory, "g3man"), data, Program.GetGame()!.Directory, (status, leave) => {
+			string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
+			UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, 
+				profileDirectory, data, (status, leave) => {
 				Program.RunOnMainThreadEventually(() => setStatus(status, leave));
 			});
+			if (output is null)
+				return;
+			setStatus("Writing...", false);
+			try {
+				IO.Apply(output, Program.GetGame()!.Directory, profileDirectory, Program.GetGame()!.DatafileName);
+			}
+			catch (Exception e) {
+				Console.Error.WriteLine(e);
+				setStatus("Failed to write output datafile! Check the log.", true);
+				return;
+			}
+			setStatus("Done!", true);
 		}).Start();
 
 	}

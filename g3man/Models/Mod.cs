@@ -97,7 +97,7 @@ public class Mod {
 		return PreMergeScriptPath != "" || PostMergeScriptPath != "";
 	}
 	
-	public static List<Mod> Parse(string directory) {
+	public static List<Mod> ParseAll(string directory) {
 		ConcurrentBag<Mod> mods = new ConcurrentBag<Mod>();
 		string[] modFolders;
 		try {

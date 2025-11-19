@@ -13,20 +13,24 @@ public class Game {
 	public string InternalName;
 	public string Directory;
 	public string Hash;
+	
+	public string DatafileName;
 	public string ProfileFolderName;
 	
-	public Game(string displayName, string internalName, string directory, string hash, string profileId) {
+	public Game(string displayName, string internalName, string directory, string datafileName, string hash, string profileFolderName) {
 		DisplayName = displayName;
 		InternalName = internalName;
 		Directory = directory;
+		DatafileName = datafileName;
 		Hash = hash;
-		ProfileFolderName = profileId;
+		ProfileFolderName = profileFolderName;
 	}
 	public Game(JsonElement root, string directory) {
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		InternalName = JsonUtil.GetStringOrThrow(root, "internal_name");
 		Hash = JsonUtil.GetStringOrThrow(root, "hash");
 		ProfileFolderName = JsonUtil.GetStringOrThrow(root, "profile_folder_name");
+		DatafileName = JsonUtil.GetStringOrThrow(root, "datafile_name");
 		Directory = directory;
 	}
 	
@@ -35,7 +39,7 @@ public class Game {
 	}
 
 	public string GetCleanDatafilePath() {
-		return Path.Combine(Directory, Patcher.CleanDataName);
+		return Path.Combine(Directory, "g3man", Patcher.CleanDataName);
 	}
 
 	public JsonObject ToJson() {
@@ -46,6 +50,7 @@ public class Game {
 			["internal_name"] = InternalName,
 			["directory"] = Directory,
 			["profile_folder_name"] = ProfileFolderName,
+			["datafile_name"] = DatafileName,
 			["hash"] = Hash
 		};
 	}

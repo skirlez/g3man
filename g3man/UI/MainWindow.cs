@@ -463,7 +463,7 @@ public class MainWindow : Window {
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
 		
-		modsList = Mod.Parse(Path.Combine(game.Directory, "g3man", profile.FolderName, "mods"));
+		modsList = Mod.ParseAll(Path.Combine(game.Directory, "g3man", profile.FolderName));
 		
 		
 		modsListBox.RemoveAll();
