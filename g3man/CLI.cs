@@ -11,43 +11,37 @@ public class CLI {
         Program.Config.AllowModScripting = true;
         
         RootCommand root = new RootCommand("This program can apply g3man mods or g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
-
         Command applyCommand = new Command("apply");
-        applyCommand.Description = "Apply g3man mods or profiles";
+        applyCommand.Description = "Apply a g3man profile";
         root.Subcommands.Add(applyCommand);
-
         {
-            Command applyProfileCommand = new Command("profile");
-            applyProfileCommand.Description = "Applies a profile to a datafile and saves the resulting new datafile";
-            applyCommand.Subcommands.Add(applyProfileCommand);
-
             Option<DirectoryInfo> profileLocation = new Option<DirectoryInfo>("--path", "-p");
             profileLocation.Description = "Path to the profile folder containing profile.json";
             profileLocation.Required = true;
             profileLocation.Arity = ArgumentArity.ExactlyOne;
-            applyProfileCommand.Options.Add(profileLocation);
+            applyCommand.Options.Add(profileLocation);
 
             
             Option<FileInfo> datafileLocation = new Option<FileInfo>("--datafile", "-d");
             datafileLocation.Description = "Path to the game's clean datafile";
             datafileLocation.Required = true;
             datafileLocation.Arity = ArgumentArity.ExactlyOne;
-            applyProfileCommand.Options.Add(datafileLocation);
+            applyCommand.Options.Add(datafileLocation);
 
             
             Option<DirectoryInfo> outLocation = new Option<DirectoryInfo>("--out", "-o");
             outLocation.Description = "Directory where the output datafile should be saved";
             outLocation.Required = true;
             outLocation.Arity = ArgumentArity.ExactlyOne;
-            applyProfileCommand.Options.Add(outLocation);
+            applyCommand.Options.Add(outLocation);
             
             
             Option<String> outName = new Option<String>("--outname", "-n");
             outLocation.Description = "What name should the output datafile have";
             outLocation.Arity = ArgumentArity.ExactlyOne;
-            applyProfileCommand.Options.Add(outName);
+            applyCommand.Options.Add(outName);
       
-			applyProfileCommand.SetAction(parseResult => {
+            applyCommand.SetAction(parseResult => {
                 DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
                 Console.WriteLine("Parsing profile and mods...");
                 Profile? profile = Profile.Parse(profileDirectoryInfo.FullName);

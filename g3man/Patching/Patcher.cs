@@ -295,17 +295,17 @@ public class Patcher {
 				try {
 					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
 					modData = UndertaleIO.Read(stream);
-					if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
-						return null;
-					merge(data, modData);
-					if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
-						return null;
 				}
 				catch (Exception e) {
 					logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e);
 					setStatus($"Failed to load the datafile of {mod.DisplayName}. Check the log.", true);
 					return null;
 				}
+				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
+					return null;
+				merge(data, modData);
+				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
+					return null;
 			}
 			
 		}
