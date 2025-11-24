@@ -27,7 +27,6 @@ public static class ProgramPaths {
 		return new PathStatus(true, "Directory contains GameMaker game");
 	}
 	
-
 	public static (string, string)? GetDatafileFromDirectory(string directory) {
 		// all technically valid gamemaker data filenames
 		string[] datafileNames = ["data.win", "game.unx", "game.ios", "game.droid"];

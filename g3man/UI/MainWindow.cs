@@ -1,7 +1,11 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using g3man.Models;
 using g3man.Util;
+using Gio;
 using Gtk;
+using File = Gio.File;
+using ListStore = Gtk.ListStore;
 using Window = Gtk.Window;
 
 namespace g3man.UI;
@@ -323,13 +327,31 @@ public class MainWindow : Window {
 		installFromZipButton.OnClicked += (_, _) => {
 			FileDialog dialog =  new FileDialog();
 			dialog.Title = "Select a mod's zip";
-	
+
+			FileFilter zipFilter = FileFilter.New();
+			zipFilter.SetName("ZIP archives");
+			zipFilter.AddMimeType("application/zip");
+			
+			FileFilter allFilter = FileFilter.New();
+			allFilter.SetName("All Files");
+			allFilter.AddPattern("*");
+			
+			Gio.ListStore filters = Gio.ListStore.New(FileFilter.GetGType());
+			filters.Append(zipFilter);
+			filters.Append(allFilter);
+			
+			dialog.SetFilters(filters);
+			dialog.SetDefaultFilter(zipFilter);
 			
 			Task<Gio.File?> task = dialog.OpenAsync(this);
 			task.GetAwaiter().OnCompleted(() => {
 				if (!task.IsCompletedSuccessfully)
 					return;
 				Gio.File file = task.Result!;
+
+				TryExtractingModZip(file);
+
+				PopulateModsList();
 				
 			});
 		};
@@ -347,7 +369,7 @@ public class MainWindow : Window {
 			}
 			catch (Exception e) {
 				Console.Error.WriteLine(e);
-				PopupWindow popup = new PopupWindow(this, "Error!", "Failed to delete this mod's folder", "Damn");
+				PopupWindow popup = new PopupWindow(this, "Error!", "Failed to delete this mod's folder. Please report this as a bug!", "Damn");
 				popup.Dialog();
 				return;
 			}
@@ -514,7 +536,6 @@ public class MainWindow : Window {
 		Debug.Assert(profile is not null);
 		
 		modsList = Mod.ParseAll(Path.Combine(game.Directory, "g3man", profile.FolderName));
-		
 		
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);
@@ -719,4 +740,68 @@ public class MainWindow : Window {
 			}
 		}
 #endif
+	
+	
+	
+	private void TryExtractingModZip(File file) {
+		try {
+			using ZipArchive archive = ZipFile.OpenRead(file.GetPath()!);
+			
+			ZipArchiveEntry[] profileJsonEntries = archive.Entries.Where(entry => entry.FullName.EndsWith("/profile.json") || entry.FullName == "profile.json").ToArray();
+			if (profileJsonEntries.Length != 0) {
+				PopupWindow popup = new PopupWindow(this, "Wait!",
+					"This is a profile zip. You should install it as a profile in the profiles tab.", "Alright");
+				popup.Dialog();
+				return;
+			}
+			
+			ZipArchiveEntry[] modJsonEntries = archive.Entries.Where(entry => entry.FullName.EndsWith("/mod.json") || entry.FullName == "mod.json").ToArray();
+			
+			// filter out mod.jsons who are contained inside folders of other mod.jsons
+			modJsonEntries = modJsonEntries.Where(entry => modJsonEntries.Count(entry2 => entry2 != entry 
+					&& entry.FullName.StartsWith(Path.GetDirectoryName(entry2.FullName) ?? "")) == 0).ToArray();
+			
+			if (modJsonEntries.Length == 0) {
+				PopupWindow popup = new PopupWindow(this, "Error!",
+					"No mod folders found in this zip.", "Damn");
+				popup.Dialog();
+				return;
+			}
+			
+			foreach (ZipArchiveEntry modJsonEntry in modJsonEntries) {
+				string precedingPath = Path.GetDirectoryName(modJsonEntry.FullName) ?? "";
+				string modFolderName = 
+					precedingPath != "" ? Path.GetFileName(precedingPath)
+					: Path.GetFileNameWithoutExtension(file.GetBasename()!);
+				string modFolder = Path.Combine(Program.GetGame()!.Directory, "g3man",
+					Program.GetProfile()!.FolderName, modFolderName);
+				Directory.CreateDirectory(modFolder);
+
+				Dictionary<bool, ZipArchiveEntry[]> groups = archive.Entries
+					.Where(entry => entry.FullName.StartsWith(precedingPath) && entry.FullName != precedingPath)
+					.GroupBy(entry => entry.FullName.EndsWith("/"))
+					.ToDictionary(group => group.Key, group => group.ToArray());
+
+				ZipArchiveEntry[] foldermates = groups.GetValueOrDefault(true, []);
+				ZipArchiveEntry[] filemates = groups.GetValueOrDefault(false, []);
+
+				int precedingPathLength = precedingPath == "" ? 0 : precedingPath.Length + 1; // one more for trailing slash
+				foreach (ZipArchiveEntry foldermate in foldermates) {
+					string relativePath = foldermate.FullName.Remove(0,  precedingPathLength);
+					Directory.CreateDirectory(Path.Combine(modFolder, relativePath));
+				}
+				foreach (ZipArchiveEntry filemate in filemates) {
+					string relativePath = filemate.FullName.Remove(0, precedingPathLength);
+					filemate.ExtractToFile(Path.Combine(modFolder, relativePath), true);
+				}
+			}
+		}
+		catch (Exception e) {
+			Console.Error.WriteLine(e);
+			PopupWindow popup = new PopupWindow(this, "Error!",
+				"Failed to install from ZIP. Please report this as a bug!", "Damn");
+			popup.Dialog();
+			return;
+		}
+	}
 }

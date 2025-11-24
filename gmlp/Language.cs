@@ -84,7 +84,7 @@ public static class Language {
 						Token equalsToken = Expect(tokens, pos + 1, typeof(EqualsToken), nameToken.LineNumber);
 						pos++;
 						int lastLineNumber = equalsToken.LineNumber;
-						Token nextToken = Expect(tokens, pos, typeof(Token), equalsToken.LineNumber);
+						Token nextToken = Expect(tokens, pos + 1, typeof(Token), equalsToken.LineNumber);
 						pos++;
 						if (nextToken.GetType() == typeof(BraceStartToken)) {
 							while (true) {

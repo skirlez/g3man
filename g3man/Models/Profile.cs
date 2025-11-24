@@ -51,8 +51,7 @@ public class Profile {
 		ConcurrentBag<Profile> profiles = new ConcurrentBag<Profile>();
 		string[] profileFolders;
 		try {
-			profileFolders = Directory.GetDirectories(directory)
-				.Where(folder => Path.GetFileName(folder) != IO.AppliedProfileSymlinkName).ToArray();
+			profileFolders = Directory.GetDirectories(directory);
 		}
 		catch (Exception e) {
 			// ignored
