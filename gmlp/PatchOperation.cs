@@ -50,6 +50,16 @@ public class PatchOperation(string text, bool critical, OperationType type, Patc
 		
 		return int.Sign(other.increment - increment);
 	}
+	
+	public static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
+		{ "write_replace", OperationType.WriteReplace },
+		{ "write_before", OperationType.WriteBefore },
+		{ "write_before_last", OperationType.WriteBeforeLast },
+		{ "write", OperationType.Write },
+		{ "write_last", OperationType.WriteLast },
+		{ "write_else_if",  OperationType.WriteElseIf },
+		{ "write_else", OperationType.WriteElse },
+	};
 }
 
 // this is really dumb. this is the only operation with a subclass, since it's the only one that needs more than a string
@@ -70,3 +80,4 @@ public enum OperationType {
 	WriteElseIf,
 	WriteElse,
 }
+

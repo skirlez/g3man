@@ -10,21 +10,13 @@ using System.Threading.Tasks;
 namespace gmlp;
 
 /**
-* Can you tell I've never written something like this before?
+* This file contains most of the implementation of gmlp.
+* As it currently is, the language is mostly "fake": there are no types,
+* the variables at the start are all hardcoded, functions aren't real and each expect specific tokens.
+*
+* Deserves a rewrite to make it cleaner.
 */
 public static class Language {
-	private static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
-		{ "write_replace", OperationType.WriteReplace },
-		{ "write_before", OperationType.WriteBefore },
-		{ "write_before_last", OperationType.WriteBeforeLast },
-		{ "write", OperationType.Write },
-		{ "write_last", OperationType.WriteLast },
-		{ "write_else_if",  OperationType.WriteElseIf },
-		{ "write_else", OperationType.WriteElse },
-	};
-	
-
-
 	public static void ExecuteEntirePatch(string patchText, CodeSource data, PatchesRecord record, PatchOwner owner) {
 		int patchIncrement = 0;
 
@@ -64,9 +56,14 @@ public static class Language {
 	private static (string[] target, bool critical, int pos) ExecuteMetadataSection(Token[] tokens, int pos) {
 		bool critical = true;
 		List<string> targets = [];
+		List<string> variablesSeen = [];
 		while (pos < tokens.Length) {
 			Token token = tokens[pos];
 			if (token is NameToken nameToken) {
+				if (variablesSeen.Contains(nameToken.Name)) {
+					throw new InvalidPatchException($"\"{nameToken.Name}\" has already been set; it cannot be set more than once");
+				}
+				variablesSeen.Add(nameToken.Name);
 				switch (nameToken.Name) {
 					case "critical": {
 						Token equalsToken = Expect(tokens, pos + 1, typeof(EqualsToken), nameToken.LineNumber);
@@ -84,24 +81,37 @@ public static class Language {
 						break;
 					}
 					case "targets": {
-						
 						Token equalsToken = Expect(tokens, pos + 1, typeof(EqualsToken), nameToken.LineNumber);
 						pos++;
 						int lastLineNumber = equalsToken.LineNumber;
-						while (true) {
-							NameToken targetToken =
-								(NameToken)Expect(tokens, pos + 1, typeof(NameToken), lastLineNumber);
-							targets.Add(targetToken.Name);
-							pos++;
-							if (pos + 1 < tokens.Length) {
-								Token next = tokens[pos + 1];
-								if (next is not CommaToken)
-									break;
-								lastLineNumber = next.LineNumber;
+						Token nextToken = Expect(tokens, pos, typeof(Token), equalsToken.LineNumber);
+						pos++;
+						if (nextToken.GetType() == typeof(BraceStartToken)) {
+							while (true) {
+								StringToken targetToken =
+									(StringToken)Expect(tokens, pos + 1, typeof(StringToken), lastLineNumber);
+								targets.Add(targetToken.Text);
 								pos++;
+								
+								Token commaOrBraceToken =
+									(Token)Expect(tokens, pos + 1, typeof(Token), lastLineNumber);
+								pos++;
+								lastLineNumber = commaOrBraceToken.LineNumber;
+								if (commaOrBraceToken is not CommaToken) {
+									TokenTypeAssert(commaOrBraceToken, typeof(BraceEndToken));
+									break;
+								}
+								TokenTypeAssert(commaOrBraceToken, typeof(CommaToken));
 							}
+							pos++;
 						}
-						
+						else if (nextToken.GetType() == typeof(StringToken)) {
+							targets.Add(((StringToken)nextToken).Text);
+						}
+						else {
+							TokenTypeAssert(nextToken, typeof(StringToken));
+						}
+
 						break;
 					}
 					default:
@@ -325,6 +335,34 @@ public static class Language {
 					unifyCarets(carets);
 					break;
 				}
+				case "skip_scope": {
+					(_, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, []);
+					for (int i = 0; i < carets.Count; i++) {
+						Caret caret = carets[i];
+						int stack = 0;
+						for (int j = caret.Line; j <= caret.EndLine; j++) {
+							if (lines[j].EndsWith('{'))
+								stack++;
+							else if (lines[j].EndsWith('}')) {
+								stack--;
+								if (stack <= 0) {
+									caret.Line = j;
+									goto Found;
+								}
+							}
+						}
+						lastRemovalReason = $"Removed because tried running skip_scope() while on line {caret.Line},  " 
+						                    + $"but found no scope to skip within my scope (lines {caret.StartLine}-{caret.EndLine})";
+						carets.RemoveAt(i);
+						i--;
+						continue;
+						
+						Found:
+						carets[i] = caret;
+					}
+					unifyCarets(carets);
+					break;
+				}
 				case "move_to_start": {
 					(_, pos) = ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, []);
 					for (int i = 0; i < carets.Count; i++) {
@@ -494,7 +532,30 @@ public static class Language {
 					for (int i = 0; i < carets.Count; i++) {
 						int filePos = carets[i].Line;
 						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						OperationType type = WriteFunctionTypes[nameToken.Name];
+						OperationType type = PatchOperation.WriteFunctionTypes[nameToken.Name];
+						if ((type == OperationType.WriteBefore || type == OperationType.WriteBeforeLast)) {
+							if (filePos == carets[i].StartLine) {
+								if (filePos == 0) {
+									// seems like an easy mistake to make so a more precise error message is sent here
+									throw new InvalidPatchException($"Invalid use of \"write_before\" on line 0, "
+									                                + "which is the very start of the file; Carets cannot write there. "
+									                                + "(Notably, you can still \"write\" on the last line of the file, it doesn't count outside the file.)");
+								}
+
+								throw new InvalidPatchException(
+									$"Invalid use of \"write_before\" on line {filePos}, which is "
+									+ "the starting line of this carets' scope. Carets cannot write outside their scope. "
+									+ "(You can still \"write\" on the last line of your scope, as it is before the closing brace.)");
+							}
+							if (lines[i].EndsWith('}')) {
+								throw new InvalidPatchException(
+									$"Invalid use of \"write_before\" on line {filePos}, which is "
+									+ "a line after the closing brace of a scope; you must use \"write\" on the previous line "
+									+ "if you wish to write there.");
+							}
+						}
+						
+							
 						linePatches.Add(new PatchOperation(stringToken.Text, critical, type, owner, patchIncrement));
 						patchIncrement++;
 					}
@@ -704,6 +765,10 @@ public static class Language {
 		public readonly bool Regex = regex;
 	}
 
+	public class BraceStartToken(int lineNumber) : Token(lineNumber);
+	
+	public class BraceEndToken(int lineNumber) : Token(lineNumber);
+	
 	public static Token[] Tokenize(string patch) {
 		List<Token> tokens = new List<Token>();
 		int lineNumber = 1;
@@ -800,6 +865,25 @@ public static class Language {
 				}
 
 				tokens.Add(new ParensEndToken(lineNumber));
+				continue;
+			}
+			
+			if (c == '{') {
+				if (!string.IsNullOrWhiteSpace(build)) {
+					tokens.Add(new NameToken(build, lineNumber));
+					build = "";
+				}
+
+				tokens.Add(new BraceStartToken(lineNumber));
+				continue;
+			}
+			if (c == '}') {
+				if (!string.IsNullOrWhiteSpace(build)) {
+					tokens.Add(new NameToken(build, lineNumber));
+					build = "";
+				}
+
+				tokens.Add(new BraceEndToken(lineNumber));
 				continue;
 			}
 
@@ -904,7 +988,7 @@ public static class Language {
 		Token parenthesisEnd = Expect(tokens, pos, typeof(ParensEndToken), lastLineNumber);
 		return (ret, pos);
 	}
-
+	
 	private static Token Expect(Token[] tokens, int pos, Type type, int lastLineNumber) {
 		if (pos >= tokens.Length)
 			throw new InvalidPatchException(
@@ -915,9 +999,16 @@ public static class Language {
 				$"At line {token.LineNumber}: Expected {GetHumanTypeName(type)}, but found {GetHumanTypeName(token.GetType())}");
 		return token;
 	}
-
+	private static void TokenTypeAssert(Token token, Type expected) {
+		if (!expected.IsInstanceOfType(token))
+			throw new InvalidPatchException(
+				$"At line {token.LineNumber}: Expected {GetHumanTypeName(expected)}, but found {GetHumanTypeName(token.GetType())}");
+	}
+	
 	private static string GetHumanTypeName(Type type) {
 		switch (type.Name) {
+			case "Token":
+				return "any token";
 			case "StringToken":
 				return "a string";
 			case "NameToken":
@@ -932,6 +1023,10 @@ public static class Language {
 				return "an opening parenthesis";
 			case "ParensEndToken":
 				return "a closing parenthesis";
+			case "BraceStartToken":
+				return "an opening brace";
+			case "BraceEndToken":
+				return "a closing brace";
 			case "CommaToken":
 				return "a comma";
 			default:
