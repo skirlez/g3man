@@ -194,7 +194,6 @@ public class MainWindow : Window {
 				Gio.File file = task.Result!;
 				gameDirectoryEntry.SetText(file.GetPath() ?? "");
 			});
-			
 		};
 		
 		Box gameDirectoryEntryBox = Box.New(Orientation.Horizontal, 10);
@@ -320,18 +319,54 @@ public class MainWindow : Window {
 			modsList.Insert(index + direction, mod);
 		}
 		
-		Button installFromZipButton = Button.New();
-		installFromZipButton.Label = "Install from ZIP";
+		Button installFromZipButton = Button.NewWithLabel("Install from ZIP");
+		installFromZipButton.OnClicked += (_, _) => {
+			FileDialog dialog =  new FileDialog();
+			dialog.Title = "Select a mod's zip";
+	
+			
+			Task<Gio.File?> task = dialog.OpenAsync(this);
+			task.GetAwaiter().OnCompleted(() => {
+				if (!task.IsCompletedSuccessfully)
+					return;
+				Gio.File file = task.Result!;
+				
+			});
+		};
 		
-		Button removeModButton = Button.New();
-		removeModButton.Label = "Remove selected";
+		Button deleteModButton = Button.NewWithLabel("Delete selected");
+		deleteModButton.OnClicked += (_, _) => {
+			ListBoxRow? selected = modsListBox.GetSelectedRow();
+			if (selected is null)
+				return;
+			int index = selected.GetIndex();
+			Mod mod = modsList[index];
+			string modPath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName, mod.FolderName);
+			try {
+				Directory.Delete(modPath, true);
+			}
+			catch (Exception e) {
+				Console.Error.WriteLine(e);
+				PopupWindow popup = new PopupWindow(this, "Error!", "Failed to delete this mod's folder", "Damn");
+				popup.Dialog();
+				return;
+			}
+
+			ListBoxRow? next = modsListBox.GetRowAtIndex(index + 1);
+			if (next is not null)
+				modsListBox.SelectRow(next);
+			else
+				modsListBox.UnselectAll();
+			modsListBox.Remove(selected);
+			modsList.RemoveAt(index);
+		};
 		
 		manageModsBox.Append(openModsFolderButton);
 		manageModsBox.Append(refreshButton);
 		manageModsBox.Append(moveModsUp);
 		manageModsBox.Append(moveModsDown);
 		manageModsBox.Append(installFromZipButton);
-		manageModsBox.Append(removeModButton);
+		manageModsBox.Append(deleteModButton);
 		manageModsBox.SetMargin(10);
 		
 		Button applyButton = Button.NewWithLabel("Apply!");
