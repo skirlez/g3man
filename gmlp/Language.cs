@@ -103,7 +103,7 @@ public static class Language {
 								}
 								TokenTypeAssert(commaOrBraceToken, typeof(CommaToken));
 							}
-							pos++;
+							
 						}
 						else if (nextToken.GetType() == typeof(StringToken)) {
 							targets.Add(((StringToken)nextToken).Text);
