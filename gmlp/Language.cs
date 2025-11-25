@@ -642,6 +642,7 @@ public static class Language {
 				 IN SHORT, if we don't do this, subsequent write_last calls in the same patch will appear out of order,
 				 which isn't very user friendly.
 				*/
+				
 				IEnumerable<IGrouping<PatchOwner, PatchOperation>> sameOwners = operations.GroupBy(op => op.Owner);
 				foreach (IGrouping<PatchOwner, PatchOperation> ownerGroup in sameOwners) {
 					IEnumerable<IGrouping<OperationType, PatchOperation>> afterTypeGroups = ownerGroup.ToList()

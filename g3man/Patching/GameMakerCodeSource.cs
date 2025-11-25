@@ -11,6 +11,7 @@ public class GameMakerCodeSource(UndertaleData data, GlobalDecompileContext cont
 	internal static readonly DecompileSettings Settings = new DecompileSettings {
 		UnknownArgumentNamePattern = "arg{0}",
 		EmptyLineAroundBranchStatements = true,
+		RemoveSingleLineBlockBraces = false,
 		EmptyLineBeforeSwitchCases = true
 	};
 	

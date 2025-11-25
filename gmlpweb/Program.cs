@@ -19,6 +19,7 @@ public class Program {
 	private static DecompileSettings settings = new DecompileSettings() {
 		UnknownArgumentNamePattern = "arg{0}",
 		EmptyLineAroundBranchStatements = true,
+		RemoveSingleLineBlockBraces = false,
 		EmptyLineBeforeSwitchCases = true
 	};
 

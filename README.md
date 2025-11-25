@@ -5,7 +5,7 @@ A mod manager and mod patcher for GameMaker games.
 
 Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer). These two projects are incredible, and I would not have been able to make this without them.
 
-This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), an interactive website for creating gmlp patches used by g3man.
+This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), an interactive website for creating gmlp patches used by g3man. You can try it out [here](https://skirlez.github.io/g3man/)!
 
 ## Background
 (as of 7/10/2025)
