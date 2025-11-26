@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using g3man.Models;
 using UndertaleModLib;
 
 namespace g3man;
@@ -66,6 +67,12 @@ public static class IO {
 			Console.Error.WriteLine(e);
 		}
 	}
-	
-	
+
+
+	public static void Deapply(Game game) {
+		string appliedProfileSymlink = Path.Combine(game.Directory, AppliedProfileSymlinkName);
+		if (Directory.Exists(appliedProfileSymlink))
+			Directory.Delete(appliedProfileSymlink, false);
+		File.Copy(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.GetOutputDatafilePath(), true);
+	}
 }

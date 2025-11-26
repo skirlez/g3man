@@ -2,10 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using g3man.Models;
 using g3man.Util;
-using Gio;
 using Gtk;
-using File = Gio.File;
-using ListStore = Gtk.ListStore;
 using Window = Gtk.Window;
 
 namespace g3man.UI;
@@ -80,7 +77,9 @@ public class MainWindow : Window {
 		
 		Debug.Assert(modsListBox is not null 
 			&& profilesListBox is not null
-			&& gameDirectoryEntry is not null);
+			&& gameDirectoryEntry is not null
+			&& gamesListBox is not null
+			&& selectProfileButtons is not null);
 		
 		
 		currentGameLabel = Label.New("No game selected");
@@ -189,7 +188,7 @@ public class MainWindow : Window {
 		gameDirectoryEntry.SetMaxWidthChars(75);
 		Button browseButton = Button.NewWithLabel("Browse");
 		browseButton.OnClicked += (_, _) => {
-			FileDialog dialog =  new FileDialog();
+			FileDialog dialog = new FileDialog();
 			dialog.Title = "Select a GameMaker game's folder";
 			Task<Gio.File?> task = dialog.SelectFolderAsync(this);
 			task.GetAwaiter().OnCompleted(() => {
@@ -257,17 +256,32 @@ public class MainWindow : Window {
 		selectProfileButtons = [];
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
-		addNewProfile.SetHalign(Align.Center);
-		addNewProfile.SetMargin(10);
 		addNewProfile.OnClicked += (sender, args) => {
 			Profile profile = new Profile("", "", false, "", []);
 			ManageProfileWindow window = new ManageProfileWindow(this, profile, null);
-			// TODO
 			window.Dialog();
 		};
 		
+		Button importFromZipButton = Button.NewWithLabel("Import from ZIP");
+		importFromZipButton.OnClicked += (_, _) => {
+			FileFilter zipFilter = FileFilter.New();
+			zipFilter.SetName("ZIP archives");
+			zipFilter.AddMimeType("application/zip");
+			DoFileDialog("Select a profile ZIP file", [zipFilter], (file) => {
+				TryExtractingZip(file, ZipType.Profile);
+				ParseProfilesAndUpdateMenu();
+			});
+		};
+		
+		
+		Box profileManagementBox = Box.New(Orientation.Horizontal, 10);
+		profileManagementBox.Append(addNewProfile);
+		profileManagementBox.Append(importFromZipButton);
+		profileManagementBox.SetMargin(10);
+		profileManagementBox.SetHalign(Align.Center);
+		
 		box.Append(profilesListBox);
-		box.Append(addNewProfile);
+		box.Append(profileManagementBox);
 	}
 	
 	private void SetupModsPage(Box page) {
@@ -292,7 +306,7 @@ public class MainWindow : Window {
 		refreshButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
-			PopulateModsList();
+			ParseModsAndUpdateMenu();
 		};
 		
 		Button moveModsUp = Button.New();
@@ -323,36 +337,14 @@ public class MainWindow : Window {
 			modsList.Insert(index + direction, mod);
 		}
 		
-		Button installFromZipButton = Button.NewWithLabel("Install from ZIP");
-		installFromZipButton.OnClicked += (_, _) => {
-			FileDialog dialog =  new FileDialog();
-			dialog.Title = "Select a mod's zip";
-
+		Button importFromZipButton = Button.NewWithLabel("Import from ZIP");
+		importFromZipButton.OnClicked += (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
-			
-			FileFilter allFilter = FileFilter.New();
-			allFilter.SetName("All Files");
-			allFilter.AddPattern("*");
-			
-			Gio.ListStore filters = Gio.ListStore.New(FileFilter.GetGType());
-			filters.Append(zipFilter);
-			filters.Append(allFilter);
-			
-			dialog.SetFilters(filters);
-			dialog.SetDefaultFilter(zipFilter);
-			
-			Task<Gio.File?> task = dialog.OpenAsync(this);
-			task.GetAwaiter().OnCompleted(() => {
-				if (!task.IsCompletedSuccessfully)
-					return;
-				Gio.File file = task.Result!;
-
-				TryExtractingModZip(file);
-
-				PopulateModsList();
-				
+			DoFileDialog("Select a mod ZIP file", [zipFilter], (file) => {
+				TryExtractingZip(file, ZipType.Mod);
+				ParseModsAndUpdateMenu();
 			});
 		};
 		
@@ -387,7 +379,7 @@ public class MainWindow : Window {
 		manageModsBox.Append(refreshButton);
 		manageModsBox.Append(moveModsUp);
 		manageModsBox.Append(moveModsDown);
-		manageModsBox.Append(installFromZipButton);
+		manageModsBox.Append(importFromZipButton);
 		manageModsBox.Append(deleteModButton);
 		manageModsBox.SetMargin(10);
 		
@@ -408,6 +400,31 @@ public class MainWindow : Window {
 		page.Append(manageModsBox);
 		page.Append(applyButton);
 		page.SetVexpand(true);
+	}
+
+	private void DoFileDialog(string title, List<FileFilter> filters, Action<Gio.File> callback) {
+		FileDialog dialog = new FileDialog();
+		dialog.Title = title;
+		
+		FileFilter allFilter = FileFilter.New();
+		allFilter.SetName("All Files");
+		allFilter.AddPattern("*");
+			
+		Gio.ListStore filtersStore = Gio.ListStore.New(FileFilter.GetGType());
+		foreach (FileFilter filter in filters)
+			filtersStore.Append(filter);
+		filtersStore.Append(allFilter);
+			
+		dialog.SetFilters(filtersStore);
+		dialog.SetDefaultFilter(filters[0]);
+			
+		Task<Gio.File?> task = dialog.OpenAsync(this);
+		task.GetAwaiter().OnCompleted(() => {
+			if (!task.IsCompletedSuccessfully)
+				return;
+			Gio.File file = task.Result!;
+			callback(file);
+		});
 	}
 
 	private void SetupSettingsPage(Box page) {
@@ -528,7 +545,7 @@ public class MainWindow : Window {
 	}
 
 
-	private void PopulateModsList() {
+	private void ParseModsAndUpdateMenu() {
 		Game? game = Program.GetGame();
 		Profile? profile = Program.GetProfile();
 		
@@ -677,6 +694,8 @@ public class MainWindow : Window {
 		return row;
 	}
 
+
+	
 	private void SelectGame(Game game, Button buttonPressed) {
 		foreach (Button button in selectGameButtons) {
 			button.SetSensitive(true);
@@ -685,19 +704,18 @@ public class MainWindow : Window {
 		
 		Program.SetGame(game);
 		currentGameLabel.SetText(game.DisplayName);
-		List<Profile> profiles = Profile.ParseAll(Path.Combine(game.Directory, "g3man"));
-		if (profiles.Count == 0)
-		{
+		ParseProfilesAndUpdateMenu();
+	}
+
+	private void ParseProfilesAndUpdateMenu() {
+		List<Profile> profiles = Profile.ParseAll(Path.Combine(Program.GetGame()!.Directory, "g3man"));
+		if (profiles.Count == 0) {
 			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
 		}
-		
-		Profile? profile = profiles.FirstOrDefault(p => {
-			Debug.Assert(p is not null);
-			return p.FolderName == game.ProfileFolderName;
-		}, null);
-		if (profile == null) {
-			PopulateProfilesList(profiles, null);
+		Profile? profile = profiles.FirstOrDefault(p => p!.FolderName == Program.GetGame()!.ProfileFolderName, null);
+		if (profile is null) {
+			PopulateProfilesList(profiles);
 			// let user choose profile if for some reason we couldn't use the normal one
 			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
@@ -705,11 +723,11 @@ public class MainWindow : Window {
 		Program.SetProfile(profile);
 		currentProfileLabel.SetText(profile.Name);
 		
-		PopulateProfilesList(profiles, profiles.FirstOrDefault(p => (p!.FolderName == game.ProfileFolderName), null));
-		PopulateModsList();
+		PopulateProfilesList(profiles, profile);
+		ParseModsAndUpdateMenu();
 		EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 	}
-
+	
 	private void SelectProfile(Profile profile, Button buttonPressed) {
 		Program.SetProfile(profile);
 		if (currentExtraCategories == ExtraCategories.Profiles) 
@@ -719,7 +737,7 @@ public class MainWindow : Window {
 		}
 		buttonPressed.SetSensitive(false);
 		currentProfileLabel.SetText(profile.Name);
-		PopulateModsList();
+		ParseModsAndUpdateMenu();
 	}
 
 #if THEMESELECTOR
@@ -742,40 +760,75 @@ public class MainWindow : Window {
 #endif
 	
 	
-	
-	private void TryExtractingModZip(File file) {
+	enum ZipType 
+	{
+		Mod,
+		Profile
+	}
+	private void TryExtractingZip(Gio.File file, ZipType type) {
 		try {
 			using ZipArchive archive = ZipFile.OpenRead(file.GetPath()!);
 			
 			ZipArchiveEntry[] profileJsonEntries = archive.Entries.Where(entry => entry.FullName.EndsWith("/profile.json") || entry.FullName == "profile.json").ToArray();
-			if (profileJsonEntries.Length != 0) {
-				PopupWindow popup = new PopupWindow(this, "Wait!",
-					"This is a profile zip. You should install it as a profile in the profiles tab.", "Alright");
-				popup.Dialog();
-				return;
-			}
-			
 			ZipArchiveEntry[] modJsonEntries = archive.Entries.Where(entry => entry.FullName.EndsWith("/mod.json") || entry.FullName == "mod.json").ToArray();
 			
-			// filter out mod.jsons who are contained inside folders of other mod.jsons
-			modJsonEntries = modJsonEntries.Where(entry => modJsonEntries.Count(entry2 => entry2 != entry 
-					&& entry.FullName.StartsWith(Path.GetDirectoryName(entry2.FullName) ?? "")) == 0).ToArray();
 			
-			if (modJsonEntries.Length == 0) {
-				PopupWindow popup = new PopupWindow(this, "Error!",
-					"No mod folders found in this zip.", "Damn");
-				popup.Dialog();
-				return;
+			ZipArchiveEntry[] filterSubentries(ZipArchiveEntry[] entries) {
+				return entries.Where(entry => entries.Count(entry2 => entry2 != entry 
+				    && entry.FullName.StartsWith(Path.GetDirectoryName(entry2.FullName) ?? "")) == 0).ToArray();
+					
+			}
+			// filter out mod/profile.jsons who are contained inside folders of other ones
+			modJsonEntries = filterSubentries(modJsonEntries);
+			profileJsonEntries = filterSubentries(profileJsonEntries);
+
+			ZipArchiveEntry[] jsonEntries;
+			string basePath;
+			
+			if (type == ZipType.Mod) {
+				jsonEntries = modJsonEntries;
+				basePath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
+				if (profileJsonEntries.Length != 0) {
+					PopupWindow popup = new PopupWindow(this, "Wait!",
+						"This is a profile zip. You should install it as a profile in the profiles tab.", "Alright");
+					popup.Dialog();
+					return;
+				}
+				if (modJsonEntries.Length == 0) {
+					PopupWindow popup = new PopupWindow(this, "Error!",
+						"No mod folders found in this zip.", "Damn");
+					popup.Dialog();
+					return;
+				}
+			}
+			else {
+				jsonEntries = profileJsonEntries;
+				basePath = Path.Combine(Program.GetGame()!.Directory, "g3man");
+				if (profileJsonEntries.Length == 0) {
+					string message;
+					string buttonText;
+					if (modJsonEntries.Length == 0) {
+						message = "This zip contains no profiles and no mods. Did you select the right file?";
+						buttonText = "Close";
+					}
+					else {
+						string has = (modJsonEntries.Length == 1) ? "a mod" : "a collection of mods";
+						message = $"This zip contains no profiles, but it does have {has}. Try installing it in the mods tab.";
+						buttonText = "Alright";
+					}
+					PopupWindow popup = new PopupWindow(this, "Wait!", message, buttonText);
+					popup.Dialog();
+					return;
+				}
 			}
 			
-			foreach (ZipArchiveEntry modJsonEntry in modJsonEntries) {
-				string precedingPath = Path.GetDirectoryName(modJsonEntry.FullName) ?? "";
-				string modFolderName = 
+			foreach (ZipArchiveEntry jsonEntry in jsonEntries) {
+				string precedingPath = Path.GetDirectoryName(jsonEntry.FullName) ?? "";
+				string folderName = 
 					precedingPath != "" ? Path.GetFileName(precedingPath)
 					: Path.GetFileNameWithoutExtension(file.GetBasename()!);
-				string modFolder = Path.Combine(Program.GetGame()!.Directory, "g3man",
-					Program.GetProfile()!.FolderName, modFolderName);
-				Directory.CreateDirectory(modFolder);
+				string folder = Path.Combine(basePath, folderName);
+				Directory.CreateDirectory(folder);
 
 				Dictionary<bool, ZipArchiveEntry[]> groups = archive.Entries
 					.Where(entry => entry.FullName.StartsWith(precedingPath) && entry.FullName != precedingPath)
@@ -788,18 +841,18 @@ public class MainWindow : Window {
 				int precedingPathLength = precedingPath == "" ? 0 : precedingPath.Length + 1; // one more for trailing slash
 				foreach (ZipArchiveEntry foldermate in foldermates) {
 					string relativePath = foldermate.FullName.Remove(0,  precedingPathLength);
-					Directory.CreateDirectory(Path.Combine(modFolder, relativePath));
+					Directory.CreateDirectory(Path.Combine(folder, relativePath));
 				}
 				foreach (ZipArchiveEntry filemate in filemates) {
 					string relativePath = filemate.FullName.Remove(0, precedingPathLength);
-					filemate.ExtractToFile(Path.Combine(modFolder, relativePath), true);
+					filemate.ExtractToFile(Path.Combine(folder, relativePath), true);
 				}
 			}
 		}
 		catch (Exception e) {
 			Console.Error.WriteLine(e);
 			PopupWindow popup = new PopupWindow(this, "Error!",
-				"Failed to install from ZIP. Please report this as a bug!", "Damn");
+				"Failed to import from ZIP. Please report this as a bug!", "Damn");
 			popup.Dialog();
 			return;
 		}

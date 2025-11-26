@@ -41,6 +41,9 @@ public class Game {
 	public string GetCleanDatafilePath() {
 		return Path.Combine(Directory, "g3man", Patcher.CleanDataName);
 	}
+	public string GetOutputDatafilePath() {
+		return Path.Combine(Directory, DatafileName);
+	}
 
 	public JsonObject ToJson() {
 		return new JsonObject() {

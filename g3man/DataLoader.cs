@@ -93,15 +93,6 @@ public class DataLoader {
 	}
 	
 	
-	
-	public void Assume(UndertaleData newData) {
-		logger.Debug("Assuming data " + newData.GeneralInfo.DisplayName.Content);
-		lock (Lock) {
-			Debug.Assert(!Lock.IsLoading);
-			data = newData;
-		}
-	}
-	
 	public void LoadAsync(Game newGame) {
 		logger.DebugNewline();
 		logger.Debug("New request for " + newGame.DisplayName);

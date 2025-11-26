@@ -92,6 +92,11 @@ public class ManageProfileWindow : Window {
 		doneButton.OnClicked += (_, _) => {
 			if (index is null) {
 				string folderName = ToProfileFolderName(nameEntry.GetText());
+				if (folderName == "") {
+					PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,$"You must give your creation a name.", "Okay I'll Name It");
+					popup.Dialog();
+					return;
+				}
 				string?[] folders;
 				try {
 					folders = Directory.GetDirectories(Path.Combine(Program.GetGame()!.Directory, "g3man")).Select(Path.GetFileName).ToArray();

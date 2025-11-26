@@ -44,43 +44,66 @@ public class PatcherWindow : Window {
 		SetModal(true);
 		
 		new Thread(() => {
-			void setStatus(string status, bool leave) {
-				statusLabel.SetText(status);
-				closeButton.SetSensitive(leave);
-				if (!IsVisible())
+			if (mods.Count == 0) {
+				Program.RunOnMainThreadEventually(() => {
+					statusLabel.SetText("Restoring clean data.win...");
 					Present();
-			}
-			UndertaleData data;
-			lock (Program.DataLoader.Lock) {
-				while (!Program.DataLoader.CanSnatch()) {
-					if (Program.DataLoader.HasErrored()) {
-						setStatus($"Failed to load game's data.win. I don't know what to do in this situation yet. TODO", true);
-						return;
-					}
-					setStatus($"Waiting for game data to load...", false);
-					Monitor.Wait(Program.DataLoader.Lock);
+				});
+				try {
+					IO.Deapply(Program.GetGame()!);
+					Program.RunOnMainThreadEventually(() => 
+						statusLabel.SetText("Restored clean data.win!"));
 				}
-				data = Program.DataLoader.Snatch();
+				catch (Exception e) {
+					Console.Error.WriteLine(e);
+					Program.RunOnMainThreadEventually(() => 
+						statusLabel.SetLabel("Failed to restore clean data.win. I don't know what to do in this situation yet. TODO"));
+				}
 			}
-			Patcher patcher = new Patcher();
-			string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
-			UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, 
-				profileDirectory, data, (status, leave) => {
-				Program.RunOnMainThreadEventually(() => setStatus(status, leave));
+			else 
+				DoThing(mods);
+			Program.RunOnMainThreadEventually(() => {
+				closeButton.SetSensitive(true);
 			});
-			if (output is null)
-				return;
-			setStatus("Writing...", false);
-			try {
-				IO.Apply(output, Program.GetGame()!.Directory, profileDirectory, Program.GetGame()!.DatafileName);
-			}
-			catch (Exception e) {
-				Console.Error.WriteLine(e);
-				setStatus("Failed to write output datafile! Check the log.", true);
-				return;
-			}
-			setStatus("Done!", true);
 		}).Start();
 
+	}
+
+	private void DoThing(List<Mod> mods) {
+		void setStatus(string status) {
+			statusLabel.SetText(status);
+			if (!IsVisible())
+				Present();
+		}
+		UndertaleData data;
+		lock (Program.DataLoader.Lock) {
+			while (!Program.DataLoader.CanSnatch()) {
+				if (Program.DataLoader.HasErrored()) {
+					setStatus("Failed to load game's data.win. I don't know what to do in this situation yet. TODO");
+					return;
+				}
+				setStatus("Waiting for game data to load...");
+				Monitor.Wait(Program.DataLoader.Lock);
+			}
+			data = Program.DataLoader.Snatch();
+		}
+		Patcher patcher = new Patcher();
+		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
+		UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, 
+			profileDirectory, data, (status) => {
+				Program.RunOnMainThreadEventually(() => setStatus(status));
+			});
+		if (output is null)
+			return;
+		Program.RunOnMainThreadEventually(() => setStatus("Writing..."));
+		try {
+			IO.Apply(output, Program.GetGame()!.Directory, profileDirectory, Program.GetGame()!.DatafileName);
+		}
+		catch (Exception e) {
+			Console.Error.WriteLine(e);
+			setStatus("Failed to write output datafile! Check the log.");
+			return;
+		}
+		setStatus("Done!");
 	}
 }

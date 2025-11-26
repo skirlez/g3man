@@ -73,7 +73,7 @@ public class CLI {
                 
                 Patcher patcher = new Patcher();
                 UndertaleData? output = patcher.Patch(mods, profile, profileDirectoryInfo.FullName, data,
-                    (status, leave) => {
+                    (status) => {
                          
                     }
                 );

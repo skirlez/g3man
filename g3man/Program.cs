@@ -26,9 +26,6 @@ public static class Program {
 	}
 	
 	public static void AddGame(Game newGame, UndertaleData newData) {
-		if (game == null) {
-			DataLoader.Assume(newData);
-		}
 		Config.GameDirectories.Add(newGame.Directory);
 		Config.Write();
 	}

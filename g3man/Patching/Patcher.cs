@@ -236,10 +236,10 @@ public class Patcher {
 	}
 
 
-	public UndertaleData? Patch(List<Mod> mods, Profile profile, string profileLocation, UndertaleData data, Action<string, bool> statusCallback) {
-		void setStatus(string message, bool leave = false) {
+	public UndertaleData? Patch(List<Mod> mods, Profile profile, string profileLocation, UndertaleData data, Action<string> statusCallback) {
+		void setStatus(string message) {
 			logger.Info(message);
-			statusCallback(message, leave);
+			statusCallback(message);
 		}
 		
 		bool runModScript(Mod mod, Func<Mod, string> getScriptPath, ScriptGlobals globals) {
@@ -254,7 +254,7 @@ public class Patcher {
 				code = File.ReadAllText(fullStringPath);
 			}
 			catch (Exception e) {
-				setStatus($"Failed to read script belonging to {mod.DisplayName}. Check the log.", true);
+				setStatus($"Failed to read script belonging to {mod.DisplayName}. Check the log.");
 				logger.Error(e.ToString());
 				return false;
 			}
@@ -265,7 +265,7 @@ public class Patcher {
 				CSharpScript.EvaluateAsync(code, scriptOptions, globals);
 			}
 			catch (Exception e) {
-				setStatus($"Script belonging to {mod.DisplayName} threw an exception. Check the log.", true);
+				setStatus($"Script belonging to {mod.DisplayName} threw an exception. Check the log.");
 				logger.Error(e.ToString());
 				return false;
 			}
@@ -282,7 +282,7 @@ public class Patcher {
 				sb.Append($"\n{i + 1}. {issue}");
 			}
 
-			statusCallback(sb.ToString(), true);
+			statusCallback(sb.ToString());
 			return null;
 		}
 		
@@ -298,7 +298,7 @@ public class Patcher {
 				}
 				catch (Exception e) {
 					logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e);
-					setStatus($"Failed to load the datafile of {mod.DisplayName}. Check the log.", true);
+					setStatus($"Failed to load the datafile of {mod.DisplayName}. Check the log.");
 					return null;
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
@@ -343,7 +343,7 @@ public class Patcher {
 						return null;
 				}
 				else {
-					setStatus($"Mod {mod.DisplayName}: Invalid patch or patch directory {patchLocation.Path}", true);
+					setStatus($"Mod {mod.DisplayName}: Invalid patch or patch directory {patchLocation.Path}");
 					return null;
 				}
 				
@@ -356,10 +356,10 @@ public class Patcher {
 						return true;
 					}
 					catch (InvalidPatchException e) {
-						setStatus($"Failed to read patch file at {relativePath}: {e.Message}", true);
+						setStatus($"Failed to read patch file at {relativePath}: {e.Message}");
 					}
 					catch (Exception e) {
-						setStatus("Error occured during patching! Check the log.", true);
+						setStatus("Error occured during patching! Check the log.");
 						logger.Error("Failed to read patch file: " + e);
 					}
 
@@ -374,7 +374,7 @@ public class Patcher {
 			Language.ApplyPatches(record, source, order);
 		}
 		catch (PatchApplicationException e) {
-			setStatus(e.HumanError(), true);
+			setStatus(e.HumanError());
 			if (e.GetBadCode() is not null)
 				logger.Error("This code failed to compile:\n" + e.GetBadCode()!);
 			return null;
