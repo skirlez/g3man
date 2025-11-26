@@ -441,7 +441,7 @@ public class Patcher {
 			int dependencyIndex = mods.IndexOf(dependency);
 			switch (related.OrderRequirement) {
 				case OrderRequirement.AfterUs:
-					if (dependencyIndex < index) {
+					if (dependencyIndex > index) {
 						lock (issues) {
 							issues.Add(
 								$"Mod \"{mod.DisplayName}\" depends on the mod \"{dependency.DisplayName}\", but the dependency must be loaded AFTER it in the order");
@@ -450,7 +450,7 @@ public class Patcher {
 
 					break;
 				case OrderRequirement.BeforeUs:
-					if (dependencyIndex > index)
+					if (dependencyIndex < index)
 						break;
 					lock (issues) {
 						issues.Add(
