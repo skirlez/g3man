@@ -93,7 +93,7 @@ public class ManageProfileWindow : Window {
 			if (index is null) {
 				string folderName = ToProfileFolderName(nameEntry.GetText());
 				if (folderName == "") {
-					PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,$"You must give your creation a name.", "Okay I'll Name It");
+					PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
 					popup.Dialog();
 					return;
 				}

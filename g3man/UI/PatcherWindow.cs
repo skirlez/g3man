@@ -44,49 +44,114 @@ public class PatcherWindow : Window {
 		SetModal(true);
 		
 		new Thread(() => {
+			Start:
+			UndertaleData data;
+			string hash;
+			lock (Program.DataLoader.Lock) {
+				while (!Program.DataLoader.CanSnatch()) {
+					if (Program.DataLoader.HasErrored()) {
+						setStatus("Failed to load game's data.win. Check that g3man/clean_data.win exists in the game folder.\nIf it does, report this as a bug!");
+						return;
+					}
+					setStatus("Waiting for game data to load...");
+					Monitor.Wait(Program.DataLoader.Lock);
+				}
+				hash = Program.DataLoader.GetDirtyHash();
+				data = Program.DataLoader.Snatch();
+			}
+
+
+			string lastHash = IO.GetLastOutputHash(Program.GetGame()!);
+			
+			if (lastHash != hash && hash != "" && lastHash != "") {
+				string[] buttonTexts = ["Update Clean Datafile", "Overwrite"];
+				object lockObject = new object();
+				int choice = 0;
+				PopupWindow popupWindow = new PopupWindow(this, "Question",
+					"g3man has detected that the game's datafile has been modified.\n"
+					+ $"Did you update the game? If so, select \"{buttonTexts[0]}\".\n"
+					+ $"Otherwise, select \"{buttonTexts[1]}\".",
+					buttonTexts,
+					[
+						(PopupWindow window) => {
+							window.Close();
+							lock (lockObject) {
+								choice = 1;
+								Monitor.Pulse(lockObject);
+							}
+
+							
+						},
+						(PopupWindow window) => {
+							window.Close();
+							lock (lockObject) {
+								choice = 2;
+								Monitor.Pulse(lockObject);
+							}
+						},
+					]);
+
+				lock (lockObject) {
+					popupWindow.Dialog();
+					// wait for user to make choice
+					while (choice == 0)
+						Monitor.Wait(lockObject);
+				}
+
+				if (choice == 1) {
+					// update clean datafile
+					setStatus("Updating clean datafile...");
+					try {
+						File.Copy(Program.GetGame()!.GetOutputDatafilePath(),
+							Program.GetGame()!.GetCleanDatafilePath(), true);
+						Program.GetGame()!.Hash = hash;
+						Program.GetGame()!.Write();
+						IO.RemoveLastOutputHash(Program.GetGame()!);
+					}
+					catch (Exception e) {
+						Console.Error.WriteLine(e);
+						setStatus("Failed to update clean datafile! Please report this as a bug.");
+						return;
+					}
+
+
+					Program.DataLoader.LoadAsync(Program.GetGame()!);
+					goto Start;
+				}
+			}
+
 			if (mods.Count == 0) {
 				Program.RunOnMainThreadEventually(() => {
-					statusLabel.SetText("Restoring clean data.win...");
+					statusLabel.SetText("Restoring clean datafile");
 					Present();
 				});
 				try {
+					IO.RemoveLastOutputHash(Program.GetGame()!);
 					IO.Deapply(Program.GetGame()!);
+					
 					Program.RunOnMainThreadEventually(() => 
-						statusLabel.SetText("Restored clean data.win!"));
+						statusLabel.SetText("Restored clean datafile!"));
 				}
 				catch (Exception e) {
 					Console.Error.WriteLine(e);
 					Program.RunOnMainThreadEventually(() => 
-						statusLabel.SetLabel("Failed to restore clean data.win. I don't know what to do in this situation yet. TODO"));
+						statusLabel.SetLabel("Failed to restore clean datafile. Please report this as an error!"));
 				}
 			}
 			else 
-				DoThing(mods);
+				DoThing(mods, data);
 			Program.RunOnMainThreadEventually(() => {
 				closeButton.SetSensitive(true);
 			});
 		}).Start();
 
 	}
-
-	private void DoThing(List<Mod> mods) {
-		void setStatus(string status) {
-			statusLabel.SetText(status);
-			if (!IsVisible())
-				Present();
-		}
-		UndertaleData data;
-		lock (Program.DataLoader.Lock) {
-			while (!Program.DataLoader.CanSnatch()) {
-				if (Program.DataLoader.HasErrored()) {
-					setStatus("Failed to load game's data.win. I don't know what to do in this situation yet. TODO");
-					return;
-				}
-				setStatus("Waiting for game data to load...");
-				Monitor.Wait(Program.DataLoader.Lock);
-			}
-			data = Program.DataLoader.Snatch();
-		}
+	private void setStatus(string status) {
+		statusLabel.SetText(status);
+		if (!IsVisible())
+			Present();
+	}
+	private void DoThing(List<Mod> mods, UndertaleData data) {
 		Patcher patcher = new Patcher();
 		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
 		UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, 

@@ -16,10 +16,10 @@ f = "end"
 	public override string[] GetPatchSections() {
 		return [
 """
-find_line_with(r'\d+')
+find_line_with(r'\\d+')
 write('number above me')
 move_to_end()
-reverse_find_line_with(r'\d+')
+reverse_find_line_with(r'\\d+')
 move(-1)
 write_last('number below me')
 """

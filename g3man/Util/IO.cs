@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using g3man.Models;
 using UndertaleModLib;
 
@@ -8,13 +9,23 @@ public static class IO {
 	
 	public const string TempDataName = "g3man_temp_data.win";
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
+	public const string OutputHashTextFileName = "g3man_output_hash.txt";
 	
 	public static void Apply(UndertaleData data, string gameDirectory, string appliedProfileDirectory, string datafileName) {
 		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
+
+		byte[] hashBytes;
 		{
-			using FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write);
+			using FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.ReadWrite);
 			UndertaleIO.Write(stream, data);
+			stream.Position = 0;
+			hashBytes = MD5.Create().ComputeHash(stream);
 		}
+	
+		string hash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+		string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
+		File.WriteAllText(outputHashTextFilePath, hash);
+			
 		File.Move(tempFilePath, Path.Combine(gameDirectory, datafileName), true);
 		File.Delete(tempFilePath);
 
@@ -74,5 +85,27 @@ public static class IO {
 		if (Directory.Exists(appliedProfileSymlink))
 			Directory.Delete(appliedProfileSymlink, false);
 		File.Copy(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.GetOutputDatafilePath(), true);
+	}
+
+	
+	/**
+	 * Gets last output hash. Does not throw, in case the file is not readable, returns an empty string.
+	 */
+	public static string GetLastOutputHash(Game game) {
+		string fullPath = Path.Combine(game.Directory, "g3man", OutputHashTextFileName);
+		try {
+			return File.ReadAllText(fullPath);
+		}
+		catch (Exception e) {
+			return "";
+		}
+	}
+
+	/**
+	 * Deletes the last output hash. Can throw exceptions.
+	 */
+	public static void RemoveLastOutputHash(Game game) {
+		string fullPath = Path.Combine(game.Directory, "g3man", OutputHashTextFileName);
+		File.Delete(fullPath);
 	}
 }

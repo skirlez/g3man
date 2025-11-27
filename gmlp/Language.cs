@@ -933,11 +933,26 @@ public static class Language {
 					i++;
 				}
 
-
-				while (i + 1 < patch.Length && !(patch[i] != '\\' && patch[i + 1] == '\'')) {
-					if (patch[i + 1] == '\n')
+				bool seenBackslash = false;
+				
+				
+				while (i + 1 < patch.Length) {
+					char character = patch[i + 1];
+					if (character == '\'') {
+						if (!seenBackslash)
+							break;
+					}
+					else if (character == '\n')
 						lineNumber++;
-					text += patch[i + 1];
+					else if (character == '\\') {
+						if (!seenBackslash) {
+							seenBackslash = true;
+							i++;
+							continue;
+						}
+					}
+					text += character;
+					seenBackslash = false;
 					i++;
 				}
 				
@@ -948,7 +963,6 @@ public static class Language {
 				if (i >= patch.Length) {
 					throw new InvalidPatchException(
 						$"At line {lineNumber}: Reached end of file before string terminated");
-					continue;
 				}
 
 				// go over the ' we're currently on

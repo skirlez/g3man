@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using g3man.Models;
 using g3man.Util;
 using UndertaleModLib;
@@ -7,9 +8,15 @@ using UndertaleModLib.Decompiler;
 namespace g3man;
 
 
-/** Responsible for the loading and preloading of the current game's data.win */
+/** Responsible for the loading and preloading of the current game's clean data.win
+ *
+ * Also responsible for the hashing of the current game's "dirty" data.win, to see
+ * if the user possibly updated their game
+ */
 public class DataLoader {
 	private volatile UndertaleData? data;
+	private volatile string? hash;
+	
 	private readonly MemoryStream dataMemory = new MemoryStream();
 	private string lastHash = "";
 	public readonly LoaderLock Lock = new LoaderLock();
@@ -18,9 +25,12 @@ public class DataLoader {
 	public DataLoader() {
 		logger = new Logger("DATALOADER");
 		Thread thread = new Thread(() => {
-			string path;
+			string cleanPath;
+			string dirtyPath;
 			LoaderAction action;
 			UndertaleData readData = null!;
+			string readHash = null!;
+			
 			while (true) {
 				lock (Lock) {
 					if (Lock.Action == LoaderAction.Restart) {
@@ -34,6 +44,7 @@ public class DataLoader {
 						if (readData is not null) {
 							logger.Debug("Loaded data of " + readData.GeneralInfo.DisplayName.Content);
 							data = readData;
+							hash = readHash;
 						}
 
 						logger.Debug("Waiting (idle)");
@@ -45,8 +56,10 @@ public class DataLoader {
 						logger.Debug("Loading data");
 					}
 					
-					Debug.Assert(Lock.Path is not null);
-					path = Lock.Path;
+					Debug.Assert(Lock.CleanPath is not null);
+					Debug.Assert(Lock.DirtyPath is not null);
+					cleanPath = Lock.CleanPath;
+					dirtyPath = Lock.DirtyPath;
 					action = Lock.Action;
 				}
 
@@ -55,7 +68,7 @@ public class DataLoader {
 					try {
 						dataMemory.SetLength(0);
 						{
-							using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+							using FileStream stream = new FileStream(cleanPath, FileMode.Open, FileAccess.Read);
 							stream.CopyTo(dataMemory);
 						}
 						readData = UndertaleIO.Read(dataMemory);
@@ -63,6 +76,20 @@ public class DataLoader {
 					catch (Exception e) {
 						logger.Debug("Failed to load datafile: " + e);
 						Lock.Errored = true;
+					}
+
+					try {
+						byte[] hashBytes;
+						{
+							using FileStream stream = new FileStream(dirtyPath, FileMode.Open, FileAccess.Read);
+							hashBytes = MD5.Create().ComputeHash(stream);
+						}
+
+						readHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+					}
+					catch (Exception _) {
+						// if file doesn't exist or cannot be read, we don't care that much,
+						// this is only being done to make sure users aren't overwriting game updates.
 					}
 				}
 				else if (action == LoaderAction.Clone) {
@@ -91,6 +118,22 @@ public class DataLoader {
 		Monitor.PulseAll(Lock);
 		return bye;
 	}
+
+	/**
+	 * Returns the hash of the data.win of the datafile belonging to the loaded game.
+	 * Not to be confused with the clean data.win, this is the hash of the plain data.win/game.unx
+	 * that happened to be there at the time of loading. It should be used to check if perhaps the user
+	 * has updated the game.
+	 *
+	 * This method should ONLY be called after obtaining the LoaderLock lock, and while CanSnatch is true.
+	 * In case that datafile is not present, this will return an empty string.
+	 */
+	public string GetDirtyHash() {
+		Debug.Assert(Monitor.IsEntered(Lock));
+		Debug.Assert(CanSnatch());
+		Debug.Assert(hash is not null);
+		return hash;
+	}
 	
 	
 	public void LoadAsync(Game newGame) {
@@ -102,7 +145,8 @@ public class DataLoader {
 		}
 
 		lock (Lock) {
-			Lock.Path = newGame.GetCleanDatafilePath();
+			Lock.CleanPath = newGame.GetCleanDatafilePath();
+			Lock.DirtyPath = newGame.GetOutputDatafilePath();
 			lastHash = newGame.Hash;
 			
 			if (Lock.IsLoading) {
@@ -120,7 +164,8 @@ public class DataLoader {
 
 	public class LoaderLock() {
 		public LoaderAction Action = LoaderAction.Proceed;
-		public string? Path = null;
+		public string? CleanPath = null;
+		public string? DirtyPath = null;
 		public bool IsLoading = false;
 		public bool Errored = false;
 	}
