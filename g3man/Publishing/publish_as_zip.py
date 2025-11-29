@@ -13,6 +13,7 @@ elif os.name == "nt":
 
 
 # I really don't know what these are for. But we don't support other languages right now
+# TODO: actually make this delete the other locale folders (i forgot)
 locales = ["en"]
 
 if os.path.isdir("./package"):
