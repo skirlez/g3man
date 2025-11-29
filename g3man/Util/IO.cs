@@ -22,7 +22,7 @@ public static class IO {
 			hashBytes = MD5.Create().ComputeHash(stream);
 		}
 	
-		string hash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+		string hash = HashToString(hashBytes);			
 		string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
 		File.WriteAllText(outputHashTextFilePath, hash);
 			
@@ -107,5 +107,9 @@ public static class IO {
 	public static void RemoveLastOutputHash(Game game) {
 		string fullPath = Path.Combine(game.Directory, "g3man", OutputHashTextFileName);
 		File.Delete(fullPath);
+	}
+
+	public static string HashToString(byte[] hashBytes) {
+		return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
 	}
 }

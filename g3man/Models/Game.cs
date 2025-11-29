@@ -41,6 +41,9 @@ public class Game {
 	public string GetCleanDatafilePath() {
 		return Path.Combine(Directory, "g3man", Patcher.CleanDataName);
 	}
+	public string GetBackupDatafilePath() {
+		return Path.Combine(Directory, "g3man", Patcher.CleanDataBackupName);
+	}
 	public string GetOutputDatafilePath() {
 		return Path.Combine(Directory, DatafileName);
 	}
@@ -90,4 +93,6 @@ public class Game {
 		string jsonText = ToJson().ToJsonString();
 		File.WriteAllText(Path.Combine(folder, "game.json"), jsonText);
 	}
+
+
 }

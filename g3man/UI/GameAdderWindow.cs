@@ -39,10 +39,9 @@ public class GameAdderWindow : Window {
 		byte[] hash;
 		UndertaleData data;
 		try {
-			using (FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read)) {
-				hash = MD5.Create().ComputeHash(stream);
-				data = UndertaleIO.Read(stream);
-			}
+			using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
+			hash = MD5.Create().ComputeHash(stream);
+			data = UndertaleIO.Read(stream);
 		}
 		catch (Exception e) {
 			return new Result<Success, Error>(new Error("An error occurred while reading the game's datafile", e));
@@ -66,7 +65,7 @@ public class GameAdderWindow : Window {
 			data.GeneralInfo.FileName.Content, 
 			directory, 
 			datafileName, 
-			BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant(), 
+			IO.HashToString(hash),
 			profile.FolderName);
 		
 		

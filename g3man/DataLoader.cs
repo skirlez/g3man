@@ -9,9 +9,6 @@ namespace g3man;
 
 
 /** Responsible for the loading and preloading of the current game's clean data.win
- *
- * Also responsible for the hashing of the current game's "dirty" data.win, to see
- * if the user possibly updated their game
  */
 public class DataLoader {
 	private volatile UndertaleData? data;
@@ -51,8 +48,6 @@ public class DataLoader {
 						Lock.IsLoading = false;
 						Monitor.PulseAll(Lock);
 						Monitor.Wait(Lock);
-						Lock.IsLoading = true;
-						Lock.Errored = false;
 						logger.Debug("Loading data");
 					}
 					
@@ -85,7 +80,7 @@ public class DataLoader {
 							hashBytes = MD5.Create().ComputeHash(stream);
 						}
 
-						readHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+						readHash = IO.HashToString(hashBytes);
 					}
 					catch (Exception _) {
 						// if file doesn't exist or cannot be read, we don't care that much,
@@ -114,6 +109,8 @@ public class DataLoader {
 		Debug.Assert(CanSnatch());
 		Debug.Assert(data is not null);
 		Lock.Action = LoaderAction.Clone;
+		Lock.Errored = false;
+		Lock.IsLoading = true;
 		UndertaleData bye = data!;
 		Monitor.PulseAll(Lock);
 		return bye;
@@ -157,6 +154,8 @@ public class DataLoader {
 				Lock.Action = LoaderAction.Proceed;
 
 			logger.Debug("Waking up thread to load the data");
+			Lock.IsLoading = true;
+			Lock.Errored = false;
 			Monitor.PulseAll(Lock);
 		}
 	}

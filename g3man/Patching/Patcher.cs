@@ -16,7 +16,7 @@ namespace g3man.Patching;
 public class Patcher {
 	private static readonly Logger logger = new Logger("PATCHER");
 	public const string CleanDataName = "clean_data.win";
-
+	public const string CleanDataBackupName = "BACKUP_clean_data.win";
 
 	enum OverlapBehavior {
 		ImplicitlyExcludeExplicitlyOverride,
