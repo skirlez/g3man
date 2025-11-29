@@ -59,7 +59,7 @@ public class PatcherWindow : Window {
 	}
 	private void setStatus(string status) {
 		Program.RunOnMainThreadEventually(() => {
-			statusLabel.SetText(status);
+			statusLabel.SetMarkup(status);
 			if (!IsVisible())
 				Present();
 		});
@@ -150,11 +150,16 @@ public class PatcherWindow : Window {
 		
 		if (mods.Count == 0) {
 			setStatus("Restoring clean datafile");
-			try {
+			try
+			{
 				IO.RemoveLastOutputHash(Program.GetGame()!);
 				IO.Deapply(Program.GetGame()!);
-		        
+
 				setStatus("Restored clean datafile!");
+			}
+			catch (FileNotFoundException _) {
+				setStatus("The game's clean datafile couldn't be found.\n"
+				          + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
 			}
 			catch (Exception e) {
 				Console.Error.WriteLine(e);
@@ -163,13 +168,13 @@ public class PatcherWindow : Window {
 
 			return;
 		}
-
+		
 		UndertaleData data;
 		lock (Program.DataLoader.Lock) {
 			while (!Program.DataLoader.CanSnatch()) {
 				if (Program.DataLoader.HasErrored()) {
-					setStatus("Failed to load the game's clean datafile.\nThis can happen for a number of reasons."
-					          + "If it does, it may be corrupt.");
+					setStatus("Failed to load the game's clean datafile.\nThis can happen for a number of reasons.\n"
+					          + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
 					return;
 				}
 				setStatus("Waiting for game data to load...");

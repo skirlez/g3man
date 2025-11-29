@@ -1,10 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
 
@@ -34,5 +35,10 @@
     <ProjectReference Include="..\gmlp\gmlp.csproj" />
     <ProjectReference Include="..\UndertaleModLib\UndertaleModLib.csproj" />
   </ItemGroup>
+
+
+  <!-- Thanks to the Pinta project for figuring this out https://github.com/PintaProject/Pinta/ -->
+  <!-- For Windows, copy GTK library dependencies to the build folder. -->
+  <Import Condition="'$(IsWindows)'=='true'" Project="Publishing/bundle_gtk.targets" />
 
 </Project>

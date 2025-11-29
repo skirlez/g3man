@@ -95,7 +95,8 @@ dotnet build g3man
 
 ### Windows
 
-1. Download [msys2](https://www.msys2.org/)
+1. Download and install [msys2](https://www.msys2.org/). 
+At the moment the .csproj is hardcoded to use C:/msys64, so make sure you don't change the install location.
 2. Open the MSYS2 MINGW64 shell
 3. Run `pacman -Syu && pacman -S mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita` to install GTK4 and libadwaita
 4. Add `C:/msys64/mingw64/bin` to PATH (or wherever you placed msys64 if you changed it)
@@ -116,6 +117,27 @@ dotnet build gmlpweb
 2. Clone the repository
 3. `dotnet build gmlpweb`
 
+
+## TODO List
+
+- Script Security
+Mods can run just any C# code they want, which is not ideal for security.
+Scripts are turned off by default for this reason, but there should likely be better measures in place.
+
+- Parallelize the patching process
+Currently the patching process is mostly bottlenecked by compilation. It is done in sequence because
+UndertaleModLib/Analyzer's compile function has side effects. Theoretically this should be possible, and would
+speed up patching immensely.
+
+- Support for more platforms
+MacOS support, for example, should be trivial if anyone is interested in adding support for it.
+
+- Support for GameMaker Studio 1.4
+I've done all testing for (relatively) recent versions of GameMaker.
+with how g3man is built, GMS1.4 support wouldn't be very hard to do.
+Who knows, maybe it even works. I actually haven't tested it.
+
+Support would also involve updating the build scripts to support building a GMS1.4 project.
 
 ## Contributing
 Please contribute
