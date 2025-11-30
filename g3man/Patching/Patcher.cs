@@ -117,7 +117,7 @@ public class Patcher {
 	 * 
 	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
 	 */
-	private void merge(UndertaleData data, UndertaleData modData) {
+	private void merge(UndertaleData data, UndertaleData modData, string modFolderName) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
 		data.GeneralInfo.LastObj += modData.GeneralInfo.LastObj - 100000;
@@ -150,10 +150,21 @@ public class Patcher {
 		
 		HandleOverrides(data.Sprites, modData.Sprites);
 
-		// TODO: Is This OK
+	
 		MergeLists(data.Sounds, modData.Sounds, sound => {
-			sound.AudioGroup = data.AudioGroups[0];
-			data.EmbeddedAudio.Add(sound.AudioFile);
+			// This stuff is unfinished, I don't trust these flags. I'll write the intention with each of these...
+			if (sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsCompressed) || sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded)) {
+				// assign all embedded audio to audiogroup_default (assigning them to different ones would require
+				// us to manage audiogroup files, which seems like a pretty annoying thing to do)
+				sound.AudioGroup = data.AudioGroups[0];
+				data.EmbeddedAudio.Add(sound.AudioFile);
+			}
+			else {
+				// streamed audio has to go in the default audiogroup
+				sound.AudioGroup = data.AudioGroups[0];
+				sound.File.Content = $"g3man_applied_profile/{modFolderName}/{sound.File.Content}";
+			}
+
 			return true;
 		});
 		
@@ -303,7 +314,7 @@ public class Patcher {
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
-				merge(data, modData);
+				merge(data, modData, mod.FolderName);
 				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 			}
