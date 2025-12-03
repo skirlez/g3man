@@ -40,7 +40,7 @@ public class GameAdderWindow : Window {
 		UndertaleData data;
 		try {
 			using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
-			hash = MD5.Create().ComputeHash(stream);
+			hash = MD5.HashData(stream);
 			data = UndertaleIO.Read(stream);
 		}
 		catch (Exception e) {

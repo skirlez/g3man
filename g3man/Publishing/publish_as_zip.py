@@ -22,7 +22,7 @@ if os.path.isdir("./package"):
 
 
 status = subprocess.run(
-    ["dotnet",  "publish", "-c", "Release", "-o", "Publishing/package/bin", "--runtime", runtime],
+    ["dotnet", "publish", "-c", "Release", "-o", "Publishing/package/bin", "--runtime", runtime],
     cwd = ".."
 )
 if status.returncode != 0:

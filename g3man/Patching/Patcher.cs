@@ -76,8 +76,10 @@ public class Patcher {
 		return old;
 	}
 	
-	private void MergeLists<T>(IList<T> to, IList<T> from, Func<T, bool>? process = null) where T : UndertaleNamedResource {
-		foreach (T resource in from) {
+	private void MergeLists<T>(IList<T> to, IList<T?> from, Func<T, bool>? process = null) where T : UndertaleNamedResource {
+		foreach (T? resource in from) {
+			if (resource is null) // this can happen (at least on 2024.13) (weird)
+				continue;
 			if (GetMimicedResource(to, resource) is not null)
 				continue;
 			if (process is not null) {
@@ -90,8 +92,8 @@ public class Patcher {
 		HandleOverrides(to, from);
 	}
 
-	private void HandleOverrides<T>(IList<T> to, IList<T> from) where T : UndertaleNamedResource {
-		List<T> overriders = from.Where(resource => resource.Name.Content.StartsWith(OVERRIDE_PREFIX)).ToList();
+	private void HandleOverrides<T>(IList<T> to, IList<T?> from) where T : UndertaleNamedResource {
+		List<T> overriders = from.Where(resource => resource is not null).Where(resource => resource!.Name.Content.StartsWith(OVERRIDE_PREFIX)).ToList()!;
 		foreach (T overrider in overriders) {
 			T? old = GetResourceToOverride(to, overrider);
 			if (old is null) {
@@ -106,8 +108,13 @@ public class Patcher {
 			// if that turns out to not be an issue the swap can be removed.
 			FieldInfo[] fields = old.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
 			foreach (FieldInfo field in fields) {
+				
+				// don't wanna swap the object names
+				if (field.Name == "<Name>k__BackingField")
+					continue;
+				
 				object? temp = field.GetValue(overrider);
-				field.SetValue(overrider, field.GetValue(temp));
+				field.SetValue(overrider, field.GetValue(old));
 				field.SetValue(old, temp);
 			}
 		}
@@ -354,7 +361,7 @@ public class Patcher {
 						return null;
 				}
 				else {
-					setStatus($"Mod {mod.DisplayName}: Invalid patch or patch directory {patchLocation.Path}");
+					setStatus($"Mod {mod.DisplayName}: Invalid patch or patch directory \"{patchLocation.Path}\"");
 					return null;
 				}
 				
@@ -398,7 +405,6 @@ public class Patcher {
 			if (!runModScript(mod, m => m.PostPatchScriptPath, new ScriptGlobals(data)))
 				return null;
 		}
-		
 		return data;
 	}
 	

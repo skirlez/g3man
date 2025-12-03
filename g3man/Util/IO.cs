@@ -13,23 +13,22 @@ public static class IO {
 	
 	public static void Apply(UndertaleData data, string gameDirectory, string appliedProfileDirectory, string datafileName) {
 		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
-
-		byte[] hashBytes;
-		{
-			using FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.ReadWrite);
+		
+		using (FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write)){
 			UndertaleIO.Write(stream, data);
-			stream.Position = 0;
-			hashBytes = MD5.Create().ComputeHash(stream);
 		}
-	
+		byte[] hashBytes;
+		using (FileStream stream = new FileStream(tempFilePath, FileMode.Open, FileAccess.Read)){
+			hashBytes = MD5.HashData(stream);
+		}
+		
 		string hash = HashToString(hashBytes);			
 		string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
 		File.WriteAllText(outputHashTextFilePath, hash);
-			
+		
 		File.Move(tempFilePath, Path.Combine(gameDirectory, datafileName), true);
 		File.Delete(tempFilePath);
-
-
+		
 		string g3manFolder = Path.Combine(gameDirectory, "g3man");
 		if (!Directory.Exists(g3manFolder))
 			Directory.CreateDirectory(g3manFolder);
@@ -64,7 +63,13 @@ public static class IO {
 	public static void OpenFileExplorer(string directory) {
 		try {
 			#if LINUX
-				Process.Start("xdg-open", [directory]);
+				ProcessStartInfo info = new ProcessStartInfo() {
+					FileName = "xdg-open",
+					Arguments = $"\"{directory}\"",
+					UseShellExecute = false,
+					CreateNoWindow = true,
+				};
+				Process.Start(info);
 			#elif WINDOWS
 				Process.Start(new ProcessStartInfo {
 					FileName = directory,

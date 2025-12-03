@@ -69,7 +69,7 @@ public class PatcherWindow : Window {
 		string hash;
 		try {
 			using FileStream stream = new FileStream(Program.GetGame()!.GetOutputDatafilePath(), FileMode.Open, FileAccess.Read);
-			hash = IO.HashToString(MD5.Create().ComputeHash(stream));
+			hash = IO.HashToString(MD5.HashData(stream));
 		}
 		catch (Exception _) {
 			hash = "";

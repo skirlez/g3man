@@ -25,7 +25,7 @@
           export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath 
                       [ pkgs.gtk4 pkgs.libadwaita ]}
           export XDG_DATA_DIRS=$XDG_DATA_DIRS:$GSETTINGS_SCHEMAS_PATH
-          export DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_8_0}
+          export DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_8_0}/share/dotnet
           # don't actually need this?
           # export XDG_DATA_DIRS=$XDG_DATA_DIRS:${pkgs.hicolor-icon-theme}/share:${pkgs.adwaita-icon-theme}/share
         '';

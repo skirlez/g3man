@@ -77,7 +77,7 @@ public class DataLoader {
 						byte[] hashBytes;
 						{
 							using FileStream stream = new FileStream(dirtyPath, FileMode.Open, FileAccess.Read);
-							hashBytes = MD5.Create().ComputeHash(stream);
+							hashBytes = MD5.HashData(stream);
 						}
 
 						readHash = IO.HashToString(hashBytes);
