@@ -945,7 +945,7 @@ public static class Language {
 					else if (character == '\n')
 						lineNumber++;
 					else if (character == '\\') {
-						if (!seenBackslash) {
+						if (!seenBackslash && !regex) {
 							seenBackslash = true;
 							i++;
 							continue;
