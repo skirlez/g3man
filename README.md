@@ -71,18 +71,24 @@ dotnet build gmlpweb
 - Parallelize the patching process
   
   Currently the patching process is mostly bottlenecked by compilation. It is done in sequence because
-  UndertaleModLib/Underanalyzer's compile function has side effects. Theoretically this should be possible, and would
+  Underanalyzer's compile function has side effects on the data.win. Theoretically this should be possible, and would
 speed up patching immensely.
 
 - Support for more platforms
   
-  MacOS support, for example, should be fairly trivial if anyone is interested in adding support for it.
+  MacOS support, for example, should be fairly trivial if anyone is interested in adding support for it. There's already an OSX constant defined in the project, I just don't have any Apple hardware.
 - Support for GameMaker Studio 1.4
 
   I've done all testing for (relatively) recent versions of GameMaker.
-  with how g3man is built, GMS1.4 support wouldn't be very hard to do.
+  With how g3man is built, GMS1.4 support wouldn't be very hard to do.
   Who knows, maybe it even works. I actually haven't tested it.
   Support would also involve updating the build scripts to support building a GMS1.4 project.
+- Translations
+
+  Currently all messages are English and hardcoded. There's not *that* many, so this wouldn't be hard to change, I feel.
+- Code Documentation
+
+  There's not much right now. Would be nice to have
 
 ## Contributing
 Please contribute

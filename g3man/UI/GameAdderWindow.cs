@@ -9,7 +9,7 @@ using Thread = System.Threading.Thread;
 namespace g3man.UI;
 
 public class GameAdderWindow : Window {
-	public static Logger logger = new Logger("GAMEADDER");
+	public static Logger logger = Logger.Make("GAMEADDER");
 	
 	private readonly Label label;
 	private readonly string directory;
@@ -28,7 +28,7 @@ public class GameAdderWindow : Window {
 		
 		SetChild(label);
 	}
-	private record Success(Game Game, UndertaleData Data);
+	private record Success(Game Game);
 	private record Error(string Reason, Exception? Exception);
 	private Result<Success, Error> LoadAndSetupGame() {
 		(string, string)? datafileInfo = ProgramPaths.GetDatafileFromDirectory(directory);
@@ -83,7 +83,7 @@ public class GameAdderWindow : Window {
 			return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));
 		}
 		
-		return new Result<Success, Error>(new Success(game, data));
+		return new Result<Success, Error>(new Success(game));
 
 	}
 	
@@ -102,7 +102,7 @@ public class GameAdderWindow : Window {
 			Program.RunOnMainThreadEventually(() => {
 				if (result.IsOk()) {
 					Success s = result.GetValue();
-					Program.AddGame(s.Game, s.Data);
+					Program.AddGame(s.Game);
 					owner.AddToGamesList(s.Game, false);	
 					
 					Close();

@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using g3man.Models;
 using g3man.Patching;
+using g3man.Util;
 using Gtk;
 using UndertaleModLib;
 
@@ -187,8 +188,7 @@ public class PatcherWindow : Window {
 		
 		Patcher patcher = new Patcher();
 		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
-		UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, 
-			profileDirectory, data, setStatus);
+		UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;
 		setStatus("Writing...");

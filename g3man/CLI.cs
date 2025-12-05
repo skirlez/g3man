@@ -1,6 +1,7 @@
 using System.CommandLine;
 using g3man.Models;
 using g3man.Patching;
+using g3man.Util;
 using UndertaleModLib;
 
 namespace g3man;
@@ -43,7 +44,7 @@ public class CLI {
       
             applyCommand.SetAction(parseResult => {
                 DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
-                Console.WriteLine("Parsing profile and mods...");
+                Program.Logger.Info("Parsing profile and mods...");
                 Profile? profile = Profile.Parse(profileDirectoryInfo.FullName);
                 if (profile == null) {
                     return 1;
@@ -55,7 +56,7 @@ public class CLI {
                 }
                 
                 FileInfo dataFileInfo = parseResult.GetRequiredValue(datafileLocation);
-                Console.WriteLine("Loading clean datafile...");
+                Program.Logger.Info("Loading clean datafile...");
                 UndertaleData data;
                 try {
                     using FileStream stream = new FileStream(dataFileInfo.FullName, FileMode.Open, FileAccess.Read);
@@ -72,19 +73,15 @@ public class CLI {
                 string datafileName = parseResult.GetValue(outName) ?? "data.win";
                 
                 Patcher patcher = new Patcher();
-                UndertaleData? output = patcher.Patch(mods, profile, profileDirectoryInfo.FullName, data,
-                    (status) => {
-                         
-                    }
-                );
+                UndertaleData? output = patcher.Patch(mods, profile, profileDirectoryInfo.FullName, data, Program.Logger, status => {});
                 if (output == null)
                     return 1;
                 try {
                     IO.Apply(data,  outLocationInfo.FullName, profileDirectoryInfo.FullName, datafileName);
                 }
                 catch (Exception e) {
-                    Console.Error.WriteLine("Failed to save output data.win");
-                    Console.Error.WriteLine(e.ToString());
+                    Program.Logger.Error("Failed to save output data.win");
+                    Program.Logger.Error(e.ToString());
                 }
 
                 return 0;

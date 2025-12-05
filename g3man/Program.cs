@@ -4,13 +4,17 @@ using System.Diagnostics;
 using System.Text.Json;
 using g3man.Models;
 using g3man.UI;
+using g3man.Util;
+using GLib;
 using Gtk;
 using UndertaleModLib;
+using DateTime = System.DateTime;
 
 namespace g3man;
 
 public static class Program {
-	
+
+	public static Logger Logger = null!;
 	public static DataLoader DataLoader = null!;
 	public static Config Config = null!;
 	
@@ -18,6 +22,9 @@ public static class Program {
 
 	private static Game? game;
 	private static Profile? profile;
+
+	public static TextWriter Logfile = TextWriter.Null;
+	
 	private static Application application = null!;
 	private static MainWindow window = null!;
 	
@@ -25,7 +32,7 @@ public static class Program {
 		return profile;
 	}
 	
-	public static void AddGame(Game newGame, UndertaleData newData) {
+	public static void AddGame(Game newGame) {
 		Config.GameDirectories.Add(newGame.Directory);
 		Config.Write();
 	}
@@ -45,6 +52,23 @@ public static class Program {
 	
 	public static int Main(string[] args) {
 		if (args.Length == 0) {
+
+			try {
+				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
+				Directory.CreateDirectory(logs);
+				string filename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
+				StreamWriter logfile = new StreamWriter(Path.Combine(logs, filename));
+				logfile.AutoFlush = true;
+				Logfile = logfile;
+				Logger = Logger.Make("");
+			}
+			catch (Exception e) {
+				Logger = Logger.Make("");
+				Logger.Error("Failed to initialize logging to file: " + e);
+				Logger.Error("This session will not be logged to file.");
+			}
+			
+			
 			DataLoader = new DataLoader();
 			JsonElement? configJson = Config.Read();
 			if (configJson is null)
@@ -69,6 +93,8 @@ public static class Program {
 				application.AddWindow(window);
 				window.Show();
 			};
+			
+			
 			return application.RunWithSynchronizationContext([]);
 		}
 		
@@ -94,6 +120,10 @@ public static class Program {
 		SystemDefault,
 		Light,
 		Dark
+	}
+
+	public static void OnClose() {
+		Logfile.Close();
 	}
 }
 

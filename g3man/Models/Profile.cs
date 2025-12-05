@@ -17,7 +17,7 @@ public class Profile {
 	public string[] Credits;
 	public string[] Links;
 
-	private static readonly Logger logger = new Logger("PROFILE-PARSER");
+	private static readonly Logger logger = Logger.Make("PROFILE-PARSER");
 
 	public Profile(string name, string folderName, bool separateModdedSave, string moddedSaveName, string[] modOrder) {
 		Name = name;

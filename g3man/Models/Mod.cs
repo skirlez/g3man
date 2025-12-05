@@ -7,7 +7,7 @@ using g3man.Util;
 namespace g3man.Models;
 
 public class Mod {
-	public static Logger logger = new Logger("MOD-PARSER");
+	public static Logger logger = Logger.Make("MOD-PARSER");
 	
 	public string ModId;
 	public string DisplayName;

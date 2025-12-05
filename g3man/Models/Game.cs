@@ -7,7 +7,7 @@ using g3man.Util;
 namespace g3man.Models;
 
 public class Game {
-	private static Logger logger = new Logger("GAME-PARSER");
+	private static Logger logger = Logger.Make("GAME-PARSER");
 	
 	public string DisplayName;
 	public string InternalName;

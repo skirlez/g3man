@@ -80,7 +80,7 @@ public static class IO {
 			#endif
 		}
 		catch (Exception e) {
-			Console.Error.WriteLine(e);
+			Program.Logger.Error(e);
 		}
 	}
 
@@ -101,7 +101,7 @@ public static class IO {
 		try {
 			return File.ReadAllText(fullPath);
 		}
-		catch (Exception e) {
+		catch (Exception _) {
 			return "";
 		}
 	}

@@ -14,7 +14,6 @@ using UndertaleModLib.Util;
 namespace g3man.Patching;
 
 public class Patcher {
-	private static readonly Logger logger = new Logger("PATCHER");
 	public const string CleanDataName = "clean_data.win";
 	public const string CleanDataBackupName = "BACKUP_clean_data.win";
 
@@ -254,7 +253,7 @@ public class Patcher {
 	}
 
 
-	public UndertaleData? Patch(List<Mod> mods, Profile profile, string profileLocation, UndertaleData data, Action<string> statusCallback) {
+	public UndertaleData? Patch(List<Mod> mods, Profile profile, string profileLocation, UndertaleData data, Logger logger, Action<string> statusCallback) {
 		void setStatus(string message) {
 			logger.Info(message);
 			statusCallback(message);

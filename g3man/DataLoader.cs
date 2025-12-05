@@ -20,10 +20,9 @@ public class DataLoader {
 	private readonly Logger logger;
 	
 	public DataLoader() {
-		logger = new Logger("DATALOADER");
+		logger = Logger.Make("DATALOADER");
 		Thread thread = new Thread(() => {
-			string cleanPath;
-			string dirtyPath;
+			string path;
 			LoaderAction action;
 			UndertaleData readData = null!;
 			string readHash = null!;
@@ -51,10 +50,8 @@ public class DataLoader {
 						logger.Debug("Loading data");
 					}
 					
-					Debug.Assert(Lock.CleanPath is not null);
-					Debug.Assert(Lock.DirtyPath is not null);
-					cleanPath = Lock.CleanPath;
-					dirtyPath = Lock.DirtyPath;
+					Debug.Assert(Lock.Path is not null);
+					path = Lock.Path;
 					action = Lock.Action;
 				}
 
@@ -63,28 +60,14 @@ public class DataLoader {
 					try {
 						dataMemory.SetLength(0);
 						{
-							using FileStream stream = new FileStream(cleanPath, FileMode.Open, FileAccess.Read);
+							using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
 							stream.CopyTo(dataMemory);
 						}
 						readData = UndertaleIO.Read(dataMemory);
 					}
 					catch (Exception e) {
-						logger.Debug("Failed to load datafile: " + e);
+						logger.Error("Failed to load datafile: " + e);
 						Lock.Errored = true;
-					}
-
-					try {
-						byte[] hashBytes;
-						{
-							using FileStream stream = new FileStream(dirtyPath, FileMode.Open, FileAccess.Read);
-							hashBytes = MD5.HashData(stream);
-						}
-
-						readHash = IO.HashToString(hashBytes);
-					}
-					catch (Exception _) {
-						// if file doesn't exist or cannot be read, we don't care that much,
-						// this is only being done to make sure users aren't overwriting game updates.
 					}
 				}
 				else if (action == LoaderAction.Clone) {
@@ -142,8 +125,7 @@ public class DataLoader {
 		}
 
 		lock (Lock) {
-			Lock.CleanPath = newGame.GetCleanDatafilePath();
-			Lock.DirtyPath = newGame.GetOutputDatafilePath();
+			Lock.Path = newGame.GetCleanDatafilePath();
 			lastHash = newGame.Hash;
 			
 			if (Lock.IsLoading) {
@@ -163,8 +145,7 @@ public class DataLoader {
 
 	public class LoaderLock() {
 		public LoaderAction Action = LoaderAction.Proceed;
-		public string? CleanPath = null;
-		public string? DirtyPath = null;
+		public string? Path = null;
 		public bool IsLoading = false;
 		public bool Errored = false;
 	}

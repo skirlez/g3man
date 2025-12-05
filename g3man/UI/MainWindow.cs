@@ -101,6 +101,11 @@ public class MainWindow : Window {
 		programBox.Append(pageBox);
 		programBox.Append(Separator.New(Orientation.Horizontal));
 		programBox.Append(currentSetupBox);
+
+		OnCloseRequest += (_, _) => {
+			Program.OnClose();
+			return false;
+		};
 		
 		SetChild(programBox);
 		
@@ -527,7 +532,7 @@ public class MainWindow : Window {
 		Label subtitle = Label.New("");
 		subtitle.SetMarkup("<b>G</b>ame<b>M</b>aker <b>M</b>od <b>Man</b>ager");
 
-		Label license = Label.New("Licensed under the terms of the AGPLv3,\nThis is Free Software (with Free as in Freedom)");
+		Label license = Label.New("Licensed under the terms of the AGPLv3,\ng3man is Free Software (with Free as in Freedom)");
 		license.SetMarginTop(10);
 		license.SetJustify(Justification.Center);
 

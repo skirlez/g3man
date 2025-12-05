@@ -7,7 +7,7 @@ using g3man.Util;
 namespace g3man;
 
 public class Config {
-	public static readonly Logger logger = new Logger("CONFIG");
+	public static readonly Logger logger = Logger.Make("CONFIG");
 	public List<string> GameDirectories;
 	
 	public Program.Theme Theme;
