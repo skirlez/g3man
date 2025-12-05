@@ -36,6 +36,8 @@ public static class IO {
 		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
 		if (Directory.Exists(appliedProfileSymlink))
 			Directory.Delete(appliedProfileSymlink, false);
+		if (File.Exists(appliedProfileSymlink))
+			File.Delete(appliedProfileSymlink);
 
 
 		SymlinkFolder(appliedProfileDirectory, appliedProfileSymlink);

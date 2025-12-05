@@ -372,12 +372,9 @@ public class Patcher {
 						Language.ExecuteEntirePatch(patchText, source, record, order[index]);
 						return true;
 					}
-					catch (InvalidPatchException e) {
-						setStatus($"Failed to read patch file at {relativePath}: {e.Message}");
-					}
 					catch (Exception e) {
 						setStatus("Error occured during patching! Check the log.");
-						logger.Error("Failed to read patch file: " + e);
+						logger.Error($"Failed to read/execute patch file at {relativePath}:  {e}");
 					}
 
 					return false;

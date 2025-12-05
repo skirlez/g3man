@@ -63,7 +63,7 @@ public class CLI {
                     data = UndertaleIO.Read(stream);
                 }
                 catch (Exception e) {
-                    Console.Error.WriteLine(e.ToString());
+                    Program.Logger.Error(e);
                     return 1;
                 }
                 
