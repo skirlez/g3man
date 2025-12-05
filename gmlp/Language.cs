@@ -37,8 +37,7 @@ public static class Language {
 
 					if (pos < tokens.Length && tokens[pos] is SectionToken patchSectionToken &&
 						patchSectionToken.Section == "patch") {
-						pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, true,
-							ref patchIncrement);
+						pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, true, ref patchIncrement);
 					}
 					else {
 						throw new InvalidPatchException($"Incomplete patch; meta section without patch section");
@@ -245,8 +244,7 @@ public static class Language {
 		}
 	}
 
-	public static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical,
-		PatchOwner owner, PatchesRecord record, bool bailOnSection, ref int patchIncrement) {
+	public static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, bool bailOnSection, ref int patchIncrement) {
 		// TODO make sure code has \n line endings only
 		
 		// we prepend a "\n" for line 0
@@ -385,9 +383,10 @@ public static class Language {
 						int line = numberToken.Number;
 						for (int i = 0; i < carets.Count; i++) {
 							Caret caret = carets[i];
-							if (line > caret.EndLine || line < caret.StartLine) {
+							int lineInFile = line + caret.StartLine;
+							if (lineInFile > caret.EndLine || lineInFile < caret.StartLine) {
 								lastRemovalReason = $"Removed because tried running move_to({numberToken.Number}), " 
-									+ $"which pushed me out of my scope (lines {caret.StartLine}-{caret.EndLine})";
+									+ $"which lead me to line {lineInFile} in the file, which is out of my scope (lines {caret.StartLine}-{caret.EndLine})";
 								carets.RemoveAt(i);
 								i--;
 								continue;
@@ -524,7 +523,10 @@ public static class Language {
 				case "write_last":
 					
 				case "write_else":
-				case "write_else_if": {
+				case "write_else_if": 
+				
+				case "write_and_condition":
+				case "write_or_condition": {
 					(Token[] parameters, pos) =
 						ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
 					StringToken stringToken = (StringToken)parameters[0];
@@ -532,7 +534,7 @@ public static class Language {
 					for (int i = 0; i < carets.Count; i++) {
 						int filePos = carets[i].Line;
 						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						OperationType type = PatchOperation.WriteFunctionTypes[nameToken.Name];
+						OperationType type = PatchOperation.WriteOperationTypes[nameToken.Name];
 						if ((type == OperationType.WriteBefore || type == OperationType.WriteBeforeLast)) {
 							if (filePos == carets[i].StartLine) {
 								if (filePos == 0) {
@@ -547,11 +549,11 @@ public static class Language {
 									+ "the starting line of this carets' scope. Carets cannot write outside their scope. "
 									+ "(You can still \"write\" on the last line of your scope, as it is before the closing brace.)");
 							}
-							if (lines[i].EndsWith('}')) {
+							if (IsEndOfScope(lines[filePos])) {
 								throw new InvalidPatchException(
 									$"Invalid use of \"write_before\" on line {filePos}, which is "
-									+ "a line after the closing brace of a scope; you must use \"write\" on the previous line "
-									+ "if you wish to write there.");
+									+ "the line of the closing brace of a scope; you must use \"write\" on the previous line "
+									+ "if you wish to write inside that scope.");
 							}
 						}
 						
@@ -594,6 +596,12 @@ public static class Language {
 
 		return pos;
 	}
+	
+	// TODO: Doesn't always work in gmlpweb because user can add a /* */ comment before the line, and a // after it for example
+	private static bool IsEndOfScope(string line) {
+		line = line.Trim();
+		return line.StartsWith('}') || line.EndsWith('}');
+	}
 
 	public static void ExecutePatchSection(string patchSection, string target, string code, bool critical,
 		PatchOwner owner, PatchesRecord record, ref int patchIncrement) {
@@ -634,35 +642,30 @@ public static class Language {
 						&& op != chosenReplacer);
 				}
 
-				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 				
 				/*
 				
-				 BULLSHIT: merge together write_last calls
-				 IN SHORT, if we don't do this, subsequent write_last calls in the same patch will appear out of order,
+				 BULLSHIT: reverse calls from the same owner when results appear in reverse order
+				 IN SHORT, if we don't do this, subsequent calls in the same patch will appear in the opposite order,
 				 which isn't very user friendly.
 				*/
-				
-				IEnumerable<IGrouping<PatchOwner, PatchOperation>> sameOwners = operations.GroupBy(op => op.Owner);
-				foreach (IGrouping<PatchOwner, PatchOperation> ownerGroup in sameOwners) {
-					IEnumerable<IGrouping<OperationType, PatchOperation>> afterTypeGroups = ownerGroup.ToList()
-						.Where(op =>
-							op.Type is OperationType.WriteLast 
-									or OperationType.WriteBeforeLast
-						).GroupBy(op2 => op2.Type);
 
-					foreach (IGrouping<OperationType, PatchOperation> typeGroup in afterTypeGroups) {
-						PatchOperation chosen = typeGroup.First(); 
-						foreach (PatchOperation op in typeGroup) {
-							if (op == chosen)
-								continue;
-							chosen.Text = chosen.Text.Insert(0, op.Text + "\n");
-							operations.Remove(op);
+				List<IGrouping<PatchOwner, PatchOperation>> sameOwners = operations.GroupBy(op => op.Owner).ToList();
+				foreach (IGrouping<PatchOwner, PatchOperation> ownerGroup in sameOwners) {
+					IEnumerable<IGrouping<ReversibleOperationClass, PatchOperation>> afterTypeGroups = ownerGroup.ToList()
+						.Where(op => PatchOperation.ReversibleWriteOperationClasses.ContainsKey(op.Type)).GroupBy(op => PatchOperation.ReversibleWriteOperationClasses[op.Type]);
+
+					foreach (IGrouping<ReversibleOperationClass, PatchOperation> typeGroup in afterTypeGroups) {
+						List<PatchOperation> list = new List<PatchOperation>(typeGroup.ToList());
+						list.Sort((a, b) => a.IsHigherPriorityThan(b, order));
+						List<int> incrementsList = list.Select(op => op.Increment).ToList();
+						for (int i = 0; i < list.Count; i++) {
+							list[i].Increment = incrementsList[list.Count - i - 1];
 						}
 					}
 				}
 				
-				
+				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
 				
 				StringBuilder after = new StringBuilder();
 				StringBuilder afterLast = new StringBuilder();
@@ -672,6 +675,11 @@ public static class Language {
 				
 				StringBuilder afterElseIf = new StringBuilder();
 				StringBuilder afterElse = new StringBuilder();
+				
+				StringBuilder conditions = new StringBuilder();
+				List<PatchOwner> conditionAdders = [];
+				int conditionsCount = 0;
+				
 				foreach (PatchOperation op in operations) {
 					switch (op.Type) {
 						case OperationType.WriteReplace:
@@ -689,6 +697,14 @@ public static class Language {
 						case OperationType.WriteLast:
 							afterLast.Append("\n" + op.Text);
 							break;
+						case OperationType.WriteAndCondition:
+						case OperationType.WriteOrCondition:
+							string operand = op.Type == OperationType.WriteAndCondition ? "&&" : "||";
+							conditions.Append($"\n{operand} {op.Text})");
+							conditionsCount++;
+							if (!conditionAdders.Contains(op.Owner))
+								conditionAdders.Add(op.Owner);
+							break;
 						case OperationType.WriteElseIf:
 							afterElseIf.Insert(0, "\nelse if " + op.Text);
 							break;
@@ -701,6 +717,7 @@ public static class Language {
 								lines[line] = lines[line].Replace(rsop.OldText, rsop.Text);
 							}
 							else {
+
 								// TODO
 							}
 
@@ -715,7 +732,25 @@ public static class Language {
 					afterElseResult = "";
 				else
 					afterElseResult = $"\nelse {{ {afterElse}\n}}";
-				lines[line] = $"{before}{beforeLast}{lines[line]}{afterElseIf}{afterElseResult}{after}{afterLast}";
+
+				string lineToReinsert = lines[line];
+				if (conditionsCount > 0) {
+					// we have to add a conditionsCount amount of parentheses before the expression. Finding it could be a little hard
+					if (lineToReinsert.StartsWith("if")) {
+						lineToReinsert = lineToReinsert.Insert("if".Length + 1, new string('(', conditionsCount));
+					}
+					else if (lineToReinsert.StartsWith("while")) {
+						lineToReinsert = lineToReinsert.Insert("while".Length + 1, new string('(', conditionsCount));
+					}
+					else {
+						throw new PatchApplicationException(
+							$"Attempted to add a condition to an invalid line."
+							+ "You can only add conditions to if and while statements.",
+							"One or more of the following mods are at fault", conditionAdders.Select(owner => owner.Name).ToList());
+					}
+				}
+				
+				lines[line] = $"{before}{beforeLast}{lineToReinsert}{conditions}{afterElseIf}{afterElseResult}{after}{afterLast}";
 			}
 			
 			// remove starting newline

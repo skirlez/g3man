@@ -41,17 +41,17 @@ public class PatchOperation(string text, bool critical, OperationType type, Patc
 	public readonly PatchOwner Owner = owner;
 
 	// gets incremented for each patch operation in a patch file, so they can sort by each other.
-	private readonly int increment = increment;
+	public int Increment = increment;
 	
 	public int IsHigherPriorityThan(PatchOperation other, List<PatchOwner> mods) {
 		int ownerComparison = Owner.IsHigherPriorityThan(other.Owner, mods);
 		if (ownerComparison != 0)
 			return ownerComparison;
 		
-		return int.Sign(other.increment - increment);
+		return int.Sign(other.Increment - Increment);
 	}
 	
-	public static readonly Dictionary<string, OperationType> WriteFunctionTypes = new Dictionary<string, OperationType> {
+	public static readonly Dictionary<string, OperationType> WriteOperationTypes = new Dictionary<string, OperationType> {
 		{ "write_replace", OperationType.WriteReplace },
 		{ "write_before", OperationType.WriteBefore },
 		{ "write_before_last", OperationType.WriteBeforeLast },
@@ -59,6 +59,14 @@ public class PatchOperation(string text, bool critical, OperationType type, Patc
 		{ "write_last", OperationType.WriteLast },
 		{ "write_else_if",  OperationType.WriteElseIf },
 		{ "write_else", OperationType.WriteElse },
+		{ "write_and_condition",  OperationType.WriteAndCondition },
+		{ "write_or_condition", OperationType.WriteOrCondition },
+	};
+	public static readonly Dictionary<OperationType, ReversibleOperationClass> ReversibleWriteOperationClasses = new Dictionary<OperationType, ReversibleOperationClass> {
+		{ OperationType.WriteLast, ReversibleOperationClass.WriteLast },
+		{ OperationType.WriteBeforeLast, ReversibleOperationClass.WriteBeforeLast },
+		{ OperationType.WriteAndCondition,  ReversibleOperationClass.WriteCondition },
+		{ OperationType.WriteOrCondition, ReversibleOperationClass.WriteCondition },
 	};
 }
 
@@ -79,5 +87,16 @@ public enum OperationType {
 	WriteLast,
 	WriteElseIf,
 	WriteElse,
+	
+	WriteAndCondition,
+	WriteOrCondition
 }
+
+/** Used for reversing operations that write in the opposite order of their statements */
+public enum ReversibleOperationClass {
+	WriteLast,
+	WriteBeforeLast,
+	WriteCondition,
+}
+
 
