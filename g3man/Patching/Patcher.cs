@@ -385,7 +385,7 @@ public class Patcher {
 			}
 		}
 
-		setStatus("Applying patches");
+		setStatus("Applying patches...");
 		
 		try {
 			Language.ApplyPatches(record, source, order);

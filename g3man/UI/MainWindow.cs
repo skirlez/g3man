@@ -3,6 +3,7 @@ using System.IO.Compression;
 using g3man.Models;
 using g3man.Util;
 using Gtk;
+using Pango;
 using Window = Gtk.Window;
 
 namespace g3man.UI;
@@ -293,10 +294,47 @@ public class MainWindow : Window {
 		noModsLabel = Label.New("No mods found.");
 		noModsLabel.SetMargin(30);
 		
+		Label modNameLabel = Label.New("");
+		Label modDescriptionLabel = Label.New("");
+		modDescriptionLabel.SetWrap(true);
+		modDescriptionLabel.SetSizeRequest(-1, 50);
+		Label modCreditsLabel = Label.New("");
+		modDescriptionLabel.SetWrap(true);
+		modDescriptionLabel.SetSizeRequest(-1, 50);
+
+		Box descriptionBox = Box.New(Orientation.Vertical, 5);
+		descriptionBox.SetValign(Align.Center);
+		descriptionBox.Append(modNameLabel);
+		descriptionBox.Append(modDescriptionLabel);
+		descriptionBox.Append(modCreditsLabel);
+		descriptionBox.SetMargin(10);
+		
 		modsListBox = ListBox.New();
 		modsListBox.SetHexpand(true);
 		modsListBox.SetPlaceholder(noModsLabel);
 		
+		
+		modsListBox.OnRowSelected += (sender, args) => {
+			if (args.Row is null) {
+				return;
+			}
+
+			int index = args.Row.GetIndex();
+			Mod mod = modsList[index];
+			
+			modNameLabel.SetText(mod.DisplayName);
+			modDescriptionLabel.SetText(mod.Description);
+
+			if (mod.Credits.Length == 0)
+				modCreditsLabel.SetText("");
+			else {
+				string credits = $"By {mod.Credits[0]}";
+				for (int i = 1; i < mod.Credits.Length; i++)
+					credits += $", {mod.Credits[i]}";
+				modCreditsLabel.SetText(credits);
+			}
+		};
+
 		Box manageModsBox = Box.New(Orientation.Horizontal, 5);
 		manageModsBox.SetHalign(Align.Center);
 		manageModsBox.SetValign(Align.Center);
@@ -400,10 +438,14 @@ public class MainWindow : Window {
 			List<Mod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
 			window.Dialog(enabledModsList);
 		};
+
+
 		
 		page.Append(modsListBox);
 		page.Append(manageModsBox);
 		page.Append(applyButton);
+		page.Append(Separator.New(Orientation.Horizontal));
+		page.Append(descriptionBox);
 		page.SetVexpand(true);
 	}
 

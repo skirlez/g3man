@@ -51,24 +51,21 @@ public static class Program {
 	}
 	
 	public static int Main(string[] args) {
+		try {
+			string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
+			Directory.CreateDirectory(logs);
+			string filename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
+			StreamWriter logfile = new StreamWriter(Path.Combine(logs, filename));
+			logfile.AutoFlush = true;
+			Logfile = logfile;
+			Logger = Logger.Make("");
+		}
+		catch (Exception e) {
+			Logger = Logger.Make("");
+			Logger.Error("Failed to initialize logging to file: " + e);
+			Logger.Error("This session will not be logged to file.");
+		}
 		if (args.Length == 0) {
-
-			try {
-				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
-				Directory.CreateDirectory(logs);
-				string filename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
-				StreamWriter logfile = new StreamWriter(Path.Combine(logs, filename));
-				logfile.AutoFlush = true;
-				Logfile = logfile;
-				Logger = Logger.Make("");
-			}
-			catch (Exception e) {
-				Logger = Logger.Make("");
-				Logger.Error("Failed to initialize logging to file: " + e);
-				Logger.Error("This session will not be logged to file.");
-			}
-			
-			
 			DataLoader = new DataLoader();
 			JsonElement? configJson = Config.Read();
 			if (configJson is null)
