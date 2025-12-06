@@ -1,6 +1,8 @@
 # g3man
 **G**ame**M**aker **M**od **Man**ager
 
+<img alt="image" src="https://github.com/user-attachments/assets/b01774bc-eb69-4ec3-9336-2c6579cda8b2" />
+
 A mod manager and mod patcher for GameMaker games. 
 
 Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer). These two projects are incredible, and I would not have been able to make this without them.
