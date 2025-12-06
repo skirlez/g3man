@@ -112,7 +112,7 @@ public class PatcherWindow : Window {
 				]);
 
 			lock (lockObject) {
-				popupWindow.Dialog();
+				Program.RunOnMainThreadEventually(() => popupWindow.Dialog());
 				// wait for user to make choice
 				while (choice == 0)
 					Monitor.Wait(lockObject);
