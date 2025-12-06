@@ -7,7 +7,7 @@ public class RegexTest() : LanguageTest("Regex") {
 a = "hello"
 b = "this is text"
 c = "this text has a number (6)"
-d = "this text also has a number (1293921495)"
+d = "this text's number will get removed (1293921495)"
 e = "something something 4356"
 f = "end"
 """;
@@ -20,8 +20,11 @@ find_line_with(r'\d+')
 write('number above me')
 move_to_end()
 reverse_find_line_with(r'\d+')
-move(-1)
-write_last('number below me')
+write_before('number below me')
+""",
+"""
+find_line_with('d = "')
+write_replace_substring(r'\d+', 'nothing')
 """
 		];
 	}
@@ -33,7 +36,7 @@ a = "hello"
 b = "this is text"
 c = "this text has a number (6)"
 number above me
-d = "this text also has a number (1293921495)"
+d = "this text's number will get removed (nothing)"
 number below me
 e = "something something 4356"
 f = "end"

@@ -620,7 +620,7 @@ public static class Language {
 				int line = unitPatchPair.Key;
 				List<PatchOperation> operations = unitPatchPair.Value;
 				List<PatchOperation> replacers =
-					unitPatchPair.Value.Where(op => op.Type == OperationType.WriteReplace).ToList();
+					unitPatchPair.Value.Where(op => op.Type == OperationType.WriteReplace || op.Type == OperationType.WriteReplaceSubstring).ToList();
 
 				// can't merge if we have two replacers on the same line and both are critical (can't choose)
 				// if we have two non-critical patches then we can pick the one with higher priority
@@ -636,8 +636,7 @@ public static class Language {
 				if (replacers.Count >= 2) {
 					// pick out the last critical replacer, or the last non-critical replacer if we don't have any
 					// (last has highest priority)
-					PatchOperation chosenReplacer = replacers.LastOrDefault(op => op.Critical,
-						replacers.Last(op => op.Type == OperationType.WriteReplace));
+					PatchOperation chosenReplacer = replacers.LastOrDefault(op => op.Critical, replacers.Last());
 					operations.RemoveAll(op => replacers.Contains(op)
 						&& op != chosenReplacer);
 				}
@@ -680,10 +679,12 @@ public static class Language {
 				List<PatchOwner> conditionAdders = [];
 				int conditionsCount = 0;
 				
+				string lineToReinsert = lines[line];
+				
 				foreach (PatchOperation op in operations) {
 					switch (op.Type) {
 						case OperationType.WriteReplace:
-							lines[line] = op.Text;
+							lineToReinsert = op.Text;
 							break;
 						case OperationType.WriteBefore:
 							before.Insert(0, op.Text + "\n");
@@ -714,13 +715,12 @@ public static class Language {
 						case OperationType.WriteReplaceSubstring:
 							ReplaceSubstringPatchOperation rsop = (ReplaceSubstringPatchOperation)op;
 							if (!rsop.Regex) {
-								lines[line] = lines[line].Replace(rsop.OldText, rsop.Text);
+								lineToReinsert = lineToReinsert.Replace(rsop.OldText, rsop.Text);
 							}
 							else {
-
-								// TODO
+								Regex regex = new Regex(rsop.OldText, RegexOptions.CultureInvariant);
+								lineToReinsert = regex.Replace(lineToReinsert, rsop.Text);
 							}
-
 							break;
 						default:
 							break;
@@ -733,7 +733,7 @@ public static class Language {
 				else
 					afterElseResult = $"\nelse {{ {afterElse}\n}}";
 
-				string lineToReinsert = lines[line];
+				
 				if (conditionsCount > 0) {
 					// we have to add a conditionsCount amount of parentheses before the expression. Finding it could be a little hard
 					if (lineToReinsert.StartsWith("if")) {

@@ -28,19 +28,21 @@
 // adding code after a condition
 find_line_with('if (condition)')
 move(1)
-write('show_message("Patch applied!");')
+write('show_message("Patch applied!")')
 
 // adding more conditions to an if statement
 move_to_start()
 write('added_condition = true')
 find_line_with('if (condition)')
-write('&& added_condition')
+write_and_condition('added_condition')
 
 // removing unwanted code
 move_to_end()
 reverse_find_line_with('I hope')
-move(-1) write('if false {')
-move(1) write('}')</textarea
+write_before('if false {')
+write_last('}')
+
+// https://github.com/skirlez/g3man/wiki/Introduction-to-gmlp</textarea
                     >
                     <pre><code id="patchDisplay" class="language-js"></code></pre>
                 </article>

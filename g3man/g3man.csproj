@@ -27,7 +27,7 @@
   <ItemGroup>
     <PackageReference Include="GirCore.Adw-1" Version="0.6.3" />
     <PackageReference Include="GirCore.Gtk-4.0" Version="0.6.3" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0" />
   </ItemGroup>
 

@@ -341,11 +341,12 @@ public class Patcher {
 		
 		foreach (Mod mod in mods) {
 			int index = mods.IndexOf(mod);
-			setStatus($"Reading patches from: {mod.DisplayName}");
+			if (mod.Patches.Length != 0)
+				setStatus($"Reading patches from: {mod.DisplayName}");
 			foreach (PatchLocation patchLocation in mod.Patches) {
 				// the only one right now
 				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
-
+				
 				string modFolder = Path.Combine(profileLocation, mod.FolderName);
 				string fullPath = Path.Combine(modFolder, patchLocation.Path);
 				

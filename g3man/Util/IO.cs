@@ -41,7 +41,6 @@ public static class IO {
 
 
 		SymlinkFolder(appliedProfileDirectory, appliedProfileSymlink);
-		
 	}
 	
 	/* On normal operating systems, this makes a symlink.
