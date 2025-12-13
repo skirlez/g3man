@@ -33,6 +33,9 @@ public class MainWindow : Window {
 	private string[] pageNames;
 	private string[] pageTitles;
 
+	private const string aboutTitle = "About";
+	private const string aboutTitleWithUpdate = "About (!)";
+
 	private Stack pageStack;
 	private ExtraCategories currentExtraCategories;
 	private StackSidebar pageSidebar;
@@ -56,7 +59,7 @@ public class MainWindow : Window {
 		
 		allPages = [gamesPage, profilesPage, modsPage, settingsPage, aboutPage];
 		pageNames = ["games", "profiles","mods", "settings", "about"];
-		pageTitles = ["Games", "Profiles", "Mods", "Settings", "About"];
+		pageTitles = ["Games", "Profiles", "Mods", "Settings", aboutTitle];
 		
 		Box pageBox = Box.New(Orientation.Horizontal, 0);
 		pageBox.Append(pageSidebar);
@@ -67,7 +70,6 @@ public class MainWindow : Window {
 		for (int i = 0; i < allPages.Length; i++) {
 			pageStack.AddTitled(allPages[i], pageNames[i], pageTitles[i]);
 		}
-
 		
 		pageStack.SetVisibleChild(gamesPage);
 		EnableExtraCategories(ExtraCategories.None);
@@ -155,6 +157,13 @@ public class MainWindow : Window {
 		modsRow.SetSelectable(true);
 	}
 	
+	// TODO this sucks for the same reason
+	private void AddExclamationToAbout() {
+		ListBox pageList = (ListBox)pageSidebar.GetFirstChild()!.GetFirstChild()!.GetFirstChild()!;
+		ListBoxRow aboutRow = (ListBoxRow)pageList.GetFirstChild()!.GetNextSibling()!.GetNextSibling()!.GetNextSibling()!.GetNextSibling()!;
+		Label label = (Label)aboutRow.GetFirstChild()!;
+		label.SetText(aboutTitleWithUpdate);
+	}
 
 	
 	private void SetupGamesPage(Box box) {
@@ -561,6 +570,7 @@ public class MainWindow : Window {
 		
 
 		CheckButton checkForUpdatesCheck = CheckButton.NewWithLabel("Check for Updates on Startup");
+		checkForUpdatesCheck.SetActive(Program.Config.CheckForUpdates);
 		checkForUpdatesCheck.OnToggled += (sender, _) => {
 			Program.Config.CheckForUpdates = sender.GetActive();
 			MarkDirty();
@@ -597,7 +607,7 @@ public class MainWindow : Window {
 		subtitle.SetMarkup("<b>G</b>ame<b>M</b>aker <b>M</b>od <b>Man</b>ager");
 		Label versionLabel = Label.New($"Version {Program.Version}");
 		Label license = Label.New("Licensed under the terms of the AGPLv3,\ng3man is Free Software (with Free as in Freedom)");
-		license.SetMarginTop(10);
+		license.SetMarginTop(20);
 		license.SetJustify(Justification.Center);
 
 		
@@ -605,31 +615,60 @@ public class MainWindow : Window {
 		source.SetMarginTop(10);
 		source.SetMarkup("<a href=\"https://github.com/skirlez/g3man\">GitHub Repository</a>");
 
-		Label updateStatus = Label.New("\n\n\n");
-		updateStatus.SetJustify(Justification.Center);
+		
+		Label updateFoundLabel = Label.New("");
+
+		void setUpdateFoundText(int version) {
+			updateFoundLabel.SetMarkup(
+				$"You are on an outdated version!"
+				+ $"\n(Latest is {version}, you are on {Program.Version})"
+				+ $"\nYou may download it <a href=\"https://github.com/skirlez/g3man/releases/latest\">here</a>.");
+		}
+
+		setUpdateFoundText(Program.Version + 1);
+		
+		Label checkingUpdateLabel = Label.New("Checking for updates...");
+		Label latestVersionLabel = Label.New("You are on the latest version.");
+		Label errorLabel = Label.New("Could not check for updates.\nYou should probably check manually.");
+		Label empty = Label.New("");
+		
+		// We're using a stack here so it scales up to the size of the largest text (so the UI doesn't move around when the text updates)
+		Stack updateStatusStack = new Stack();
+		updateStatusStack.AddChild(updateFoundLabel);
+		updateStatusStack.AddChild(checkingUpdateLabel);
+		updateStatusStack.AddChild(latestVersionLabel);
+		updateStatusStack.AddChild(errorLabel);
+		updateStatusStack.AddChild(empty);
+		updateStatusStack.SetVisibleChild(empty);
+		
+		Widget? child = updateStatusStack.GetFirstChild()!;
+		do {
+			((Label)child).SetJustify(Justification.Center);
+			child = child.GetNextSibling();
+		} while (child != null);
+		
 		UpdateChecker checker = new UpdateChecker(() => {
-			updateStatus.SetLabel("Checking for updates...");
+			updateStatusStack.SetVisibleChild(checkingUpdateLabel);
 		}, 
 		(int version) => {
 			Program.RunOnMainThreadEventually(() => {
 				if (version == 0) {
-					updateStatus.SetLabel("Could not check for updates.\nYou should probably check manually.");
+					updateStatusStack.SetVisibleChild(errorLabel);
 					
 				}
 				else if (version > Program.Version) {
-					updateStatus.SetMarkup(
-						$"You are on an outdated version!"
-						+ $"\n(Latest is {version}, you are on {Program.Version})"
-						+ $"\nYou may download it <a href=\"https://github.com/skirlez/g3man/releases/latest\">here</a>");
+					setUpdateFoundText(version);
+					updateStatusStack.SetVisibleChild(updateFoundLabel);
 					AddExclamationToAbout();
 				}
 				else {
-					updateStatus.SetLabel($"You are on the latest version.");
+					updateStatusStack.SetVisibleChild(latestVersionLabel);
 				}
 			});
 		});
 		
 		Button checkForUpdatesButton = Button.NewWithLabel("Check for Updates");
+		checkForUpdatesButton.SetHalign(Align.Center);
 		checkForUpdatesButton.OnClicked += (_, _) => {
 			checker.Check();
 		};
@@ -637,9 +676,9 @@ public class MainWindow : Window {
 			checker.Check();
 		
 		Box updateBox = Box.New(Orientation.Vertical, 5);
-		updateBox.Append(updateStatus);
+		updateBox.Append(updateStatusStack);
 		updateBox.Append(checkForUpdatesButton);
-		updateBox.SetMarginTop(10);
+		updateBox.SetMarginTop(40);
 		
 		page.Append(title);
 		page.Append(subtitle);
@@ -652,11 +691,6 @@ public class MainWindow : Window {
 		
 	}
 
-	// TODO
-	private void AddExclamationToAbout() {
-		pageStack.Remove(pageStack.GetChildByName("about")!);
-		pageStack.AddTitled(allPages[4], pageNames[4], pageTitles[4] + " (!)");
-	}
 
 
 	private void ParseModsAndUpdateMenu() {

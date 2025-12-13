@@ -54,7 +54,7 @@ public class CLI {
                 if (mods.Count == 0) {
                     return 1;
                 }
-                
+                mods.Sort((mod1, mod2) => int.Sign(Array.IndexOf(profile.ModOrder, mod1.ModId) - Array.IndexOf(profile.ModOrder, mod2.ModId)));
                 FileInfo dataFileInfo = parseResult.GetRequiredValue(datafileLocation);
                 Program.Logger.Info("Loading clean datafile...");
                 UndertaleData data;
@@ -66,7 +66,7 @@ public class CLI {
                     Program.Logger.Error(e);
                     return 1;
                 }
-                
+               
                 
                 DirectoryInfo outLocationInfo = parseResult.GetRequiredValue(outLocation);
 

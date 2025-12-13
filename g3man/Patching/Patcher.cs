@@ -299,7 +299,7 @@ public class Patcher {
 				sb.Append($"\n{i + 1}. {issue}");
 			}
 
-			statusCallback(sb.ToString());
+			setStatus(sb.ToString());
 			return null;
 		}
 		
