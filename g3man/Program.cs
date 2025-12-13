@@ -14,6 +14,7 @@ using DateTime = System.DateTime;
 namespace g3man;
 
 public static class Program {
+	public const int Version = 2;
 
 	public static Logger Logger = null!;
 	public static DataLoader DataLoader = null!;
@@ -83,7 +84,6 @@ public static class Program {
 				Config = new Config();
 			else
 				Config = new Config(configJson.Value);
-
 			
 			#if WINDOWS
 				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)

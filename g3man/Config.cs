@@ -13,6 +13,7 @@ public class Config {
 	public Program.Theme Theme;
 	public Program.Initializer Initializer;
 	public bool AllowModScripting;
+	public bool CheckForUpdates;
 
 	public Config() {
 		GameDirectories = [];
@@ -37,6 +38,9 @@ public class Config {
 		if (allowModScripting < 0 || allowModScripting > 1)
 			allowModScripting = 0;
 		AllowModScripting = allowModScripting == 1;
+
+		CheckForUpdates = JsonUtil.GetOrDefault(root, "check_for_updates", true);
+
 	}
 
 	public JsonObject ToJson() {
@@ -45,6 +49,7 @@ public class Config {
 			["game_directories"] = new JsonArray(GameDirectories.Select(directory => (JsonNode)directory).ToArray()),
 			["initializer"] = (int)Initializer,
 			["theme"] = (int)Theme,
+			["check_for_updates"] = CheckForUpdates,
 			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0
 		};
 	}

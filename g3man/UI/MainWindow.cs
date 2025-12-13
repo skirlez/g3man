@@ -67,6 +67,8 @@ public class MainWindow : Window {
 		for (int i = 0; i < allPages.Length; i++) {
 			pageStack.AddTitled(allPages[i], pageNames[i], pageTitles[i]);
 		}
+
+		
 		pageStack.SetVisibleChild(gamesPage);
 		EnableExtraCategories(ExtraCategories.None);
 		
@@ -475,7 +477,14 @@ public class MainWindow : Window {
 	}
 
 	private void SetupSettingsPage(Box page) {
+		Button saveSettingsButton = Button.New();
 		
+		const string saveSettingsLabel = "Save Settings";
+		const string saveSettingsDirtyLabel = "Save Settings*";
+		saveSettingsButton.SetLabel(saveSettingsLabel);
+		void MarkDirty() {
+			saveSettingsButton.SetLabel(saveSettingsDirtyLabel);
+		}
 #if THEMESELECTOR
 			// TODO CHANGE THIS TO COMBOBOXTEXT
 			DropDown themeDropDown = DropDown.NewFromStrings(["System Default", "Light", "Dark"]);
@@ -487,6 +496,7 @@ public class MainWindow : Window {
 				Program.Theme selected = (Program.Theme)themeDropDown.GetSelected();
 				ApplyTheme(selected);
 				Program.Config.Theme = selected;
+				MarkDirty();
 			};
 			
 			Label themeLabel = Label.New("Theme");
@@ -501,7 +511,7 @@ public class MainWindow : Window {
 
 		Label initializerLabel = Label.New("Initializer");
 		ComboBoxText initializerDropDown =  ComboBoxText.New();
-		Label initializerRestartLabel = Label.New("Restart app for changes to apply");
+		Label initializerRestartLabel = Label.New("Save settings and restart app for changes to apply");
 		initializerRestartLabel.SetVisible(false);
 		
 		initializerDropDown.AppendText("Adwaita");
@@ -512,6 +522,7 @@ public class MainWindow : Window {
 			Program.Initializer selected = (Program.Initializer)initializerDropDown.GetActive();
 			Program.Config.Initializer = selected;
 			initializerRestartLabel.SetVisible(Program.InitializedUsing != selected);
+			MarkDirty();
 		};
 		
 		
@@ -528,6 +539,7 @@ public class MainWindow : Window {
 		allowModScriptsDropDown.SetActive(Program.Config.AllowModScripting ? 1 : 0);
 		allowModScriptsDropDown.OnChanged += (_, _) => {
 			Program.Config.AllowModScripting = allowModScriptsDropDown.GetActive() == 1;
+			MarkDirty();
 		};
 		Button infoButton = Button.NewWithLabel("?");
 		infoButton.OnClicked += (sender, args) => {
@@ -547,13 +559,22 @@ public class MainWindow : Window {
 		allowModScriptsBox.Append(infoButton);
 		
 		
-		Button saveSettingsButton = Button.New();
-		saveSettingsButton.Label = "Save Settings";
+
+		CheckButton checkForUpdatesCheck = CheckButton.NewWithLabel("Check for Updates on Startup");
+		checkForUpdatesCheck.OnToggled += (sender, _) => {
+			Program.Config.CheckForUpdates = sender.GetActive();
+			MarkDirty();
+		};
+		Box checkForUpdatesBox = Box.New(Orientation.Horizontal, 5);
+		checkForUpdatesBox.Append(checkForUpdatesCheck);
+		
+
 		saveSettingsButton.SetHalign(Align.End);
 		saveSettingsButton.SetValign(Align.End);
 		saveSettingsButton.SetVexpand(true);
 		saveSettingsButton.OnClicked += (sender, args) => {
 			Program.Config.Write();
+			saveSettingsButton.SetLabel(saveSettingsLabel);
 		};
 		
 #if THEMESELECTOR
@@ -561,19 +582,20 @@ public class MainWindow : Window {
 #endif
 		page.Append(initializerBox);
 		page.Append(allowModScriptsBox);
+		page.Append(checkForUpdatesBox);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
 		page.SetSpacing(10);
 	}
 	
 
-	private static void SetupAboutPage(Box page) {
+	private void SetupAboutPage(Box page) {
 		Label title = Label.New("");
 		title.SetMarkup("<span size=\"large\">g3man</span>");
 		title.SetSizeRequest(100, 20);
 		Label subtitle = Label.New("");
 		subtitle.SetMarkup("<b>G</b>ame<b>M</b>aker <b>M</b>od <b>Man</b>ager");
-
+		Label versionLabel = Label.New($"Version {Program.Version}");
 		Label license = Label.New("Licensed under the terms of the AGPLv3,\ng3man is Free Software (with Free as in Freedom)");
 		license.SetMarginTop(10);
 		license.SetJustify(Justification.Center);
@@ -583,12 +605,57 @@ public class MainWindow : Window {
 		source.SetMarginTop(10);
 		source.SetMarkup("<a href=\"https://github.com/skirlez/g3man\">GitHub Repository</a>");
 
+		Label updateStatus = Label.New("\n\n\n");
+		updateStatus.SetJustify(Justification.Center);
+		UpdateChecker checker = new UpdateChecker(() => {
+			updateStatus.SetLabel("Checking for updates...");
+		}, 
+		(int version) => {
+			Program.RunOnMainThreadEventually(() => {
+				if (version == 0) {
+					updateStatus.SetLabel("Could not check for updates.\nYou should probably check manually.");
+					
+				}
+				else if (version > Program.Version) {
+					updateStatus.SetMarkup(
+						$"You are on an outdated version!"
+						+ $"\n(Latest is {version}, you are on {Program.Version})"
+						+ $"\nYou may download it <a href=\"https://github.com/skirlez/g3man/releases/latest\">here</a>");
+					AddExclamationToAbout();
+				}
+				else {
+					updateStatus.SetLabel($"You are on the latest version.");
+				}
+			});
+		});
+		
+		Button checkForUpdatesButton = Button.NewWithLabel("Check for Updates");
+		checkForUpdatesButton.OnClicked += (_, _) => {
+			checker.Check();
+		};
+		if (Program.Config.CheckForUpdates)
+			checker.Check();
+		
+		Box updateBox = Box.New(Orientation.Vertical, 5);
+		updateBox.Append(updateStatus);
+		updateBox.Append(checkForUpdatesButton);
+		updateBox.SetMarginTop(10);
+		
 		page.Append(title);
 		page.Append(subtitle);
+		page.Append(versionLabel);
 		page.Append(license);
 		page.Append(source);
+		page.Append(updateBox);
 		page.SetHalign(Align.Center);
 		page.SetValign(Align.Center);
+		
+	}
+
+	// TODO
+	private void AddExclamationToAbout() {
+		pageStack.Remove(pageStack.GetChildByName("about")!);
+		pageStack.AddTitled(allPages[4], pageNames[4], pageTitles[4] + " (!)");
 	}
 
 
@@ -807,8 +874,7 @@ public class MainWindow : Window {
 #endif
 	
 	
-	enum ZipType 
-	{
+	enum ZipType {
 		Mod,
 		Profile
 	}
