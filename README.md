@@ -73,7 +73,7 @@ dotnet build gmlpweb
 - Parallelize the patching process
   
   Currently the patching process is mostly bottlenecked by compilation. It is done in sequence because
-  Underanalyzer's compile function has side effects on the data.win. Theoretically this should be possible, and would
+  Underanalyzer's compile function has side effects on the data.win (though this contradicts what it says in its README, so I'm probably doing something wrong). Theoretically this should be possible, and would
 speed up patching immensely.
 
 - Support for more platforms

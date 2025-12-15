@@ -498,6 +498,33 @@ public static class Language {
 						unifyCarets(carets);
 					break;
 				}
+				case "remove_if_line_contains": {
+					(Token[] parameters, pos) =
+						ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
+					StringToken stringToken = (StringToken)parameters[0];
+					for (int i = 0; i < carets.Count; i++) {
+						Caret caret = carets[i];
+						bool contains;
+						if (stringToken.Regex) {
+							Regex regex = new Regex(stringToken.Text, RegexOptions.CultureInvariant);
+							Match match = regex.Match(lines[caret.Line]);
+							contains = match.Success;
+						}
+						else {
+							contains = lines[caret.Line].Contains(stringToken.Text);
+						}
+
+						if (contains) {
+							lastRemovalReason = $"Removed because ran {nameToken.Name}('{stringToken.Text}'), and my line ({caret.Line}) did contain the text";
+							carets.RemoveAt(i);
+							i--;	
+						}
+					}
+
+					break;
+				}
+
+
 				case "consolidate_into_top":
 				case "consolidate_into_bottom": {
 					(Token[] parameters, pos) =
@@ -574,7 +601,7 @@ public static class Language {
 					for (int i = 0; i < carets.Count; i++) {
 						int filePos = carets[i].Line;
 						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						linePatches.Add(new ReplaceSubstringPatchOperation(oldStringToken.Text, newStringToken.Text, critical, oldStringToken.Regex, owner, patchIncrement));
+						linePatches.Add(new ReplaceSubstringPatchOperation(oldStringToken.Text, newStringToken.Text, oldStringToken.Regex, critical, owner, patchIncrement));
 						patchIncrement++;
 					}
 
@@ -628,7 +655,7 @@ public static class Language {
 				if (invalidUnitPatch) {
 					List<string> atFaultList = replacers.Select(op => op.Owner.Name).ToList();
 					throw new PatchApplicationException(
-						$"There are two or more critical and incompatible replacers on the same line.",
+						$"There are two or more critical and incompatible replacers on the same line ({line}), file {unitOperations.FileTarget}",
 						"The following mods are at fault", atFaultList);
 				}
 
@@ -744,7 +771,7 @@ public static class Language {
 					}
 					else {
 						throw new PatchApplicationException(
-							$"Attempted to add a condition to an invalid line."
+							$"Attempted to add a condition to an invalid line ({line}), file {unitOperations.FileTarget}."
 							+ "You can only add conditions to if and while statements.",
 							"One or more of the following mods are at fault", conditionAdders.Select(owner => owner.Name).ToList());
 					}
@@ -767,7 +794,7 @@ public static class Language {
 					.Select(owner => owner.Name).ToList();
 
 
-				throw new PatchApplicationException(e.Message, "One or more of the following mods are at fault",
+				throw new PatchApplicationException($"Patched code from file {unitOperations.FileTarget} failed to compile:\n" + e.Message, "One or more of the following mods are at fault",
 					atFaultList, finalResult);
 			}
 		}

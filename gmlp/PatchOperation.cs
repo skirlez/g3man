@@ -11,14 +11,17 @@ public class PatchesRecord {
 	public UnitOperations GetUnitOperationsOrCreate(string target, string code) {
 		if (record.ContainsKey(target))
 			return record[target];
-		UnitOperations unitOperations = new UnitOperations(code);
+		UnitOperations unitOperations = new UnitOperations(code, target);
 		record[target] = unitOperations;
 		return unitOperations;
 	}
 }
 
-public class UnitOperations(string code) {
+public class UnitOperations(string code, string fileTarget) {
 	public readonly string Code = code;
+	
+	// for error handling
+	public readonly string FileTarget = fileTarget;
 	private readonly Dictionary<int, List<PatchOperation>> unitPatches = new();
 	public List<PatchOperation> GetPatchOperationsOrCreate(int target) {
 		if (unitPatches.ContainsKey(target))
