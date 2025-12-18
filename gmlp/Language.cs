@@ -763,16 +763,24 @@ public static class Language {
 				
 				if (conditionsCount > 0) {
 					// we have to add a conditionsCount amount of parentheses before the expression. Finding it could be a little hard
-					if (lineToReinsert.StartsWith("if")) {
-						lineToReinsert = lineToReinsert.Insert("if".Length + 1, new string('(', conditionsCount));
+					
+					// TODO make this Better
+					if (lineToReinsert.TrimStart().StartsWith("if")) {
+						int index = lineToReinsert.IndexOf("if", StringComparison.Ordinal);
+						lineToReinsert = lineToReinsert.Insert(index + "if".Length + 1, new string('(', conditionsCount));
 					}
-					else if (lineToReinsert.StartsWith("while")) {
-						lineToReinsert = lineToReinsert.Insert("while".Length + 1, new string('(', conditionsCount));
+					else if (lineToReinsert.TrimStart().StartsWith("else if")) {
+						int index = lineToReinsert.IndexOf("else if", StringComparison.Ordinal);
+						lineToReinsert = lineToReinsert.Insert(index + "else if".Length + 1, new string('(', conditionsCount));
+					}
+					else if (lineToReinsert.TrimStart().StartsWith("while")) {
+						int index = lineToReinsert.IndexOf("while", StringComparison.Ordinal);
+						lineToReinsert = lineToReinsert.Insert(index + "while".Length + 1, new string('(', conditionsCount));
 					}
 					else {
 						throw new PatchApplicationException(
-							$"Attempted to add a condition to an invalid line ({line}), file {unitOperations.FileTarget}."
-							+ "You can only add conditions to if and while statements.",
+							$"Attempted to add a condition to an invalid line, numbered {line}, file {unitOperations.FileTarget}. Line:\n" + lines[line]
+							+ "\nYou can only add conditions to if and while statements.",
 							"One or more of the following mods are at fault", conditionAdders.Select(owner => owner.Name).ToList());
 					}
 				}
@@ -1130,6 +1138,6 @@ public class PatchApplicationException(string message, string blameMessage, List
 			atFaultString += ",\n" + atFault[i];
 		}
 
-		return $"{message}:\n{atFaultString}";
+		return $"{message}\n{atFaultString}";
 	}
 }
