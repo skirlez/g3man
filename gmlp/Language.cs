@@ -498,7 +498,7 @@ public static class Language {
 						unifyCarets(carets);
 					break;
 				}
-				case "remove_if_line_contains": {
+				case "remove_caret_if_line_contains": {
 					(Token[] parameters, pos) =
 						ExpectFunctionSignature(tokens, pos, nameToken.LineNumber, typeof(StringToken));
 					StringToken stringToken = (StringToken)parameters[0];

@@ -14,7 +14,7 @@ using DateTime = System.DateTime;
 namespace g3man;
 
 public static class Program {
-	public const int Version = 2;
+	public const int Version = 3;
 
 	public static Logger Logger = null!;
 	public static DataLoader DataLoader = null!;
