@@ -29,7 +29,7 @@ public class Logger {
 		this.errors = errors;
 	}
 
-	public static readonly Logger Null =  new Logger(String.Empty, [TextWriter.Null], [TextWriter.Null]);
+	public static readonly Logger Null = new Logger(String.Empty, [TextWriter.Null], [TextWriter.Null]);
 	
 	public void Info(string str) {
 		foreach (TextWriter info in infos) {
@@ -43,7 +43,7 @@ public class Logger {
 	}
 
 	public void Error(string str) {
-		foreach (TextWriter error in infos) {
+		foreach (TextWriter error in errors) {
 			error.WriteLine($"{errorPrefix}{str}");
 		}
 	}
