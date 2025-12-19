@@ -1,12 +1,21 @@
 name: Build g3man
 
+
 on:
   push:
     branches: [ main ]
+  pull_request:
+      branches: [ main ]
 
 jobs:
-  build-deploy:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, artifact-name: g3man-ubuntu-amd64 }
+          - { os: windows-latest, artifact-name: g3man-windows-amd64 }
+
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,11 +25,31 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Install MSYS2
+        id: msys2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2.30.0
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-libadwaita
+
+      # The python script is used to build because it passes in the above environment variable
+      # and also bundles a readme. Probably stupid but why not
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12' 
+
       - name: Publish
-        run: dotnet publish g3man -c Release -o release --runtime linux-x64
+        env:
+          MINGWROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64
+        run: |
+          cd g3man/Publishing
+          python3 publish_as_zip.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: g3man-ubuntu-amd64.zip
-          path: release
+          name: ${{ matrix['artifact-name'] }}
+          path: g3man/Publishing/${{ matrix['artifact-name'] }}.zip

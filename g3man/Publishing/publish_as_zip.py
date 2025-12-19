@@ -6,10 +6,13 @@ import subprocess
 
 if os.name == "posix":
     runtime = "linux-x64"
-    zip_suffix = "linux"
+    zip_suffix = "linux-amd64"
+    extra_args = []
 elif os.name == "nt":
     runtime = "win-x64"
-    zip_suffix = "windows"
+    zip_suffix = "windows-amd64"
+    mingwroot = os.environ.get("MINGWROOT", "C:\\msys64\\mingw64")
+    extra_args = [f"/p:MinGWFolder=\"{mingwroot}\""]
 
 
 # I really don't know what these are for. But we don't support other languages right now
@@ -22,7 +25,7 @@ if os.path.isdir("./package"):
 
 
 status = subprocess.run(
-    ["dotnet", "publish", "-c", "Release", "-o", "Publishing/package/bin", "--runtime", runtime],
+    ["dotnet", "publish", "g3man.csproj", "-c", "Release", "-o", "Publishing/package/bin", "--runtime", runtime] + extra_args,
     cwd = os.path.abspath("..")
 )
 if status.returncode != 0:

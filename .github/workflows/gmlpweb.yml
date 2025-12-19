@@ -3,6 +3,8 @@ name: Deploy gmlpweb
 on:
   push:
     branches: [ main ]
+  pull_request:
+      branches: [ main ]
 
 jobs:
   build-deploy:
@@ -23,7 +25,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Publish
-        run: dotnet publish gmlpweb -c Release -o release
+        run: dotnet publish gmlpweb/gmlpweb.csproj -c Release -o release
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
