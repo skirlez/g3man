@@ -19,7 +19,7 @@ elif os.name == "nt":
 
 
 if len(sys.argv) < 1 or len(sys.argv) > 2:
-	name = "publish.py" if len(sys.argv) == 0 else sys.argv[1]
+	name = "publish.py" if len(sys.argv) == 0 else sys.argv[0]
 	print(f"Usage: {name} [--zip]")
 	exit()
 

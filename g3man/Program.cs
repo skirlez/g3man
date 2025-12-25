@@ -87,7 +87,9 @@ public static class Program {
 			
 			#if WINDOWS
 				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
-				Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo");
+				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo"); Doesn't happen to me anymore!
+				
+				
 			#endif
 			
 			if (Config.Initializer == Initializer.Gtk)
