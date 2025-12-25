@@ -12,8 +12,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest, artifact-name: g3man-ubuntu-amd64 }
-          - { os: windows-latest, artifact-name: g3man-windows-amd64 }
+          - { os: ubuntu-latest, artifact-name: g3man-linux-amd64, output-path: package/bin }
+          - { os: windows-latest, artifact-name: g3man-windows-amd64, output-path: package }
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -46,10 +46,10 @@ jobs:
           MINGWROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64
         run: |
           cd g3man/Publishing
-          python3 publish_as_zip.py
+          python3 publish.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix['artifact-name'] }}
-          path: g3man/Publishing/${{ matrix['artifact-name'] }}.zip
+          path: g3man/Publishing/${{ matrix['output-path'] }}
