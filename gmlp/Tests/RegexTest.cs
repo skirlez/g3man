@@ -28,7 +28,6 @@ write_replace_substring(r'\d+', 'nothing')
 """
 		];
 	}
-
 	public override string GetExpected() {
 		return
 """

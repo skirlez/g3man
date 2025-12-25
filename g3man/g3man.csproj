@@ -24,6 +24,10 @@
     <DefineConstants>LINUX</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="GirCore.Adw-1" Version="0.7.0" />
     <PackageReference Include="GirCore.Gtk-4.0" Version="0.7.0" />

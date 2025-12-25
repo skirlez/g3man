@@ -495,14 +495,15 @@ public class MainWindow : Window {
 			saveSettingsButton.SetLabel(saveSettingsDirtyLabel);
 		}
 #if THEMESELECTOR
-			// TODO CHANGE THIS TO COMBOBOXTEXT
-			DropDown themeDropDown = DropDown.NewFromStrings(["System Default", "Light", "Dark"]);
-			themeDropDown.SetSelected((uint)Program.Config.Theme);
-			themeDropDown.OnNotify += (_, args) => {
-				// doesn't seem to be a signal for this
-				if (args.Pspec.GetName() != "selected-item")
-					return;
-				Program.Theme selected = (Program.Theme)themeDropDown.GetSelected();
+			ComboBoxText themeDropDown =  ComboBoxText.New();
+					
+			themeDropDown.AppendText("System Default");
+			themeDropDown.AppendText("Light");
+			themeDropDown.AppendText("Dark");
+			
+			themeDropDown.SetActive((int)Program.Config.Theme);
+			themeDropDown.OnChanged += (_, _) => {
+				Program.Theme selected = (Program.Theme)themeDropDown.GetActive();
 				ApplyTheme(selected);
 				Program.Config.Theme = selected;
 				MarkDirty();
@@ -977,21 +978,15 @@ public class MainWindow : Window {
 				string folder = Path.Combine(basePath, folderName);
 				Directory.CreateDirectory(folder);
 
-				Dictionary<bool, ZipArchiveEntry[]> groups = archive.Entries
-					.Where(entry => entry.FullName.StartsWith(precedingPath) && entry.FullName != precedingPath)
-					.GroupBy(entry => entry.FullName.EndsWith("/"))
-					.ToDictionary(group => group.Key, group => group.ToArray());
-
-				ZipArchiveEntry[] foldermates = groups.GetValueOrDefault(true, []);
-				ZipArchiveEntry[] filemates = groups.GetValueOrDefault(false, []);
+				ZipArchiveEntry[] filemates = archive.Entries.Where(entry =>
+					entry.FullName.StartsWith(precedingPath) && entry.FullName != precedingPath).ToArray();
 
 				int precedingPathLength = precedingPath == "" ? 0 : precedingPath.Length + 1; // one more for trailing slash
-				foreach (ZipArchiveEntry foldermate in foldermates) {
-					string relativePath = foldermate.FullName.Remove(0,  precedingPathLength);
-					Directory.CreateDirectory(Path.Combine(folder, relativePath));
-				}
 				foreach (ZipArchiveEntry filemate in filemates) {
 					string relativePath = filemate.FullName.Remove(0, precedingPathLength);
+					string? relativeDirectory = Path.GetDirectoryName(relativePath);
+					if (relativeDirectory is not null)
+						Directory.CreateDirectory(Path.Combine(folder, relativeDirectory));
 					filemate.ExtractToFile(Path.Combine(folder, relativePath), true);
 				}
 			}

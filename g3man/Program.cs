@@ -1,14 +1,10 @@
-﻿using System.CommandLine;
-using System.CommandLine.Parsing;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using g3man.Models;
 using g3man.UI;
 using g3man.Util;
-using GLib;
 using Gtk;
-using UndertaleModLib;
 using DateTime = System.DateTime;
 
 namespace g3man;
@@ -87,10 +83,15 @@ public static class Program {
 			
 			#if WINDOWS
 				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
-				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo"); Doesn't happen to me anymore!
-				
-				
+				// Doesn't happen to me anymore!
+				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo"); 
 			#endif
+			
+			
+			string? schemaDir = Environment.GetEnvironmentVariable("GSETTINGS_SCHEMA_DIR");
+			if (schemaDir is null || schemaDir.Length == 0)
+				Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", "./default-glib-schemas");
+
 			
 			if (Config.Initializer == Initializer.Gtk)
 				application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
@@ -103,6 +104,7 @@ public static class Program {
 				application.AddWindow(window);
 				window.Show();
 			};
+			
 			
 			
 			return application.RunWithSynchronizationContext([]);
