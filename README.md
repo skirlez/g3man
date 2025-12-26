@@ -12,9 +12,22 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 ## Features
 
 - Support for all GameMaker games compiled with VM mode (theoretically)
-- A profile system to easily switch between sets of mods
+- Mods can be applied simultaneously, and should keep working after most updates
 - Mod scripting: mods can run .csx scripts, like UndertaleModTool
+- A profile system to easily switch between sets of mods
 - Support for both Linux and Windows
+
+## Installation
+
+### Nix/NixOS
+
+The included flake has a default package output. Just make sure to select a version tag so you don't install
+the bleeding edge release. Have fun.
+
+### Everyone Else
+
+Go to the [Releases](https://github.com/skirlez/g3man/releases) page, and follow the installation guide for your release.
+
 
 ## Mods made with g3man
 
@@ -25,44 +38,7 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 Have YOU made ANYTHING with g3man? I would love to add more to this list! Please open an issue regarding your creation, even if it's something really small.
 
 ## Building g3man
-
-#### Nix/NixOS
-```bash
-nix develop
-dotnet build g3man
-```
-
-### Linux (Other)
-
-1. Install GTK4 and libadwaita
-2. Download .NET 8 SDK
-3. Clone the repository
-4. Run `dotnet build g3man` inside the repository folder
-
-### Windows
-
-1. Download and install [msys2](https://www.msys2.org/). 
-At the moment the .csproj is hardcoded to use `C:/msys64`, so make sure you don't change the install location.
-2. Open the MSYS2 MINGW64 shell
-3. Run `pacman -Syu && pacman -S mingw-w64-x86_64-libadwaita` to install libadwaita (and GTK4)
-4. Add `C:/msys64/mingw64/bin` to PATH (or wherever you placed msys64 if you changed it)
-5. Download .NET 8 SDK
-6. Clone the repository
-7. Run `dotnet build g3man` inside the repository folder
-
-
-## Building gmlpweb
-
-### Nix/NixOS
-```bash
-nix develop
-dotnet build gmlpweb
-```
-### Anything Else
-1. Download .NET 8 SDK
-2. Clone the repository
-3. `dotnet build gmlpweb`
-
+See this [wiki page](https://github.com/skirlez/g3man/wiki/Building-g3man-and-gmlpweb).
 
 ## TODO List
 
