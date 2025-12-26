@@ -1138,6 +1138,6 @@ public class PatchApplicationException(string message, string blameMessage, List
 			atFaultString += ",\n" + atFault[i];
 		}
 
-		return $"{message}\n{atFaultString}";
+		return $"{Message}\n{atFaultString}";
 	}
 }

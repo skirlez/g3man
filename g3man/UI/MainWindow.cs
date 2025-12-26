@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using Adw;
 using g3man.Models;
 using g3man.Util;
 using Gtk;
@@ -32,24 +33,24 @@ public class MainWindow : Window {
 	private Box[] allPages;
 	private string[] pageNames;
 	private string[] pageTitles;
+	private ToggleButton[] pageButtons;
 
+	private Stack aboutButtonLabelStack;
 	private const string aboutTitle = "About";
 	private const string aboutTitleWithUpdate = "About (!)";
-
-	private Stack pageStack;
+	private Label aboutButtonLabelWithUpdate;
+	
 	private ExtraCategories currentExtraCategories;
-	private StackSidebar pageSidebar;
+	
 	
 	public MainWindow() {
 		Title = "g3man";
 		SetDefaultSize(300, 300);
-		pageStack = Stack.New();
+		Stack pageStack = Stack.New();
 		pageStack.SetHexpand(true);
-		
-		pageSidebar = StackSidebar.New();
-		pageSidebar.SetStack(pageStack);
-		pageSidebar.SetValign(Align.Fill);
-		pageSidebar.SetVexpand(true);
+
+		Box pageSidebar = Box.New(Orientation.Vertical, 8);
+
 		
 		Box gamesPage = Box.New(Orientation.Vertical, 0);
 		Box profilesPage = Box.New(Orientation.Vertical, 0);
@@ -58,20 +59,61 @@ public class MainWindow : Window {
 		Box aboutPage = Box.New(Orientation.Vertical, 0);
 		
 		allPages = [gamesPage, profilesPage, modsPage, settingsPage, aboutPage];
-		pageNames = ["games", "profiles","mods", "settings", "about"];
 		pageTitles = ["Games", "Profiles", "Mods", "Settings", aboutTitle];
+		pageButtons = new ToggleButton[pageTitles.Length];
+		
 		
 		Box pageBox = Box.New(Orientation.Horizontal, 0);
 		pageBox.Append(pageSidebar);
+		pageBox.Append(Separator.New(Orientation.Vertical));
 		pageBox.Append(pageStack);
 		pageBox.SetHomogeneous(false);
 		
+
 		pageStack.SetTransitionType(StackTransitionType.SlideUpDown);
+		
+		pageSidebar.SetMargin(5);
+		
+		CssProvider pageButtonProvider = new CssProvider();
+		pageButtonProvider.LoadFromString(@"
+			button {
+				font-weight: normal;
+			}
+		");
+		
 		for (int i = 0; i < allPages.Length; i++) {
-			pageStack.AddTitled(allPages[i], pageNames[i], pageTitles[i]);
+			Box page = allPages[i];
+			pageStack.AddChild(page);
+			
+			ToggleButton pageButton = ToggleButton.New();
+			Label pageButtonLabel = Label.New(pageTitles[i]);
+			pageButton.GetStyleContext().AddProvider(pageButtonProvider, uint.MaxValue);
+			if (i != 4) {
+				pageButton.SetChild(pageButtonLabel);
+			}
+			else {
+				aboutButtonLabelStack = Stack.New();
+				aboutButtonLabelWithUpdate = Label.New(aboutTitleWithUpdate);
+				aboutButtonLabelStack.AddChild(pageButtonLabel);
+				aboutButtonLabelStack.AddChild(aboutButtonLabelWithUpdate);
+				pageButton.SetChild(aboutButtonLabelStack);
+			}
+			
+			pageButton.SetHasFrame(false);
+			if (i != 0)
+				pageButton.SetGroup(pageButtons[i - 1]);
+			
+			pageButton.OnClicked += (sender, _) => {
+				pageStack.SetVisibleChild(page);
+			};
+			
+			pageSidebar.Append(pageButton);
+			pageButtons[i] = pageButton;
 		}
 		
-		pageStack.SetVisibleChild(gamesPage);
+		pageStack.SetVisibleChild(allPages[0]);
+		pageButtons[0].SetActive(true);
+		
 		EnableExtraCategories(ExtraCategories.None);
 		
 		SetupGamesPage(gamesPage);
@@ -132,37 +174,27 @@ public class MainWindow : Window {
 	*/
 	private void EnableExtraCategories(ExtraCategories extra) {
 		currentExtraCategories = extra;
-		ListBox pageList = (ListBox)pageSidebar.GetFirstChild()!.GetFirstChild()!.GetFirstChild()!;
-		ListBoxRow gamesRow = (ListBoxRow)pageList.GetFirstChild()!;
-		ListBoxRow profilesRow = (ListBoxRow)gamesRow.GetNextSibling()!;
-		ListBoxRow modsRow = (ListBoxRow)profilesRow.GetNextSibling()!;
+
+		Button modsButton = pageButtons[2];
+		Button profilesButton = pageButtons[1];
 		if (extra < ExtraCategories.Profiles) {
-			profilesRow.SetSensitive(false);
-			profilesRow.SetSelectable(false);
-			modsRow.SetSensitive(false);
-			modsRow.SetSelectable(false);
+			profilesButton.SetSensitive(false);
+			modsButton.SetSensitive(false);
 			return;
 		}
 		Debug.Assert(Program.GetGame() is not null);
-		profilesRow.SetSensitive(true);
-		profilesRow.SetSelectable(true);
+		profilesButton.SetSensitive(true);
 		if (extra < ExtraCategories.ProfilesAndMods) {
-			modsRow.SetSensitive(false);
-			modsRow.SetSelectable(false);
+			modsButton.SetSensitive(false);
 			return;
 		}
 
 		Debug.Assert(Program.GetProfile() is not null);
-		modsRow.SetSensitive(true);
-		modsRow.SetSelectable(true);
+		modsButton.SetSensitive(true);
 	}
 	
-	// TODO this sucks for the same reason
 	private void AddExclamationToAbout() {
-		ListBox pageList = (ListBox)pageSidebar.GetFirstChild()!.GetFirstChild()!.GetFirstChild()!;
-		ListBoxRow aboutRow = (ListBoxRow)pageList.GetFirstChild()!.GetNextSibling()!.GetNextSibling()!.GetNextSibling()!.GetNextSibling()!;
-		Label label = (Label)aboutRow.GetFirstChild()!;
-		label.SetText(aboutTitleWithUpdate);
+		aboutButtonLabelStack.SetVisibleChild(aboutButtonLabelWithUpdate);
 	}
 
 	

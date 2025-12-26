@@ -66,6 +66,8 @@ dotnet build gmlpweb
 
 ## TODO List
 
+If you're thinking of contributing, here's a list of things that g3man should have.
+
 - Script Security
 
   Mods can run just any C# code they want, which is not ideal for security.
@@ -88,6 +90,10 @@ speed up patching immensely.
 - Translations
 
   Currently all messages are English and hardcoded. There's not *that* many, so this wouldn't be hard to change, I feel.
+- Drag and Drop support for ZIPs
+
+  GTK has an API for this, so I'll probably implement this soon.
+
 - Code Documentation
 
   There's not much right now. Would be nice to have
