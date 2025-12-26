@@ -291,9 +291,9 @@ public class Patcher {
 		}
 		
 
-		List<string> issues = CheckPatchPreventionIssues(mods);
+		List<string> issues = CheckModApplicationIssues(mods);
 		if (issues.Count > 0) {
-			StringBuilder sb = new StringBuilder("Encountered issues that are preventing patching!");
+			StringBuilder sb = new StringBuilder("Encountered issues that are preventing mod application!");
 			for (int i = 0; i < issues.Count; i++) {
 				var issue = issues[i];
 				sb.Append($"\n{i + 1}. {issue}");
@@ -410,12 +410,26 @@ public class Patcher {
 	}
 
 
-	private List<string> CheckPatchPreventionIssues(List<Mod> mods) {
+	private List<string> CheckModApplicationIssues(List<Mod> mods) {
 		List<string> issues = new List<string>();
-		Dictionary<string, Mod> IdMap = mods.ToDictionary(mod => mod.ModId);
+		List<IGrouping<string, Mod>> idGroups = mods.GroupBy(mod => mod.ModId).ToList();
+
+		if (idGroups.Any(idGroup => idGroup.Count() > 1)) {
+			string baseIssue = "You have several mods with the same ID, which is not allowed:";
+			foreach (IGrouping<string, Mod> idGroup in idGroups) {
+				if (idGroup.Count() > 1)
+					baseIssue += $"\n\"{idGroup.Key}\", found {idGroup.Count()} times";
+			}
+			issues.Add(baseIssue);
+			return issues;
+		}
+
+		
+		
+		Dictionary<string, Mod> idMap = mods.ToDictionary(mod => mod.ModId);
 		foreach (Mod mod in mods) {
-			CheckDepends(mods, mod, IdMap, issues);
-			CheckBreaks(mods, mod, IdMap, issues);
+			CheckDepends(mods, mod, idMap, issues);
+			CheckBreaks(mods, mod, idMap, issues);
 		}
 
 		if (!Program.Config.AllowModScripting) {
@@ -434,9 +448,9 @@ public class Patcher {
 		}
 	}
 
-	private void CheckDepends(List<Mod> mods, Mod mod, Dictionary<string, Mod> IdMap, List<string> issues) {
+	private void CheckDepends(List<Mod> mods, Mod mod, Dictionary<string, Mod> idMap, List<string> issues) {
 		foreach (RelatedMod related in mod.Depends) {
-			Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
+			Mod? dependency = idMap!.GetValueOrDefault(related.ModId, null);
 			if (dependency is null) {
 				lock (issues) {
 					issues.Add($"Mod {mod.DisplayName} depends on mod with ID {related.ModId} (version {related.VersionRequirements}), but it is not present");
@@ -475,9 +489,9 @@ public class Patcher {
 			}
 		}
 	}
-	private void CheckBreaks(List<Mod> mods, Mod mod, Dictionary<string, Mod> IdMap, List<string> issues) {
+	private void CheckBreaks(List<Mod> mods, Mod mod, Dictionary<string, Mod> idMap, List<string> issues) {
 		foreach (RelatedMod related in mod.Breaks) {
-			Mod? dependency = IdMap!.GetValueOrDefault(related.ModId, null);
+			Mod? dependency = idMap!.GetValueOrDefault(related.ModId, null);
 			if (dependency is null)
 				return;
 			if (!related.VersionRequirements.IsCompatibleWith(dependency.Version)) {

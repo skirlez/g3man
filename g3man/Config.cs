@@ -61,6 +61,7 @@ public class Config {
 		string jsonText = obj.ToJsonString();
 		try {
 			Directory.CreateDirectory(directory);
+			logger.Debug("Writing config file");
 			File.WriteAllText(filePath, jsonText);
 		}
 		catch (Exception e) {

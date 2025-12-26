@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest, artifact-name: g3man-linux-amd64 }
+          - { os: ubuntu-latest, artifact-name: g3man-ubuntu-amd64 }
           - { os: windows-latest, artifact-name: g3man-windows-amd64 }
 
     runs-on: ${{ matrix.os }}

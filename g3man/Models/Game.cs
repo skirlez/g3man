@@ -33,10 +33,6 @@ public class Game {
 		DatafileName = JsonUtil.GetStringOrThrow(root, "datafile_name");
 		Directory = directory;
 	}
-	
-	public bool HasSameData(Game other) {
-		return Hash.SequenceEqual(other.Hash);
-	}
 
 	public string GetCleanDatafilePath() {
 		return Path.Combine(Directory, "g3man", Patcher.CleanDataName);

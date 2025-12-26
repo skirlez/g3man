@@ -43,9 +43,6 @@ public static class Program {
 	}
 	public static void SetProfile(Profile newProfile) {
 		profile = newProfile;
-		Debug.Assert(game is not null);
-		game.ProfileFolderName = profile.FolderName;
-		Config.Write();
 	}
 	
 	#if WINDOWS

@@ -6,6 +6,7 @@ using g3man.Util;
 using Gtk;
 using Pango;
 using Window = Gtk.Window;
+using WrapMode = Pango.WrapMode;
 
 namespace g3man.UI;
 
@@ -19,6 +20,7 @@ public class MainWindow : Window {
 	private List<Button> selectProfileButtons;
 	
 	private ListBox modsListBox;
+	private ScrolledWindow modsListWindow;
 	private List<Mod> modsList;
 	private Dictionary<Mod, bool> enabledMods;
 	
@@ -75,11 +77,12 @@ public class MainWindow : Window {
 		pageSidebar.SetMargin(5);
 		
 		CssProvider pageButtonProvider = new CssProvider();
-		pageButtonProvider.LoadFromString(@"
-			button {
+		pageButtonProvider.LoadFromString
+		(
+			@"button {
 				font-weight	: normal;
-			}
-		");
+			}"
+		);
 		
 		for (int i = 0; i < allPages.Length; i++) {
 			Box page = allPages[i];
@@ -168,9 +171,6 @@ public class MainWindow : Window {
 	}
 	/**
 	* Turns on extra categories (Profiles and Mods) depending on the parameter.
-	*
-	* TODO: This is a really dumb way to be doing things.
-	* There must be a better way that achieves the same visual result.
 	*/
 	private void EnableExtraCategories(ExtraCategories extra) {
 		currentExtraCategories = extra;
@@ -304,11 +304,21 @@ public class MainWindow : Window {
 		profilesListBox.SetSelectionMode(SelectionMode.None);
 		selectProfileButtons = [];
 		
+		Button openProfilesFolder = Button.NewWithLabel("Open profiles folder");
+		openProfilesFolder.OnClicked += (_, _) => {
+			IO.OpenFileExplorer(Path.Combine(Program.GetGame()!.Directory, "g3man"));
+		};
+		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
 		addNewProfile.OnClicked += (sender, args) => {
 			Profile profile = new Profile("", "", false, "", []);
 			ManageProfileWindow window = new ManageProfileWindow(this, profile, null);
 			window.Dialog();
+		};
+		
+		Button refreshProfiles = Button.NewWithLabel("Refresh");
+		refreshProfiles.OnClicked += (sender, args) => {
+			ParseProfilesAndUpdateMenu();
 		};
 		
 		Button importFromZipButton = Button.NewWithLabel("Import from ZIP");
@@ -324,6 +334,8 @@ public class MainWindow : Window {
 		
 		
 		Box profileManagementBox = Box.New(Orientation.Horizontal, 10);
+		profileManagementBox.Append(openProfilesFolder);
+		profileManagementBox.Append(refreshProfiles);
 		profileManagementBox.Append(addNewProfile);
 		profileManagementBox.Append(importFromZipButton);
 		profileManagementBox.SetMargin(10);
@@ -338,25 +350,20 @@ public class MainWindow : Window {
 		noModsLabel.SetMargin(30);
 		
 		Label modNameLabel = Label.New("");
+		modNameLabel.SetMarginTop(10);
 		Label modDescriptionLabel = Label.New("");
 		modDescriptionLabel.SetWrap(true);
-		modDescriptionLabel.SetSizeRequest(-1, 50);
-		Label modCreditsLabel = Label.New("");
-		modDescriptionLabel.SetWrap(true);
-		modDescriptionLabel.SetSizeRequest(-1, 50);
-
-		Box descriptionBox = Box.New(Orientation.Vertical, 5);
-		descriptionBox.SetValign(Align.Center);
-		descriptionBox.Append(modNameLabel);
-		descriptionBox.Append(modDescriptionLabel);
-		descriptionBox.Append(modCreditsLabel);
-		descriptionBox.SetMargin(10);
+		modDescriptionLabel.SetWrapMode(WrapMode.WordChar);
+		
+		ScrolledWindow modInfoWindow = ScrolledWindow.New();
+		modInfoWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+		modInfoWindow.SetMargin(10);
+		modInfoWindow.SetChild(modDescriptionLabel);
+		
 		
 		modsListBox = ListBox.New();
 		modsListBox.SetHexpand(true);
 		modsListBox.SetPlaceholder(noModsLabel);
-		
-		
 		modsListBox.OnRowSelected += (sender, args) => {
 			if (args.Row is null) {
 				return;
@@ -365,22 +372,29 @@ public class MainWindow : Window {
 			int index = args.Row.GetIndex();
 			Mod mod = modsList[index];
 			
-			modNameLabel.SetText(mod.DisplayName);
-			modDescriptionLabel.SetText(mod.Description);
-
+			modNameLabel.SetText($"{mod.DisplayName} ({mod.Version})");
+			
+			string credits;
 			if (mod.Credits.Length == 0)
-				modCreditsLabel.SetText("");
+				credits = "";
 			else {
-				string credits = $"By {mod.Credits[0]}";
+				credits = $"By {mod.Credits[0]}";
 				for (int i = 1; i < mod.Credits.Length; i++)
 					credits += $", {mod.Credits[i]}";
-				modCreditsLabel.SetText(credits);
 			}
+			
+			modDescriptionLabel.SetText(mod.Description + "\n" + credits);
 		};
-
+		
+		modsListWindow = ScrolledWindow.New();
+		modsListWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+		modsListWindow.SetChild(modsListBox);
+		modsListWindow.SetPropagateNaturalHeight(true);
+		
 		Box manageModsBox = Box.New(Orientation.Horizontal, 5);
 		manageModsBox.SetHalign(Align.Center);
 		manageModsBox.SetValign(Align.Center);
+		
 		
 		Button openModsFolderButton = Button.New();
 		openModsFolderButton.Label = "Open mods folder";
@@ -469,6 +483,8 @@ public class MainWindow : Window {
 		manageModsBox.Append(deleteModButton);
 		manageModsBox.SetMargin(10);
 		
+		
+		
 		Button applyButton = Button.NewWithLabel("Apply!");
 		applyButton.SetHalign(Align.Center);
 		applyButton.SetValign(Align.End);
@@ -484,12 +500,13 @@ public class MainWindow : Window {
 
 
 		
-		page.Append(modsListBox);
+		page.Append(modsListWindow);
 		page.Append(manageModsBox);
 		page.Append(applyButton);
 		page.Append(Separator.New(Orientation.Horizontal));
-		page.Append(descriptionBox);
-		page.SetVexpand(true);
+		page.Append(modNameLabel);
+		page.Append(modInfoWindow);
+
 	}
 
 	private void DoFileDialog(string title, List<FileFilter> filters, Action<Gio.File> callback) {
@@ -769,6 +786,7 @@ public class MainWindow : Window {
 			modsListBox.Append(row);
 		}
 	}
+	
 
 	public void AddToGamesList(Game game, bool selected) {
 		Label gameNameLabel = Label.New(game.DisplayName);
@@ -815,6 +833,7 @@ public class MainWindow : Window {
 	}
 	
 	private void PopulateProfilesList(List<Profile> profiles, Profile? selectedId = null) {
+		profiles = profiles.OrderBy(profile => profile.Name).ToList();
 		profilesListBox.RemoveAll();
 		foreach (Profile profile in profiles) {
 			AddToProfilesList(profile, profile == selectedId);
@@ -919,6 +938,15 @@ public class MainWindow : Window {
 		buttonPressed.SetSensitive(false);
 		currentProfileLabel.SetText(profile.Name);
 		ParseModsAndUpdateMenu();
+		
+		Program.GetGame()!.ProfileFolderName = profile.FolderName;
+		try {
+			Program.GetGame()!.Write();
+		}
+		catch (Exception e) {
+			Program.Logger.Error("Failed to update game.json after selecting profile: " + e);
+		}
+		
 	}
 
 #if THEMESELECTOR
@@ -1010,9 +1038,17 @@ public class MainWindow : Window {
 				string folder = Path.Combine(basePath, folderName);
 				Directory.CreateDirectory(folder);
 
-				ZipArchiveEntry[] filemates = archive.Entries.Where(entry =>
-					entry.FullName.StartsWith(precedingPath) && entry.FullName != precedingPath).ToArray();
+				Dictionary<bool, ZipArchiveEntry[]> groups = archive.Entries
+					.Where(entry => entry.FullName.StartsWith(precedingPath) && entry.FullName != precedingPath)
+					.GroupBy(entry => entry.FullName.EndsWith("/"))
+					.ToDictionary(group => group.Key, group => group.ToArray());
 
+				// these are just ignored. they don't show up on all platforms, and we know
+				// which folders files need from their path anyway
+				//ZipArchiveEntry[] foldermates = groups.GetValueOrDefault(true, []);
+				
+				ZipArchiveEntry[] filemates = groups.GetValueOrDefault(false, []);
+				
 				int precedingPathLength = precedingPath == "" ? 0 : precedingPath.Length + 1; // one more for trailing slash
 				foreach (ZipArchiveEntry filemate in filemates) {
 					string relativePath = filemate.FullName.Remove(0, precedingPathLength);
