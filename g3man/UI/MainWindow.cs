@@ -77,7 +77,7 @@ public class MainWindow : Window {
 		CssProvider pageButtonProvider = new CssProvider();
 		pageButtonProvider.LoadFromString(@"
 			button {
-				font-weight: normal;
+				font-weight	: normal;
 			}
 		");
 		

@@ -94,6 +94,8 @@ speed up patching immensely.
 
   GTK has an API for this, so I'll probably implement this soon.
 
+- Use an actual testing library for gmlp tests
+
 - Code Documentation
 
   There's not much right now. Would be nice to have
