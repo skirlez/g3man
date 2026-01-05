@@ -10,26 +10,26 @@ using DateTime = System.DateTime;
 namespace g3man;
 
 public static class Program {
-	public const int Version = 4;
+	public const int Version = 5;
 
 	public static Logger Logger = null!;
 	public static DataLoader DataLoader = null!;
 	public static Config Config = null!;
-	
+
 	public static Initializer InitializedUsing;
 
 	private static Game? game;
 	private static Profile? profile;
 
 	public static TextWriter Logfile = TextWriter.Null;
-	
+
 	private static Application application = null!;
 	private static MainWindow window = null!;
-	
+
 	public static Profile? GetProfile() {
 		return profile;
 	}
-	
+
 	public static void AddGame(Game newGame) {
 		Config.GameDirectories.Add(newGame.Directory);
 		Config.Write();
@@ -44,18 +44,18 @@ public static class Program {
 	public static void SetProfile(Profile newProfile) {
 		profile = newProfile;
 	}
-	
+
 	#if WINDOWS
 		[DllImport("kernel32.dll")]
 		static extern bool AttachConsole(int dwProcessId);
 		const int ATTACH_PARENT_PROCESS = -1;
 	#endif
-	
+
 	public static int Main(string[] args) {
 		#if WINDOWS
 			AttachConsole(ATTACH_PARENT_PROCESS);
 		#endif
-		
+
 		if (args.Length == 0) {
 			try {
 				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
@@ -77,17 +77,17 @@ public static class Program {
 				Config = new Config();
 			else
 				Config = new Config(configJson.Value);
-			
+
 			#if WINDOWS
 				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
 				// Doesn't happen to me anymore!
-				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo"); 
-			
+				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo");
+
 				string? schemaDir = Environment.GetEnvironmentVariable("GSETTINGS_SCHEMA_DIR");
 				if (schemaDir is null || schemaDir.Length == 0)
 					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", "./default-glib-schemas");
 			#endif
-			
+
 			if (Config.Initializer == Initializer.Gtk)
 				application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
 			else
@@ -99,18 +99,18 @@ public static class Program {
 				application.AddWindow(window);
 				window.Show();
 			};
-			
-			
-			
+
+
+
 			return application.RunWithSynchronizationContext([]);
 		}
 
 		Logger = Logger.Make("");
 		return CLI.Invoke(args);
 	}
-	
 
-	
+
+
 	// TODO; I don't really know if this is correct.
 	// Seems to work, but there's barely any documentation for this stuff.
 	public static void RunOnMainThreadEventually(Action action) {
@@ -119,7 +119,7 @@ public static class Program {
 			return false;
 		});
 	}
-	
+
 	public enum Initializer {
 		Adwaita,
 		Gtk
@@ -134,4 +134,3 @@ public static class Program {
 		Logfile.Close();
 	}
 }
-

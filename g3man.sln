@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UndertaleModLib", "UndertaleModLib\UndertaleModLib.csproj", "{469A30F6-74D6-4042-A30F-3E79B07DE923}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Underanalyzer", "Underanalyzer\Underanalyzer.csproj", "{5CEFA332-AB19-4740-9528-218EC7AE34EA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Underanalyzer", "Underanalyzer\Underanalyzer\Underanalyzer.csproj", "{5CEFA332-AB19-4740-9528-218EC7AE34EA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "g3man", "g3man\g3man.csproj", "{A25ABB9A-3C89-4083-828F-850BF4D6B1BF}"
 EndProject

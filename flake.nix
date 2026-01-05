@@ -10,7 +10,7 @@
 
       g3man = pkgs.buildDotnetModule {
         pname = "g3man";
-        version = "4";
+        version = "5";
         src = builtins.filterSource
           (path: type: type != "directory" || (baseNameOf path != "gmlpweb" && baseNameOf path != ".github"))
           ./.;
@@ -24,7 +24,7 @@
         # (from https://wiki.nixos.org/wiki/DotNET)
         nugetDeps = ./g3man-deps.json;
 
-        projectReferences = [ ];
+        projectReferences = [];
 
         nativeBuildInputs = with pkgs; [
           # UndertaleModLib uses git to generate a hash or something but it fails silently so it's not REALLY needed
@@ -37,8 +37,8 @@
         ];
 
 
-        dotnet-sdk = pkgs.dotnetCorePackages.sdk_8_0;
-        dotnet-runtime = pkgs.dotnetCorePackages.runtime_8_0;
+        dotnet-sdk = pkgs.dotnetCorePackages.sdk_10_0;
+        dotnet-runtime = pkgs.dotnetCorePackages.runtime_10_0;
         executables = [ "g3man" ];
       };
 
@@ -46,7 +46,7 @@
     in {
       devShells.x86_64-linux.default = pkgs.mkShell {
         packages = with pkgs; [
-          dotnetCorePackages.sdk_8_0
+          dotnetCorePackages.sdk_10_0
           glib # for GSETTINGS_SCHEMAS_PATH
           git # UndertaleModLib uses it
         ];
@@ -60,7 +60,7 @@
           export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath 
                       [ pkgs.gtk4 pkgs.libadwaita ]}
           export XDG_DATA_DIRS=$XDG_DATA_DIRS:$GSETTINGS_SCHEMAS_PATH
-          export DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_8_0}/share/dotnet
+          export DOTNET_ROOT=${pkgs.dotnetCorePackages.sdk_10_0}/share/dotnet
           # don't actually need this?
           # export XDG_DATA_DIRS=$XDG_DATA_DIRS:${pkgs.hicolor-icon-theme}/share:${pkgs.adwaita-icon-theme}/share
         '';

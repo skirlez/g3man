@@ -23,7 +23,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
 
       - name: Install MSYS2
         id: msys2
@@ -31,7 +31,7 @@ jobs:
         uses: msys2/setup-msys2@v2.30.0
         with:
           msystem: MINGW64
-          update: true
+          update: false
           install: >-
             mingw-w64-x86_64-libadwaita
 
