@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 import shutil
@@ -27,7 +29,7 @@ if os.path.isdir("./package"):
 	print("Deleting previous package folder...")
 	shutil.rmtree("./package")
 status = subprocess.run(
-	["dotnet", "publish", "g3man.csproj", "-c", "Release", "-o", "Publishing/package/bin", "--runtime", runtime] + extra_args,
+	["dotnet", "publish", "g3man.csproj", "-c", "Release", "-o", "Publishing/package/g3man", "--runtime", runtime] + extra_args,
 	cwd = os.path.abspath("..")
 )
 if status.returncode != 0:
@@ -45,8 +47,8 @@ def copy_all_to_zip(f, dir):
 
 if "--zip" in sys.argv:
 	print("Copying to zip...")
-	with zipfile.ZipFile(f"./g3man-{zip_suffix}.zip", 'w', zipfile.ZIP_DEFLATED) as f:
-	 	 copy_all_to_zip(f, "./package/bin")
+	with zipfile.ZipFile(f"./g3man-{zip_suffix}.zip", 'w', zipfile.ZIP_DEFLATED, strict_timestamps=False) as f:
+	 	 copy_all_to_zip(f, "./package")
 
 
 

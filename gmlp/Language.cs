@@ -17,8 +17,9 @@ namespace gmlp;
 * Deserves a rewrite to make it cleaner.
 */
 public static class Language {
-	public static void ExecuteEntirePatch(string patchText, CodeSource data, PatchesRecord record, PatchOwner owner) {
+	public static List<string> ExecuteEntirePatch(string patchText, CodeSource data, PatchesRecord record, PatchOwner owner) {
 		int patchIncrement = 0;
+		List<string> allTargets = [];
 
 		Token[] tokens = Tokenize(patchText);
 		int pos = 0;
@@ -26,7 +27,6 @@ public static class Language {
 			int lastLineNumber = tokens[pos].LineNumber;
 			if (tokens[pos] is SectionToken metaSectionToken && metaSectionToken.Section == "meta") {
 				(string[] targets, bool critical, pos) = ExecuteMetadataSection(tokens, pos + 1);
-
 				int startPos = pos;
 				foreach (string target in targets) {
 					pos = startPos;
@@ -43,12 +43,15 @@ public static class Language {
 						throw new InvalidPatchException($"Incomplete patch; meta section without patch section");
 					}
 				}
+				allTargets.AddRange(targets);
 			}
 			else {
 				throw new InvalidPatchException(
 					$"Expected \"meta:\" section at start of patch (line {lastLineNumber})");
 			}
 		}
+	
+		return allTargets;
 	}
 
 
@@ -790,21 +793,7 @@ public static class Language {
 			
 			// remove starting newline
 			string finalResult = string.Join("\n", lines).Remove(0, 1);
-			try {
-				source.Replace(file, finalResult);
-			}
-			catch (Exception e) {
-				// this shit is probably really slow. but it runs on exception anyway, they deserve it
-				List<List<PatchOwner>> dictList = unitOperations.GetData().ToList()
-					.Select(kvp => kvp.Value.Select(op => op.Owner).ToList()).ToList();
-
-				List<string> atFaultList = dictList.Aggregate((sum, next) => sum.Union(next).ToList())
-					.Select(owner => owner.Name).ToList();
-
-
-				throw new PatchApplicationException($"Patched code from file {unitOperations.FileTarget} failed to compile:\n" + e.Message, "One or more of the following mods are at fault",
-					atFaultList, finalResult);
-			}
+			source.Replace(file, finalResult);
 		}
 	}
 

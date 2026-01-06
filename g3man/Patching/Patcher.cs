@@ -7,10 +7,10 @@ using gmlp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using UndertaleModLib;
+using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
 using UndertaleModLib.Models;
 using UndertaleModLib.Util;
-
 namespace g3man.Patching;
 
 public class Patcher {
@@ -31,8 +31,8 @@ public class Patcher {
 		.AddImports(
 			"UndertaleModLib", "UndertaleModLib.Models", "UndertaleModLib.Decompiler",
 			"UndertaleModLib.Scripting", "UndertaleModLib.Compiler",
-			"UndertaleModLib.Util", "System", "System.IO", "System.Collections.Generic",
-			"System.Text.RegularExpressions")
+			"UndertaleModLib.Util", "System", "System.IO", "System.Threading.Tasks",
+			"System.Collections.Generic",  "System.Text.RegularExpressions")
 		.AddReferences(typeof(UndertaleObject).GetTypeInfo().Assembly,
 			typeof(System.Text.RegularExpressions.Regex).GetTypeInfo().Assembly,
 			typeof(TextureWorker).GetTypeInfo().Assembly,
@@ -45,17 +45,23 @@ public class Patcher {
 	 * is supposed to mimic.
 	 * Otherwise returns null.
 	 */
-	private T? GetMimicedResource<T>(IList<T> list, T resource) where T : UndertaleNamedResource {
+	private T? GetMimicedResource<T>(Dictionary<string, T> nameMap, T resource) where T : UndertaleNamedResource {
 		string name = resource.Name.Content;
 		if (overlapBehavior == OverlapBehavior.ImplicitlyExcludeExplicitlyOverride) {
-			return list.ByName(name);
+			if (!nameMap.ContainsKey(name))
+				return default(T);
+			return nameMap[name];
 		}
 
 		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyExcludeImplicitlyOverride 
 		             || overlapBehavior == OverlapBehavior.AllExplicit);
 		if (name.StartsWith(EXCLUDE_PREFIX))
 			return default(T);
-		return list.ByName(name.Substring(EXCLUDE_PREFIX.Length));
+
+		string substr = name.Substring(EXCLUDE_PREFIX.Length);
+		if (!nameMap.ContainsKey(substr))
+			return default(T);
+		return nameMap[substr];
 	}
 	
 	/**
@@ -75,18 +81,21 @@ public class Patcher {
 		return old;
 	}
 	
-	private void MergeLists<T>(IList<T> to, IList<T?> from, Func<T, bool>? process = null) where T : UndertaleNamedResource {
+	// every null check here is warranted and added because i found it in the wild at some point
+	private void MergeLists<T>(IList<T?>? to, IList<T?> from, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
+		if (to is null)
+			return;
+		Dictionary<string, T> nameMap = to.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
 		foreach (T? resource in from) {
-			if (resource is null) // this can happen (at least on 2024.13) (weird)
+			if (resource is null) 
 				continue;
-			if (GetMimicedResource(to, resource) is not null)
+			if (GetMimicedResource(nameMap, resource) is not null)
 				continue;
 			if (process is not null) {
-				if (!process(resource))
+				if (!process(resource, nameMap))
 					continue;
 			}
 			to.Add(resource);
-			
 		}
 		HandleOverrides(to, from);
 	}
@@ -143,7 +152,7 @@ public class Patcher {
 			dict.Add(embeddedTexture, lastTexturePage);
 		}
 		
-		MergeLists(data.Sprites, modData.Sprites, sprite => {
+		MergeLists(data.Sprites, modData.Sprites, (sprite, _) => {
 			foreach (UndertaleSprite.TextureEntry textureEntry in sprite.Textures) {
 				int newIndex = dict[textureEntry.Texture.TexturePage];
 				textureEntry.Texture.TexturePage = data.EmbeddedTextures[newIndex];
@@ -157,7 +166,7 @@ public class Patcher {
 		HandleOverrides(data.Sprites, modData.Sprites);
 
 	
-		MergeLists(data.Sounds, modData.Sounds, sound => {
+		MergeLists(data.Sounds, modData.Sounds, (sound, _) => {
 			// This stuff is unfinished, I don't trust these flags. I'll write the intention with each of these...
 			if (sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsCompressed) || sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded)) {
 				// assign all embedded audio to audiogroup_default (assigning them to different ones would require
@@ -202,23 +211,27 @@ public class Patcher {
 		}
 
 		MergeLists(data.Scripts, modData.Scripts);
-		MergeLists(data.GameObjects,  modData.GameObjects, gameObject => {
+		MergeLists(data.GameObjects,  modData.GameObjects, (gameObject, nameMap) => {
 			UndertaleGameObject parent = gameObject.ParentId;
 			if (parent is null)
 				return true;
-			UndertaleGameObject? parentFromGame = GetMimicedResource(data.GameObjects, parent);
+			UndertaleGameObject? parentFromGame = GetMimicedResource(nameMap, parent);
 			if (parentFromGame is not null)
 				gameObject.ParentId = parentFromGame;
 			return true;
 		});
 
-		foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modData.GeneralInfo.RoomOrder) {
-			if (GetMimicedResource(data.Rooms, room.Resource) is not null)
-				continue;
-			data.GeneralInfo.RoomOrder.Add(room);
+
+		{
+			Dictionary<string, UndertaleRoom> nameMap = data.Rooms.ToDictionary(t => t.Name.Content);
+			foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modData.GeneralInfo.RoomOrder) {
+				if (GetMimicedResource(nameMap, room.Resource) is not null)
+					continue;
+				data.GeneralInfo.RoomOrder.Add(room);
+			}
 		}
-		
-		MergeLists(data.Rooms, modData.Rooms, room => {
+
+		MergeLists(data.Rooms, modData.Rooms, (room, _) => {
 			foreach (UndertaleRoom.Layer layer in room.Layers) {
 				if (layer.LayerType != UndertaleRoom.LayerType.Instances) 
 					continue;
@@ -281,9 +294,9 @@ public class Patcher {
 			try {
 				CSharpScript.EvaluateAsync(code, scriptOptions, globals);
 			}
-			catch (Exception e) {
+			catch (CompilationErrorException e) {
 				setStatus($"Script belonging to {mod.DisplayName} threw an exception. Check the log.");
-				logger.Error(e.ToString());
+				logger.Error(e);
 				return false;
 			}
 
@@ -314,8 +327,8 @@ public class Patcher {
 					modData = UndertaleIO.Read(stream);
 				}
 				catch (Exception e) {
-					logger.Error($"Failed to load datafile of mod {mod.DisplayName}:\n" + e);
 					setStatus($"Failed to load the datafile of {mod.DisplayName}. Check the log.");
+					logger.Error(e);
 					return null;
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
@@ -335,14 +348,20 @@ public class Patcher {
 
 		GlobalDecompileContext context = new GlobalDecompileContext(data);
 		PatchesRecord record = new PatchesRecord();
-		GameMakerCodeSource source = new GameMakerCodeSource(data, context);
+		CompileGroup group = new CompileGroup(data, context);
+		GameMakerCodeSource source = new GameMakerCodeSource(group);
 		
 		List<PatchOwner> order = mods.Select(mod => new PatchOwner(mod.ModId)).ToList();
+		
+		// Map of mods to patch blames
+		// patch blame maps map gamemaker code targets
+		Dictionary<Mod, Dictionary<string, List<string>>> patchBlames = new Dictionary<Mod, Dictionary<string, List<string>>>();
 		
 		foreach (Mod mod in mods) {
 			int index = mods.IndexOf(mod);
 			if (mod.Patches.Length != 0)
 				setStatus($"Reading patches from: {mod.DisplayName}");
+			patchBlames[mod] = new Dictionary<string, List<string>>();
 			foreach (PatchLocation patchLocation in mod.Patches) {
 				// the only one right now
 				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
@@ -368,16 +387,34 @@ public class Patcher {
 
 
 				bool processPatch(string patchPath, string relativePath) {
+					List<string> targets;
+					string patchText;
 					try {
-						string patchText = File.ReadAllText(patchPath);
-						Language.ExecuteEntirePatch(patchText, source, record, order[index]);
-						return true;
+						patchText = File.ReadAllText(patchPath);
 					}
 					catch (Exception e) {
-						setStatus("Error occured during patching! Check the log.");
-						logger.Error($"Failed to read/execute patch file at {relativePath}:  {e}");
+						setStatus($"An error occured trying to read a patch from {mod.DisplayName}! Check the log.");
+						logger.Error($"Failed to read patch file at {relativePath} from mod with ID {mod.ModId}: {e}");
+						return false;
 					}
-
+					try {
+						targets = Language.ExecuteEntirePatch(patchText, source, record, order[index]);
+						foreach (string target in targets) {
+							if (!patchBlames[mod].ContainsKey(target))
+								patchBlames[mod][target] = [relativePath];
+							else
+								patchBlames[mod][target].Add(relativePath);
+						}
+						return true;
+					}
+					catch (PatchExecutionException e) {
+						setStatus($"A patch execution error occured while executing a patch from {mod.DisplayName}! Check the log.");
+						logger.Error($"Patch execution error from mod with ID \"{mod.ModId}\" at {relativePath}: {e.Message}");
+					}
+					catch (InvalidPatchException e) {
+						setStatus($"Invalid patch provided by {mod.DisplayName}! Check the log.");
+						logger.Error($"Failed to read/execute patch file from mod with ID \"{mod.ModId}\" at {relativePath}: {e.Message}");
+					}
 					return false;
 				}
 			}
@@ -385,15 +422,61 @@ public class Patcher {
 
 		setStatus("Applying patches...");
 		
-		try {
-			Language.ApplyPatches(record, source, order);
-		}
-		catch (PatchApplicationException e) {
-			setStatus(e.HumanError());
-			if (e.GetBadCode() is not null)
-				logger.Error("This code failed to compile:\n" + e.GetBadCode()!);
+		Language.ApplyPatches(record, source, order);
+		
+		setStatus("Compiling...");
+		
+		CompileResult result = group.Compile();
+		if (!result.Successful) {
+			List<Mod> modsResponsible = [];
+			StringBuilder sb = new StringBuilder();
+			sb.AppendLine("Compilation failed! Below will be a list detailing which files failed.");
+			int number = 1;
+			
+			// group errors by file
+			IEnumerable<IGrouping<UndertaleCode, CompileError>> errors = result.Errors.GroupBy(error => error.Code);
+			foreach (IGrouping<UndertaleCode, CompileError> errorGroup in errors) {
+				string fileName = errorGroup.Key.Name.Content;
+				sb.AppendLine($"{number}. Code filename: {fileName}");
+
+				foreach (KeyValuePair<Mod, Dictionary<string, List<string>>> kvp in patchBlames) {
+					if (!kvp.Value.ContainsKey(fileName))
+						continue;
+					sb.AppendLine($"Mod with ID \"{kvp.Key.ModId}\" contains the following patch files that change this code file:");
+					if (!modsResponsible.Contains(kvp.Key))
+						modsResponsible.Add(kvp.Key);
+					foreach (string path in kvp.Value[fileName]) {
+						sb.AppendLine(path);
+					}
+				}
+				
+				sb.AppendLine("========== ERRORS START ==========");
+				int errorIndex = 1;
+				// compiler weirdly likes to repeat some errors so we just check if we already said something before saying it
+				HashSet<string> alreadySaid = new HashSet<string>();
+				foreach (CompileError error in errorGroup) {
+					string detailedMessage = error.GenerateDetailedMessage();
+					if (!alreadySaid.Contains(detailedMessage)) {
+						sb.AppendLine($"{errorIndex}. {detailedMessage}");
+						alreadySaid.Add(detailedMessage);
+						errorIndex++;
+					}
+				}
+				sb.AppendLine("========== ERRORS END ==========");
+				
+				string code = source.GetReplacedCodeVerbatim(fileName)!;
+				sb.AppendLine($"========== BAD FILE START ==========\n{code}\n========== BAD FILE END ==========");
+				
+
+				number += 1;
+			}
+			
+			
+			setStatus("Compilation failed!\n Check the log to see what exactly failed.");
+			logger.Error(sb.ToString());
 			return null;
 		}
+		
 
 		if (profile.SeparateModdedSave)
 			data.GeneralInfo.Name.Content = profile.ModdedSaveName;

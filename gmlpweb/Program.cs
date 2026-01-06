@@ -23,7 +23,7 @@ public class Program {
 		EmptyLineBeforeSwitchCases = true
 	};
 
-	private const string TheOnlyCodeFileName = "singular";
+	private const string TheOnlyCodeFileName = "gmlpweb";
 
 	private static void Main(string[] args) {
 		data = UndertaleData.CreateNew();
@@ -146,6 +146,10 @@ public class Program {
 		private string only = only;
 		public override CodeFile? GetCodeFile(string _) {
 			return new StringCodeFile(only);
+		}
+
+		public override string? GetReplacedCodeVerbatim(string file) {
+			return only;
 		}
 
 		public override void Replace(string _, string code) {
