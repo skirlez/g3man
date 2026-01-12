@@ -13,6 +13,8 @@ using UndertaleModLib.Models;
 using UndertaleModLib.Util;
 namespace g3man.Patching;
 
+using PatchBlame = Dictionary<string, List<string>>;
+
 public class Patcher {
 	public const string CleanDataName = "clean_data.win";
 	public const string CleanDataBackupName = "BACKUP_clean_data.win";
@@ -82,8 +84,8 @@ public class Patcher {
 	}
 	
 	// every null check here is warranted and added because i found it in the wild at some point
-	private void MergeLists<T>(IList<T?>? to, IList<T?> from, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
-		if (to is null)
+	private void MergeLists<T>(IList<T?>? to, IList<T?>? from, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
+		if (to is null || from is null)
 			return;
 		Dictionary<string, T> nameMap = to.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
 		foreach (T? resource in from) {
@@ -100,6 +102,10 @@ public class Patcher {
 		HandleOverrides(to, from);
 	}
 
+	
+	// TODO:
+	// 1. Calls GetResourceToOverride for each overrider (uses ByName, very bad performance with many overriders)
+	// 2. No conflict checks.
 	private void HandleOverrides<T>(IList<T> to, IList<T?> from) where T : UndertaleNamedResource {
 		List<T> overriders = from.Where(resource => resource is not null).Where(resource => resource!.Name.Content.StartsWith(OVERRIDE_PREFIX)).ToList()!;
 		foreach (T overrider in overriders) {
@@ -265,41 +271,52 @@ public class Patcher {
 		data.GeneralInfo.FunctionClassifications |= modData.GeneralInfo.FunctionClassifications;
 	}
 
+	private const string CHECK_LOGS = "Check the log for more details.";
 
+	private string identifyMod(Mod mod) {
+		return $"{mod.DisplayName} (ID \"{mod.ModId}\")";
+	}
 	public UndertaleData? Patch(List<Mod> mods, Profile profile, string profileLocation, UndertaleData data, Logger logger, Action<string> statusCallback) {
-		void setStatus(string message) {
+		void setStatusAndInfo(string message) {
 			logger.Info(message);
 			statusCallback(message);
+		}
+		void setStatusAndError(string message, string? error = null) {
+			if (error is null) {
+				logger.Error(message);
+				statusCallback(message);
+				return;
+			}
+			logger.Error($"{message}\n{error}");
+			statusCallback($"{message} {CHECK_LOGS}");
 		}
 		
 		bool runModScript(Mod mod, Func<Mod, string> getScriptPath, ScriptGlobals globals) {
 			string path = getScriptPath(mod);
 			if (path == "")
 				return true;
-			setStatus($"Running script: {path}");
-			string fullStringPath = Path.Combine(profileLocation, mod.FolderName, mod.PostMergeScriptPath);
+			setStatusAndInfo($"Running script: {path}");
+			string relativePath = Path.Combine(mod.FolderName, path);
+			string fullStringPath = Path.Combine(profileLocation, relativePath);
 			string code;
 				
 			try {
 				code = File.ReadAllText(fullStringPath);
 			}
 			catch (Exception e) {
-				setStatus($"Failed to read script belonging to {mod.DisplayName}. Check the log.");
-				logger.Error(e.ToString());
+				setStatusAndError($"Failed to read script belonging to {identifyMod(mod)}!", e.ToString());
 				return false;
 			}
 			
 			// makes errors point to the path of the script
-			code = $"#line 1 \"{fullStringPath}\"\n" + code;
+			code = $"#line 1 \"{relativePath}\"\n" + code;
 			try {
 				CSharpScript.EvaluateAsync(code, scriptOptions, globals);
 			}
 			catch (CompilationErrorException e) {
-				setStatus($"Script belonging to {mod.DisplayName} threw an exception. Check the log.");
-				logger.Error(e);
+				setStatusAndError($"Script belonging to {identifyMod(mod)} threw an exception.", e.GetBaseException().Message);
 				return false;
 			}
-
 			return true;
 		}
 		
@@ -312,7 +329,7 @@ public class Patcher {
 				sb.Append($"\n{i + 1}. {issue}");
 			}
 
-			setStatus(sb.ToString());
+			setStatusAndInfo(sb.ToString());
 			return null;
 		}
 		
@@ -320,15 +337,14 @@ public class Patcher {
 			UndertaleData? modData = null;
 			
 			if (mod.DatafilePath != "") {
-				setStatus($"Merging: {mod.DisplayName}");
+				setStatusAndInfo($"Merging: {mod.DisplayName}");
 				string fullDatafilePath = Path.Combine(profileLocation, mod.FolderName, mod.DatafilePath);
 				try {
 					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
 					modData = UndertaleIO.Read(stream);
 				}
 				catch (Exception e) {
-					setStatus($"Failed to load the datafile of {mod.DisplayName}. Check the log.");
-					logger.Error(e);
+					setStatusAndError($"Failed to load the datafile of {identifyMod(mod)}.", e.ToString());
 					return null;
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
@@ -355,13 +371,13 @@ public class Patcher {
 		
 		// Map of mods to patch blames
 		// patch blame maps map gamemaker code targets
-		Dictionary<Mod, Dictionary<string, List<string>>> patchBlames = new Dictionary<Mod, Dictionary<string, List<string>>>();
+		Dictionary<Mod, PatchBlame> patchBlames = new Dictionary<Mod, PatchBlame>();
 		
 		foreach (Mod mod in mods) {
 			int index = mods.IndexOf(mod);
 			if (mod.Patches.Length != 0)
-				setStatus($"Reading patches from: {mod.DisplayName}");
-			patchBlames[mod] = new Dictionary<string, List<string>>();
+				setStatusAndInfo($"Reading patches from: {mod.DisplayName}");
+			patchBlames[mod] = new PatchBlame();
 			foreach (PatchLocation patchLocation in mod.Patches) {
 				// the only one right now
 				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
@@ -380,7 +396,7 @@ public class Patcher {
 						return null;
 				}
 				else {
-					setStatus($"Mod {mod.DisplayName}: Invalid patch or patch directory \"{patchLocation.Path}\"");
+					setStatusAndError($"Mod {identifyMod(mod)} specified an invalid patch or patch directory: \"{patchLocation.Path}\"");
 					return null;
 				}
 				
@@ -393,8 +409,7 @@ public class Patcher {
 						patchText = File.ReadAllText(patchPath);
 					}
 					catch (Exception e) {
-						setStatus($"An error occured trying to read a patch from {mod.DisplayName}! Check the log.");
-						logger.Error($"Failed to read patch file at {relativePath} from mod with ID {mod.ModId}: {e}");
+						setStatusAndError($"An error occured while trying to read a patch file at {relativePath} from {identifyMod(mod)}!", e.ToString());
 						return false;
 					}
 					try {
@@ -408,72 +423,40 @@ public class Patcher {
 						return true;
 					}
 					catch (PatchExecutionException e) {
-						setStatus($"A patch execution error occured while executing a patch from {mod.DisplayName}! Check the log.");
-						logger.Error($"Patch execution error from mod with ID \"{mod.ModId}\" at {relativePath}: {e.Message}");
+						setStatusAndError($"An error occured while executing a patch from {identifyMod(mod)} at {relativePath}!", e.Message);
 					}
 					catch (InvalidPatchException e) {
-						setStatus($"Invalid patch provided by {mod.DisplayName}! Check the log.");
-						logger.Error($"Failed to read/execute patch file from mod with ID \"{mod.ModId}\" at {relativePath}: {e.Message}");
+						setStatusAndError($"Invalid patch provided by {identifyMod(mod)} at {relativePath}!", e.Message);
 					}
 					return false;
 				}
 			}
 		}
 
-		setStatus("Applying patches...");
-		
-		Language.ApplyPatches(record, source, order);
-		
-		setStatus("Compiling...");
+		setStatusAndInfo("Applying patches...");
+
+		try {
+			Language.ApplyPatches(record, source, order);
+		}
+		catch (PatchApplicationException e) {
+			statusCallback($"Patching failed! {CHECK_LOGS}\n{e.Blame()}");
+			logger.Error($"Patching failed! {e.FullMessage()}");
+			return null;
+		}
+
+		setStatusAndInfo("Compiling...");
 		
 		CompileResult result = group.Compile();
 		if (!result.Successful) {
-			List<Mod> modsResponsible = [];
-			StringBuilder sb = new StringBuilder();
-			sb.AppendLine("Compilation failed! Below will be a list detailing which files failed.");
-			int number = 1;
-			
-			// group errors by file
-			IEnumerable<IGrouping<UndertaleCode, CompileError>> errors = result.Errors.GroupBy(error => error.Code);
-			foreach (IGrouping<UndertaleCode, CompileError> errorGroup in errors) {
-				string fileName = errorGroup.Key.Name.Content;
-				sb.AppendLine($"{number}. Code filename: {fileName}");
-
-				foreach (KeyValuePair<Mod, Dictionary<string, List<string>>> kvp in patchBlames) {
-					if (!kvp.Value.ContainsKey(fileName))
-						continue;
-					sb.AppendLine($"Mod with ID \"{kvp.Key.ModId}\" contains the following patch files that change this code file:");
-					if (!modsResponsible.Contains(kvp.Key))
-						modsResponsible.Add(kvp.Key);
-					foreach (string path in kvp.Value[fileName]) {
-						sb.AppendLine(path);
-					}
-				}
-				
-				sb.AppendLine("========== ERRORS START ==========");
-				int errorIndex = 1;
-				// compiler weirdly likes to repeat some errors so we just check if we already said something before saying it
-				HashSet<string> alreadySaid = new HashSet<string>();
-				foreach (CompileError error in errorGroup) {
-					string detailedMessage = error.GenerateDetailedMessage();
-					if (!alreadySaid.Contains(detailedMessage)) {
-						sb.AppendLine($"{errorIndex}. {detailedMessage}");
-						alreadySaid.Add(detailedMessage);
-						errorIndex++;
-					}
-				}
-				sb.AppendLine("========== ERRORS END ==========");
-				
-				string code = source.GetReplacedCodeVerbatim(fileName)!;
-				sb.AppendLine($"========== BAD FILE START ==========\n{code}\n========== BAD FILE END ==========");
-				
-
-				number += 1;
+			(string error, List<Mod> modsResponsible) = generateCompileError(result, patchBlames, source);
+			string modsResponsibleString = modsResponsible[0].ModId;
+			for (int i = 1; i < modsResponsible.Count; i++) {
+				modsResponsibleString += $", {modsResponsible[i]}";
 			}
-			
-			
-			setStatus("Compilation failed!\n Check the log to see what exactly failed.");
-			logger.Error(sb.ToString());
+			statusCallback($"Compilation failed! {CHECK_LOGS}\nOne or more of the following mods are at fault:\n{modsResponsibleString}");
+			logger.Error($"Compilation failed! Below will be a file-by-file analysis,"
+				+ " showing which files failed to compile, and which mods change that file."
+				+ $"\n{error}");
 			return null;
 		}
 		
@@ -487,12 +470,57 @@ public class Patcher {
 		}
 		return data;
 	}
-	
+
+	private (string, List<Mod>) generateCompileError(CompileResult result, Dictionary<Mod, PatchBlame> patchBlames, GameMakerCodeSource source) {
+		List<Mod> modsResponsible = [];
+		StringBuilder sb = new StringBuilder();
+		int number = 1;
+			
+		// group errors by file
+		IEnumerable<IGrouping<UndertaleCode, CompileError>> errors = result.Errors.GroupBy(error => error.Code);
+		foreach (IGrouping<UndertaleCode, CompileError> errorGroup in errors) {
+			string fileName = errorGroup.Key.Name.Content;
+			sb.AppendLine($"{number}. Code filename: {fileName}");
+
+			foreach (KeyValuePair<Mod, PatchBlame> kvp in patchBlames) {
+				if (!kvp.Value.ContainsKey(fileName))
+					continue;
+				if (!modsResponsible.Contains(kvp.Key))
+					modsResponsible.Add(kvp.Key);
+				sb.AppendLine($"Mod {identifyMod(kvp.Key)} contains the following patch files that change this code file:");
+				foreach (string path in kvp.Value[fileName]) {
+					sb.AppendLine(path);
+				}
+			}
+				
+			sb.AppendLine("========== ERRORS START ==========");
+			int errorIndex = 1;
+			// compiler weirdly likes to repeat some errors so we just check if we already said something before saying it
+			HashSet<string> alreadySaid = new HashSet<string>();
+			foreach (CompileError error in errorGroup) {
+				string detailedMessage = error.GenerateDetailedMessage();
+				if (!alreadySaid.Contains(detailedMessage)) {
+					sb.AppendLine($"{errorIndex}. {detailedMessage}");
+					alreadySaid.Add(detailedMessage);
+					errorIndex++;
+				}
+			}
+			sb.AppendLine("========== ERRORS END ==========");
+				
+			string code = source.GetReplacedCodeVerbatim(fileName)!;
+			sb.AppendLine($"========== BAD FILE START ==========\n{code}\n========== BAD FILE END ==========");
+				
+
+			number += 1;
+		}
+
+		return (sb.ToString(), modsResponsible);
+	}
+
 	public static bool IsDataPatched(UndertaleData data) {
 		return false;
 	}
-
-
+	
 	private List<string> CheckModApplicationIssues(List<Mod> mods) {
 		List<string> issues = new List<string>();
 		List<IGrouping<string, Mod>> idGroups = mods.GroupBy(mod => mod.ModId).ToList();

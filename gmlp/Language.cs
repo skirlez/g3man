@@ -782,7 +782,7 @@ public static class Language {
 					}
 					else {
 						throw new PatchApplicationException(
-							$"Attempted to add a condition to an invalid line, numbered {line}, file {unitOperations.FileTarget}. Line:\n" + lines[line]
+							$"Attempted to add a condition to an invalid line ({line}), file {unitOperations.FileTarget}. Line:\n" + lines[line]
 							+ "\nYou can only add conditions to if and while statements.",
 							"One or more of the following mods are at fault", conditionAdders.Select(owner => owner.Name).ToList());
 					}
@@ -1113,20 +1113,19 @@ public class InvalidPatchException(string message) : Exception(message);
 
 public class PatchExecutionException(string message) : Exception(message);
 
-public class PatchApplicationException(string message, string blameMessage, List<string> atFault, string? badCode = null) : Exception(message) {
+public class PatchApplicationException(string message, string blameMessage, List<string> atFault) : Exception(message) {
 	private readonly List<string> atFault = atFault;
 
-	public string? GetBadCode() {
-		return badCode;
-	}
-
-	public string HumanError() {
+	public string Blame() {
 		Debug.Assert(atFault.Count != 0);
 		string atFaultString = blameMessage + ":\n" + atFault[0];
 		for (int i = 1; i < atFault.Count; i++) {
 			atFaultString += ",\n" + atFault[i];
 		}
 
-		return $"{Message}\n{atFaultString}";
+		return atFaultString;
+	}
+	public string FullMessage() {
+		return $"{Message}\n{Blame()}";
 	}
 }

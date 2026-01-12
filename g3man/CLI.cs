@@ -1,7 +1,6 @@
 using System.CommandLine;
 using g3man.Models;
 using g3man.Patching;
-using g3man.Util;
 using UndertaleModLib;
 
 namespace g3man;
@@ -76,6 +75,8 @@ public class CLI {
                 UndertaleData? output = patcher.Patch(mods, profile, profileDirectoryInfo.FullName, data, Program.Logger, status => {});
                 if (output == null)
                     return 1;
+                
+                Program.Logger.Info("Writing...");
                 try {
                     IO.Apply(data,  outLocationInfo.FullName, profileDirectoryInfo.FullName, datafileName);
                 }
