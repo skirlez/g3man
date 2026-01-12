@@ -124,7 +124,7 @@ public static class Program {
 		Adwaita,
 		Gtk
 	}
-	public enum Theme {
+	public enum ColorScheme {
 		SystemDefault,
 		Light,
 		Dark

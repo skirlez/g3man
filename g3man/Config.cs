@@ -10,7 +10,7 @@ public class Config {
 	public static readonly Logger logger = Logger.Make("CONFIG");
 	public List<string> GameDirectories;
 	
-	public Program.Theme Theme;
+	public Program.ColorScheme ColorScheme;
 	public Program.Initializer Initializer;
 	public bool AllowModScripting;
 	public bool CheckForUpdates;
@@ -18,7 +18,7 @@ public class Config {
 	public Config() {
 		GameDirectories = [];
 		Initializer = Program.Initializer.Adwaita;
-		Theme = Program.Theme.SystemDefault;
+		ColorScheme = Program.ColorScheme.SystemDefault;
 	}
 	
 	public Config(JsonElement root) {
@@ -29,10 +29,10 @@ public class Config {
 			initializer = 0;
 		Initializer = (Program.Initializer)initializer;
 		
-		int theme = JsonUtil.GetOrDefault(root, "theme", 0);
-		if (theme < 0 || theme > 2)
-			theme = 0;
-		Theme = (Program.Theme)theme;
+		int colorScheme = JsonUtil.GetOrDefault(root, "color_scheme", 0);
+		if (colorScheme < 0 || colorScheme > 2)
+			colorScheme = 0;
+		ColorScheme = (Program.ColorScheme)colorScheme;
 		
 		int allowModScripting = JsonUtil.GetOrDefault(root, "mod_scripting_permissions", 0);
 		if (allowModScripting < 0 || allowModScripting > 1)
@@ -48,7 +48,7 @@ public class Config {
 			["format_version"] = 1,
 			["game_directories"] = new JsonArray(GameDirectories.Select(directory => (JsonNode)directory).ToArray()),
 			["initializer"] = (int)Initializer,
-			["theme"] = (int)Theme,
+			["color_scheme"] = (int)ColorScheme,
 			["check_for_updates"] = CheckForUpdates,
 			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0
 		};

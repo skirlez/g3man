@@ -160,7 +160,7 @@ public class MainWindow : Window {
 		SetChild(programBox);
 		
 #if THEMESELECTOR
-		ApplyTheme(Program.Config.Theme);
+		ApplyColorScheme(Program.Config.ColorScheme);
 #endif
 	}
 
@@ -543,30 +543,31 @@ public class MainWindow : Window {
 		void MarkDirty() {
 			saveSettingsButton.SetLabel(saveSettingsDirtyLabel);
 		}
-#if THEMESELECTOR
-			ComboBoxText themeDropDown =  ComboBoxText.New();
-					
+		#if THEMESELECTOR
+			ComboBoxText themeDropDown = ComboBoxText.New();
+
 			themeDropDown.AppendText("System Default");
 			themeDropDown.AppendText("Light");
 			themeDropDown.AppendText("Dark");
-			
-			themeDropDown.SetActive((int)Program.Config.Theme);
-			themeDropDown.OnChanged += (_, _) => {
-				Program.Theme selected = (Program.Theme)themeDropDown.GetActive();
-				ApplyTheme(selected);
-				Program.Config.Theme = selected;
+
+			themeDropDown.SetActive((int)Program.Config.ColorScheme);
+			themeDropDown.OnChanged += (_, _) =>
+			{
+				Program.ColorScheme selected = (Program.ColorScheme)themeDropDown.GetActive();
+				ApplyColorScheme(selected);
+				Program.Config.ColorScheme = selected;
 				MarkDirty();
 			};
-			
-			Label themeLabel = Label.New("Theme");
-			
-			
+
+			Label themeLabel = Label.New("Color Scheme");
+
+
 			Box themeBox = Box.New(Orientation.Horizontal, 10);
 			themeBox.Append(themeLabel);
 			themeBox.Append(themeDropDown);
 			themeBox.SetHalign(Align.Start);
-			themeBox.SetMargin(10);
-#endif
+
+		#endif
 
 		Label initializerLabel = Label.New("Initializer");
 		ComboBoxText initializerDropDown =  ComboBoxText.New();
@@ -637,10 +638,11 @@ public class MainWindow : Window {
 			saveSettingsButton.SetLabel(saveSettingsLabel);
 		};
 		
+		page.Append(initializerBox);
 #if THEMESELECTOR
 			page.Append(themeBox);
 #endif
-		page.Append(initializerBox);
+		
 		page.Append(allowModScriptsBox);
 		page.Append(checkForUpdatesBox);
 		page.Append(saveSettingsButton);
@@ -648,7 +650,12 @@ public class MainWindow : Window {
 		page.SetSpacing(10);
 	}
 	
-
+	
+	// Prevent user from sending too many requests. I don't know how common of a practice this
+	// (maybe github can just handle the maximum requests a human can send by spam clicking)
+	// but why not
+	private long lastCheckedUpdate = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+	
 	private void SetupAboutPage(Box page) {
 		Label title = Label.New("");
 		title.SetMarkup("<span size=\"large\">g3man</span>");
@@ -720,6 +727,10 @@ public class MainWindow : Window {
 		Button checkForUpdatesButton = Button.NewWithLabel("Check for Updates");
 		checkForUpdatesButton.SetHalign(Align.Center);
 		checkForUpdatesButton.OnClicked += (_, _) => {
+			// user could rollback their system clock (probably), so do this in absolute value
+			if (Math.Abs(DateTimeOffset.Now.ToUnixTimeMilliseconds() - lastCheckedUpdate) < 1000)
+				return;
+			lastCheckedUpdate = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 			checker.Check();
 		};
 		if (Program.Config.CheckForUpdates)
@@ -950,18 +961,18 @@ public class MainWindow : Window {
 	}
 
 #if THEMESELECTOR
-		private void ApplyTheme(Program.Theme theme) {
+		private void ApplyColorScheme(Program.ColorScheme colorScheme) {
 			if (Program.InitializedUsing == Program.Initializer.Gtk) {
 				Settings? settings = Settings.GetDefault();
 				if (settings is null)
 					return;
-				settings.GtkApplicationPreferDarkTheme = (theme == Program.Theme.Dark);
+				settings.GtkInterfaceColorScheme = (colorScheme == Program.ColorScheme.Dark) ? InterfaceColorScheme.Dark : InterfaceColorScheme.Light;
 			}
 			else {
-				Adw.StyleManager.GetDefault().SetColorScheme(theme switch {
-					Program.Theme.SystemDefault => Adw.ColorScheme.Default,
-					Program.Theme.Light => Adw.ColorScheme.ForceLight,
-					Program.Theme.Dark => Adw.ColorScheme.ForceDark,
+				Adw.StyleManager.GetDefault().SetColorScheme(colorScheme switch {
+					Program.ColorScheme.SystemDefault => Adw.ColorScheme.Default,
+					Program.ColorScheme.Light => Adw.ColorScheme.ForceLight,
+					Program.ColorScheme.Dark => Adw.ColorScheme.ForceDark,
 					_ => throw new UnreachableException()
 				});
 			}

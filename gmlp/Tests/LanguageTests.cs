@@ -12,6 +12,10 @@ public class LanguageTests {
 			Console.WriteLine($"Running test: {test.Name}");
 			string result = test.GetResult();
 			string expected = test.GetExpected();
+			#if WINDOWS
+				result = expected.Replace("\r\n", "\n");
+				expected = expected.Replace("\r\n", "\n");
+			#endif
 			if (result == expected)
 				Console.WriteLine("Passed");
 			else
