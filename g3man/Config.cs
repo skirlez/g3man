@@ -17,7 +17,7 @@ public class Config {
 
 	public Config() {
 		GameDirectories = [];
-		Initializer = Program.Initializer.Adwaita;
+		Initializer = Program.Initializer.Gtk4;
 		ColorScheme = Program.ColorScheme.SystemDefault;
 	}
 	

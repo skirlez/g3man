@@ -13,10 +13,10 @@ public class PatcherWindow : Window {
 	
 	private Label statusLabel;
 	private Button closeButton;
-	private MainWindow owner;
+	private Main.MainWindow owner;
 	
 	
-	public PatcherWindow(MainWindow owner) {
+	public PatcherWindow(Main.MainWindow owner) {
 		this.owner = owner;
 		
 		SetSizeRequest(400, 300);

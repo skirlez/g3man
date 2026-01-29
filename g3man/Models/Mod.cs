@@ -94,7 +94,7 @@ public class Mod {
 	}
 
 	public bool HasAnyScripts() {
-		return PreMergeScriptPath != "" || PostMergeScriptPath != "";
+		return PreMergeScriptPath != "" || PostMergeScriptPath != "" || PrePatchScriptPath != "" || PostPatchScriptPath != "";
 	}
 	
 	public static List<Mod> ParseAll(string directory) {

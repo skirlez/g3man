@@ -22,6 +22,10 @@ public static class IO {
 			hashBytes = MD5.HashData(stream);
 		}
 		
+		string g3manFolder = Path.Combine(gameDirectory, "g3man");
+		if (!Directory.Exists(g3manFolder))
+			Directory.CreateDirectory(g3manFolder);
+		
 		string hash = HashToString(hashBytes);			
 		string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
 		File.WriteAllText(outputHashTextFilePath, hash);
@@ -29,17 +33,12 @@ public static class IO {
 		File.Move(tempFilePath, Path.Combine(gameDirectory, datafileName), true);
 		File.Delete(tempFilePath);
 		
-		string g3manFolder = Path.Combine(gameDirectory, "g3man");
-		if (!Directory.Exists(g3manFolder))
-			Directory.CreateDirectory(g3manFolder);
-		
 		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
 		if (Directory.Exists(appliedProfileSymlink))
 			Directory.Delete(appliedProfileSymlink, false);
 		if (File.Exists(appliedProfileSymlink))
 			File.Delete(appliedProfileSymlink);
-
-
+		
 		SymlinkFolder(appliedProfileDirectory, appliedProfileSymlink);
 	}
 	

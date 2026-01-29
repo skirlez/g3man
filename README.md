@@ -16,6 +16,7 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 - Mod scripting: mods can run .csx scripts, like UndertaleModTool
 - A profile system to easily switch between sets of mods
 - Support for both Linux and Windows
+- CLI support
 
 ## Installation
 
@@ -28,7 +29,6 @@ the bleeding edge release. Have fun.
 
 Go to the [Releases](https://github.com/skirlez/g3man/releases) page, and follow the installation guide for your release.
 
-
 ## Mods made with g3man
 
 [Void Stranger Endless Void](https://github.com/skirlez/void-stranger-endless-void/): a level builder for Void Stranger
@@ -40,6 +40,13 @@ Have YOU made ANYTHING with g3man? I would love to add more to this list! Please
 ## Building g3man
 See this [wiki page](https://github.com/skirlez/g3man/wiki/Building-g3man-and-gmlpweb).
 
+## Themes (on the nightly build as of now)
+
+g3man comes with a few themes bundled in. Here are the links to their sources.
+
+- "Windows 10": https://github.com/B00merang-Project/Windows-10
+- "Windows 11": https://github.com/yeyushengfan258/Windows11-gtk-theme (which is a modified version of https://github.com/vinceliuice/Fluent-gtk-theme)
+
 ## TODO List
 
 If you're thinking of contributing, here's a list of things that g3man should have.
@@ -48,11 +55,6 @@ If you're thinking of contributing, here's a list of things that g3man should ha
 
   Mods can run just any C# code they want, which is not ideal for security.
   Scripts are turned off by default for this reason, but there should likely be better measures in place.
-- Parallelize the patching process
-  
-  Currently the patching process is mostly bottlenecked by compilation. It is done in sequence because
-  Underanalyzer's compile function has side effects on the data.win (though this contradicts what it says in its README, so I'm probably doing something wrong). Theoretically this should be possible, and would
-speed up patching immensely.
 
 - Support for more platforms
   

@@ -6,11 +6,12 @@ using g3man.UI;
 using g3man.Util;
 using Gtk;
 using DateTime = System.DateTime;
+using MainWindow = g3man.UI.Main.MainWindow;
 
 namespace g3man;
 
 public static class Program {
-	public const int Version = 5;
+	public const int Version = 6;
 
 	public static Logger Logger = null!;
 	public static DataLoader DataLoader = null!;
@@ -88,7 +89,7 @@ public static class Program {
 					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", "./default-glib-schemas");
 			#endif
 
-			if (Config.Initializer == Initializer.Gtk)
+			if (Config.Initializer == Initializer.Gtk4)
 				application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
 			else
 				application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
@@ -121,13 +122,20 @@ public static class Program {
 	}
 
 	public enum Initializer {
-		Adwaita,
-		Gtk
+		Gtk4,
+		Libadwaita
 	}
 	public enum ColorScheme {
 		SystemDefault,
 		Light,
 		Dark
+	}
+	
+	public enum Theme {
+		SystemDefault,
+		None,
+		Windows10,
+		Windows11
 	}
 
 	public static void OnClose() {

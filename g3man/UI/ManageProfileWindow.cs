@@ -6,10 +6,10 @@ using Gtk;
 namespace g3man.UI;
 
 public class ManageProfileWindow : Window {
-	private MainWindow owner;
+	private Main.MainWindow owner;
 	private Profile profile;
 	
-	public ManageProfileWindow(MainWindow owner, Profile profile, int? index) {
+	public ManageProfileWindow(Main.MainWindow owner, Profile profile, int? index) {
 		SetSizeRequest(400, 300);
 		SetTitle("Manage Profile");
 		this.owner = owner;

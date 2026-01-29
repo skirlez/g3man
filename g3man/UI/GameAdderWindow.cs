@@ -13,8 +13,8 @@ public class GameAdderWindow : Window {
 	
 	private readonly Label label;
 	private readonly string directory;
-	private MainWindow owner;
-	public GameAdderWindow(string directory, MainWindow owner) {
+	private Main.MainWindow owner;
+	public GameAdderWindow(string directory, Main.MainWindow owner) {
 		SetSizeRequest(350, 150);
 		SetResizable(false);
 		this.directory = directory;

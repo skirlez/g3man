@@ -85,7 +85,6 @@ public class Game {
 	public void Write() {
 		string folder = Path.Combine(Directory, "g3man");
 		System.IO.Directory.CreateDirectory(folder);
-		
 		string jsonText = ToJson().ToJsonString();
 		File.WriteAllText(Path.Combine(folder, "game.json"), jsonText);
 	}
