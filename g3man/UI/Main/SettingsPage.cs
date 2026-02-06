@@ -52,24 +52,12 @@ public partial class MainWindow {
 			initializerRestartLabel.SetVisible(Program.InitializedUsing != selected);
 			MarkDirty();
 		};
-		Button initializerInfo = Button.NewWithLabel("?");
-		initializerInfo.OnClicked += (sender, args) => {
-			PopupWindow popup = new PopupWindow(this, "Info", 
-				"This option decides which library g3man should use to create its window."
-				+ "\nWith GTK4, you'll be able to change themes."
-				+ "\nWith libadwaita, g3man will look like a GNOME app.",
-				"I will be careful");
-			
-			popup.Dialog();
-		};
-		initializerInfo.SetSizeRequest(20, 20);
-		
-		
+		initializerDropDown.SetTooltipText("Set which library g3man should use to create its window.\nWith GTK4, you'll be able to change themes.\nWith libadwaita, g3man will look like a GNOME app.");
+
 		
 		Box initializerBox = Box.New(Orientation.Horizontal, 10);
 		initializerBox.Append(initializerLabel);
 		initializerBox.Append(initializerDropDown);
-		initializerBox.Append(initializerInfo);
 		initializerBox.Append(initializerRestartLabel);
 		initializerBox.SetHalign(Align.Start);
 		
@@ -82,7 +70,7 @@ public partial class MainWindow {
 			Program.Config.AllowModScripting = allowModScriptsDropDown.GetActive() == 1;
 			MarkDirty();
 		};
-		Button scriptInfoDialog = Button.NewWithLabel("?");
+		Button scriptInfoDialog = Button.NewWithLabel("!");
 		scriptInfoDialog.OnClicked += (sender, args) => {
 			PopupWindow popup = new PopupWindow(this, "Info", 
 				"This option allows mods to run C# scripts."
@@ -101,15 +89,23 @@ public partial class MainWindow {
 		
 		
 
-		CheckButton checkForUpdatesCheck = CheckButton.NewWithLabel("Check for Updates on Startup");
+		CheckButton checkForUpdatesCheck = CheckButton.NewWithLabel("Check for updates on startup");
 		checkForUpdatesCheck.SetActive(Program.Config.CheckForUpdates);
 		checkForUpdatesCheck.OnToggled += (sender, _) => {
 			Program.Config.CheckForUpdates = sender.GetActive();
 			MarkDirty();
 		};
-		Box checkForUpdatesBox = Box.New(Orientation.Horizontal, 5);
-		checkForUpdatesBox.Append(checkForUpdatesCheck);
+		checkForUpdatesCheck.SetTooltipText("Check the g3man GitHub to see if there's a new release when you open the program. If there is, you'll see a (!) on the \"About\" page.");
 		
+		CheckButton useMoreMemoryCheck = CheckButton.NewWithLabel("Use more memory");
+		useMoreMemoryCheck.SetActive(Program.Config.UseMoreMemory);
+		useMoreMemoryCheck.OnToggled += (sender, _) => {
+			Program.Config.UseMoreMemory = sender.GetActive();
+			Program.DataLoader.ReevaluateMemoryStrategy();
+			MarkDirty();
+		};
+		useMoreMemoryCheck.SetTooltipText("g3man utilizes some memory-heavy techniques to speed things up, and to reduce file reads. You can turn those off with this option.");
+
 
 		saveSettingsButton.SetHalign(Align.End);
 		saveSettingsButton.SetValign(Align.End);
@@ -123,7 +119,8 @@ public partial class MainWindow {
 		page.Append(themeBox);
 		
 		page.Append(allowModScriptsBox);
-		page.Append(checkForUpdatesBox);
+		page.Append(checkForUpdatesCheck);
+		page.Append(useMoreMemoryCheck);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
 		page.SetSpacing(10);

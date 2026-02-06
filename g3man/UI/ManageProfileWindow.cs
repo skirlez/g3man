@@ -32,6 +32,22 @@ public class ManageProfileWindow : Window {
 		moddedSaveCheck.SetLabel("Separate modded save");
 		moddedSaveCheck.SetActive(profile.SeparateModdedSave);
 
+		Button separateSaveInfo = Button.NewWithLabel("?");
+		separateSaveInfo.OnClicked += (sender, args) => {
+			PopupWindow popup = new PopupWindow(this, "Info", 
+				"This option, if enabled, will allow you to change what save folder the game uses."
+				 + "\nMeaning, when this profile is used, the game will be unaware of the vanilla game's save." 
+				 + "\nNote that this feature has not been tested extensively, so it may not work for every game.",
+				"Close");
+			
+			popup.Dialog();
+		};
+		separateSaveInfo.SetSizeRequest(20, 20);
+
+		Box moddedSaveCheckAndInfoBox = Box.New(Orientation.Horizontal, 5);
+		moddedSaveCheckAndInfoBox.Append(moddedSaveCheck);
+		moddedSaveCheckAndInfoBox.Append(separateSaveInfo);
+		
 		Label saveNameLabel = Label.New("Modded save name");
 		saveNameLabel.SetHalign(Align.Start);
 		Entry saveNameEntry = Entry.New();
@@ -114,8 +130,17 @@ public class ManageProfileWindow : Window {
 				}
 				profile.FolderName = folderName;
 			}
-			profile.Name = nameEntry.GetText();
 
+			if (moddedSaveCheck.GetActive() && string.IsNullOrWhiteSpace(saveNameEntry.GetText())) {
+				PopupWindow popup = new PopupWindow(this, "Issue!",
+						"If \"Separate modded save\" is enabled, \"Modded save name\"\n"
+						+ $"cannot be blank (as it is the game's new save folder name).", 
+					"Okay");
+				popup.Dialog();
+				return;
+			}
+			
+			profile.Name = nameEntry.GetText();
 			profile.SeparateModdedSave = moddedSaveCheck.GetActive();
 			profile.ModdedSaveName = saveNameEntry.GetText();
 			bool success = profile.Write(Program.GetGame()!.Directory);
@@ -134,7 +159,7 @@ public class ManageProfileWindow : Window {
 		};
 		
 		box.Append(nameBox);
-		box.Append(moddedSaveCheck);
+		box.Append(moddedSaveCheckAndInfoBox);
 		box.Append(saveNameBox);
 		box.Append(editMetadataButton);
 		//box.Append(Separator.New(Orientation.Horizontal));

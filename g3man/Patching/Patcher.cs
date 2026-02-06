@@ -27,6 +27,7 @@ public class Patcher {
 	private OverlapBehavior overlapBehavior = OverlapBehavior.ImplicitlyExcludeExplicitlyOverride;
 	private const string OVERRIDE_PREFIX = "g3man_override_";
 	private const string EXCLUDE_PREFIX = "g3man_fake_";
+	private const string IGNORE_PREFIX = "g3man_ignore_";
 
 	// mostly the same as undertalemodcli
 	private ScriptOptions scriptOptions = ScriptOptions.Default
@@ -90,6 +91,8 @@ public class Patcher {
 		Dictionary<string, T> nameMap = to.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
 		foreach (T? resource in from) {
 			if (resource is null) 
+				continue;
+			if (resource.Name.Content.StartsWith(IGNORE_PREFIX))
 				continue;
 			if (GetMimicedResource(nameMap, resource) is not null)
 				continue;
@@ -168,9 +171,6 @@ public class Patcher {
 			}
 			return true;
 		});
-		
-		HandleOverrides(data.Sprites, modData.Sprites);
-
 	
 		MergeLists(data.Sounds, modData.Sounds, (sound, _) => {
 			// This stuff is unfinished, I don't trust these flags. I'll write the intention with each of these...

@@ -7,18 +7,22 @@ using g3man.Util;
 namespace g3man;
 
 public class Config {
-	public static readonly Logger logger = Logger.Make("CONFIG");
+	private static readonly Logger logger = Logger.Make("CONFIG");
 	public List<string> GameDirectories;
 	
 	public Program.ColorScheme ColorScheme;
 	public Program.Initializer Initializer;
 	public bool AllowModScripting;
 	public bool CheckForUpdates;
+	public bool UseMoreMemory;
 
 	public Config() {
 		GameDirectories = [];
 		Initializer = Program.Initializer.Gtk4;
 		ColorScheme = Program.ColorScheme.SystemDefault;
+		AllowModScripting = false;
+		CheckForUpdates = true;
+		UseMoreMemory = false;
 	}
 	
 	public Config(JsonElement root) {
@@ -38,7 +42,8 @@ public class Config {
 		if (allowModScripting < 0 || allowModScripting > 1)
 			allowModScripting = 0;
 		AllowModScripting = allowModScripting == 1;
-
+		
+		UseMoreMemory = JsonUtil.GetOrDefault(root, "use_more_memory", false);
 		CheckForUpdates = JsonUtil.GetOrDefault(root, "check_for_updates", true);
 
 	}
@@ -50,7 +55,8 @@ public class Config {
 			["initializer"] = (int)Initializer,
 			["color_scheme"] = (int)ColorScheme,
 			["check_for_updates"] = CheckForUpdates,
-			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0
+			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0,
+			["use_more_memory"] = UseMoreMemory,
 		};
 	}
 	

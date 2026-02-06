@@ -9,9 +9,16 @@ public class Logger {
 	private readonly TextWriter[] errors;
 
 
+	/**
+	* Create a logger that logs to standard out, standard error, and the log file.
+	*/
 	public static Logger Make(string prefix) {
 		return new Logger(prefix, [Console.Out, Program.Logfile], [Console.Error, Program.Logfile]);
 	}
+	
+	/**
+	* Create a logger that only logs to standard error and the log file.
+	*/
 	public static Logger MakeWithoutInfo(string prefix) {
 		return new Logger(prefix, [], [Console.Error, Program.Logfile]);
 	}

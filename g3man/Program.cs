@@ -72,13 +72,12 @@ public static class Program {
 				Logger.Error("Failed to initialize logging to file: " + e);
 				Logger.Error("This session will not be logged to file.");
 			}
-			DataLoader = new DataLoader();
 			JsonElement? configJson = Config.Read();
 			if (configJson is null)
 				Config = new Config();
 			else
 				Config = new Config(configJson.Value);
-
+			DataLoader = new DataLoader();
 			#if WINDOWS
 				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
 				// Doesn't happen to me anymore!

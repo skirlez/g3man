@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using g3man.Models;
+using g3man.Util;
 using UndertaleModLib;
 
 namespace g3man;
@@ -13,15 +14,22 @@ public static class IO {
 	
 	public static void Apply(UndertaleData data, string gameDirectory, string appliedProfileDirectory, string datafileName) {
 		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
-		
-		using (FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write)){
-			UndertaleIO.Write(stream, data);
-		}
 		byte[] hashBytes;
-		using (FileStream stream = new FileStream(tempFilePath, FileMode.Open, FileAccess.Read)){
-			hashBytes = MD5.HashData(stream);
+
+		if (Program.Config.UseMoreMemory) {
+			using MemoryStream memoryStream = new MemoryStream();
+			UndertaleIO.Write(memoryStream, data);
+			memoryStream.Position = 0;
+			hashBytes = MD5.HashData(memoryStream);
+			File.WriteAllBytes(tempFilePath, memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
 		}
-		
+		else {
+			using (FileStream stream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write))
+				UndertaleIO.Write(stream, data);
+			using (FileStream stream = new FileStream(tempFilePath, FileMode.Open, FileAccess.Read))
+				hashBytes = MD5.HashData(stream);
+		}
+
 		string g3manFolder = Path.Combine(gameDirectory, "g3man");
 		if (!Directory.Exists(g3manFolder))
 			Directory.CreateDirectory(g3manFolder);

@@ -18,15 +18,7 @@ public partial class MainWindow {
 		Label subtitle = Label.New("");
 		subtitle.SetMarkup("<b>G</b>ame<b>M</b>aker <b>M</b>od <b>Man</b>ager");
 		Label versionLabel = Label.New($"Version {Program.Version}");
-		Label license = Label.New("Licensed under the terms of the AGPLv3,\ng3man is Free Software (with Free as in Freedom)");
-		license.SetMarginTop(20);
-		license.SetJustify(Justification.Center);
-
 		
-		Label source = Label.New("");
-		source.SetMarginTop(10);
-		source.SetMarkup("<a href=\"https://github.com/skirlez/g3man\">GitHub Repository</a>");
-
 		
 		Label updateFoundLabel = Label.New("");
 
@@ -41,6 +33,7 @@ public partial class MainWindow {
 		
 		Label checkingUpdateLabel = Label.New("Checking for updates...");
 		Label latestVersionLabel = Label.New("You are on the latest version.");
+		Label futureVersionLabel = Label.New("You are from the future!\nOr just using bleeding edge.");
 		Label errorLabel = Label.New("Could not check for updates.\nYou should probably check manually.");
 		Label empty = Label.New("");
 		
@@ -49,6 +42,7 @@ public partial class MainWindow {
 		updateStatusStack.AddChild(updateFoundLabel);
 		updateStatusStack.AddChild(checkingUpdateLabel);
 		updateStatusStack.AddChild(latestVersionLabel);
+		updateStatusStack.AddChild(futureVersionLabel);
 		updateStatusStack.AddChild(errorLabel);
 		updateStatusStack.AddChild(empty);
 		updateStatusStack.SetVisibleChild(empty);
@@ -73,8 +67,11 @@ public partial class MainWindow {
 					updateStatusStack.SetVisibleChild(updateFoundLabel);
 					AddExclamationToAbout();
 				}
-				else {
+				else if (version == Program.Version) {
 					updateStatusStack.SetVisibleChild(latestVersionLabel);
+				}
+				else {
+					updateStatusStack.SetVisibleChild(futureVersionLabel);
 				}
 			});
 		});
@@ -91,6 +88,16 @@ public partial class MainWindow {
 		if (Program.Config.CheckForUpdates)
 			checker.Check();
 		
+		Label license = Label.New("Licensed under the terms of the AGPLv3,\ng3man is Free Software (with Free as in Freedom)");
+		license.SetMarginTop(20);
+		license.SetJustify(Justification.Center);
+
+		
+		Label source = Label.New("");
+		source.SetMargin(10);
+		source.SetMarkup("<a href=\"https://github.com/skirlez/g3man\">GitHub Repository</a>");
+		
+		
 		Box updateBox = Box.New(Orientation.Vertical, 5);
 		updateBox.Append(updateStatusStack);
 		updateBox.Append(checkForUpdatesButton);
@@ -101,7 +108,10 @@ public partial class MainWindow {
 		page.Append(versionLabel);
 		page.Append(license);
 		page.Append(source);
+		
+		page.Append(Separator.New(Orientation.Horizontal));
 		page.Append(updateBox);
+
 		page.SetHalign(Align.Center);
 		page.SetValign(Align.Center);
 		

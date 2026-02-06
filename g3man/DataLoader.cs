@@ -14,7 +14,7 @@ public class DataLoader {
 	private volatile UndertaleData? data;
 	private volatile string? hash;
 	
-	private readonly MemoryStream dataMemory = new MemoryStream();
+	private MemoryStream dataMemory = new MemoryStream();
 	private string lastHash = "";
 	public readonly LoaderLock Lock = new LoaderLock();
 	private readonly Logger logger;
@@ -26,6 +26,7 @@ public class DataLoader {
 			LoaderAction action;
 			UndertaleData readData = null!;
 			string readHash = null!;
+			bool doCloning = false;
 			
 			while (true) {
 				lock (Lock) {
@@ -43,27 +44,49 @@ public class DataLoader {
 							hash = readHash;
 						}
 
+						
+						
 						logger.Debug("Waiting (idle)");
 						Lock.IsLoading = false;
+						
 						Monitor.PulseAll(Lock);
 						Monitor.Wait(Lock);
 						logger.Debug("Loading data");
 					}
 					
+					doCloning = Program.Config.UseMoreMemory;
 					Debug.Assert(Lock.Path is not null);
 					path = Lock.Path;
 					action = Lock.Action;
+					if (!doCloning) {
+						if (dataMemory.Length != 0) {
+							dataMemory.Dispose();
+							dataMemory = new MemoryStream();
+						}
+					}
+					if (action == LoaderAction.Clone && dataMemory.Length == 0) {
+						action = LoaderAction.Proceed;
+						logger.Debug("Told to clone, but we don't have a clone, so we're loading from disk");
+					}
 				}
 
 				
 				if (action == LoaderAction.Proceed) {
 					try {
-						dataMemory.SetLength(0);
-						{
-							using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
-							stream.CopyTo(dataMemory);
+						if (doCloning) {
+							dataMemory.SetLength(0);
+							{
+								using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+								stream.CopyTo(dataMemory);
+							}
+							readData = UndertaleIO.Read(dataMemory);
 						}
-						readData = UndertaleIO.Read(dataMemory);
+						else {
+							{
+								using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+								readData = UndertaleIO.Read(stream);
+							}
+						}
 					}
 					catch (Exception e) {
 						logger.Error("Failed to load datafile: " + e);
@@ -98,32 +121,31 @@ public class DataLoader {
 		Monitor.PulseAll(Lock);
 		return bye;
 	}
-
-	/**
-	 * Returns the hash of the data.win of the datafile belonging to the loaded game.
-	 * Not to be confused with the clean data.win, this is the hash of the plain data.win/game.unx
-	 * that happened to be there at the time of loading. It should be used to check if perhaps the user
-	 * has updated the game.
-	 *
-	 * This method should ONLY be called after obtaining the LoaderLock lock, and while CanSnatch is true.
-	 * In case that datafile is not present, this will return an empty string.
-	 */
-	public string GetDirtyHash() {
-		Debug.Assert(Monitor.IsEntered(Lock));
-		Debug.Assert(CanSnatch());
-		Debug.Assert(hash is not null);
-		return hash;
+	
+	public void ReevaluateMemoryStrategy() {
+		if (Program.GetGame() is null)
+			return;
+		lock (Lock) {
+			if (!Program.Config.UseMoreMemory && !Lock.IsLoading && dataMemory.Length != 0) {
+				logger.Debug("Discarding dataMemory due to UseMoreMemory being disabled");
+				dataMemory.Dispose();
+				dataMemory = new MemoryStream();
+				return;
+			}
+			if (Program.Config.UseMoreMemory && dataMemory.Length == 0) {
+				logger.Debug("We're now allowed to use more memory but we don't have the dataMemory clone. So we're going to load the same game again to obtain it.");
+				Program.DataLoader.LoadAsync(Program.GetGame()!, allowSameGame: true);
+			}
+		}
 	}
 	
-	
-	public void LoadAsync(Game newGame) {
-		logger.DebugNewline();
-		logger.Debug("New request for " + newGame.DisplayName);
-		if (newGame.Hash == lastHash) {
+	public void LoadAsync(Game newGame, bool allowSameGame = false) {
+		if (newGame.Hash == lastHash && !allowSameGame) {
 			logger.Debug("Same data as what's already loaded or being loaded");
 			return;
 		}
-
+		logger.DebugNewline();
+		logger.Debug("New request for " + newGame.DisplayName);
 		lock (Lock) {
 			Lock.Path = newGame.GetCleanDatafilePath();
 			lastHash = newGame.Hash;
