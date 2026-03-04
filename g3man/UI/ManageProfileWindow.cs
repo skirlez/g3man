@@ -31,22 +31,6 @@ public class ManageProfileWindow : Window {
 		CheckButton moddedSaveCheck = CheckButton.New();
 		moddedSaveCheck.SetLabel("Separate modded save");
 		moddedSaveCheck.SetActive(profile.SeparateModdedSave);
-
-		Button separateSaveInfo = Button.NewWithLabel("?");
-		separateSaveInfo.OnClicked += (sender, args) => {
-			PopupWindow popup = new PopupWindow(this, "Info", 
-				"This option, if enabled, will allow you to change what save folder the game uses."
-				 + "\nMeaning, when this profile is used, the game will be unaware of the vanilla game's save." 
-				 + "\nNote that this feature has not been tested extensively, so it may not work for every game.",
-				"Close");
-			
-			popup.Dialog();
-		};
-		separateSaveInfo.SetSizeRequest(20, 20);
-
-		Box moddedSaveCheckAndInfoBox = Box.New(Orientation.Horizontal, 5);
-		moddedSaveCheckAndInfoBox.Append(moddedSaveCheck);
-		moddedSaveCheckAndInfoBox.Append(separateSaveInfo);
 		
 		Label saveNameLabel = Label.New("Modded save name");
 		saveNameLabel.SetHalign(Align.Start);
@@ -56,9 +40,14 @@ public class ManageProfileWindow : Window {
 		Box saveNameBox = Box.New(Orientation.Vertical, 5);
 		saveNameBox.Append(saveNameLabel);
 		saveNameBox.Append(saveNameEntry);
+		saveNameBox.SetTooltipText("Set the name of the folder that this profile will save to.");
 		moddedSaveCheck.OnToggled += (sender, _) => {
 			moddedSaveToggled(sender.GetActive());
 		};
+		moddedSaveCheck.SetTooltipText(
+			"This option, if enabled, will allow you to change what save folder the game uses."
+			+ " Meaning, when this profile is applied, the game will save into a different folder, and not know about your vanilla save.");
+		
 		moddedSaveToggled(profile.SeparateModdedSave);
 		void moddedSaveToggled(bool value) {
 			saveNameBox.SetSensitive(value);
@@ -159,7 +148,7 @@ public class ManageProfileWindow : Window {
 		};
 		
 		box.Append(nameBox);
-		box.Append(moddedSaveCheckAndInfoBox);
+		box.Append(moddedSaveCheck);
 		box.Append(saveNameBox);
 		box.Append(editMetadataButton);
 		//box.Append(Separator.New(Orientation.Horizontal));

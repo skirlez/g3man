@@ -12,7 +12,6 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
-
   <PropertyGroup>
     <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
     <IsOSX Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>
@@ -54,5 +53,4 @@
   <!-- Thanks to the Pinta project for figuring this out https://github.com/PintaProject/Pinta/ -->
   <!-- For Windows, copy GTK library dependencies to the build folder. -->
   <Import Condition="'$(IsWindows)'=='true'" Project="Publishing/bundle_gtk.targets" />
-
 </Project>

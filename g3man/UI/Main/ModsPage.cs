@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using g3man.Models;
+using g3man.Util;
+using Gdk;
 using Gtk;
 
 namespace g3man.UI.Main;
@@ -19,7 +21,7 @@ public partial class MainWindow {
 		modInfoWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
 		modInfoWindow.SetMargin(10);
 		modInfoWindow.SetChild(modDescriptionLabel);
-		
+
 		
 		modsListBox = ListBox.New();
 		modsListBox.SetHexpand(true);

@@ -8,7 +8,7 @@ namespace g3man.Util;
  * TODO: I started rewriting this in the json_new branch but it sucks so bad there.
  */
 public static class JsonUtil {
-	private static JsonElement GetPropertyOrThrow(JsonElement element, string field) {
+	public static JsonElement GetPropertyOrThrow(JsonElement element, string field) {
 		try {
 			return element.GetProperty(field);
 		}
@@ -45,6 +45,7 @@ public static class JsonUtil {
 		Debug.Assert(result is not null);
 		return result;
 	}
+	
 	public static int GetNumberOrThrow(JsonElement element, string field) {
 		JsonElement inner = GetPropertyOrThrow(element, field);
 		if (inner.ValueKind != JsonValueKind.Number)
@@ -84,11 +85,6 @@ public static class JsonUtil {
 			throw new InvalidDataException($"Field {field} is of the wrong type (Expected an array, but got {inner.ValueKind.ToString()})");
 
 		JsonElement[] array = inner.EnumerateArray().ToArray();
-		foreach (JsonElement arrayElement in array) {
-			if (arrayElement.ValueKind != JsonValueKind.Object) {
-				throw new InvalidDataException($"Field {field} is of the wrong type (Expected a string array, but one of the elements of the array had type {element.ValueKind.ToString()})");
-			}
-		}
 		return array;
 	}
 	

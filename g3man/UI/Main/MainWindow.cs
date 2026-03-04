@@ -189,11 +189,6 @@ public partial class MainWindow : Window {
 		modsButton.SetSensitive(true);
 	}
 	
-
-
-	
-	
-
 	private void DoFileDialog(string title, List<FileFilter> filters, Action<Gio.File> callback) {
 		FileDialog dialog = new FileDialog();
 		dialog.Title = title;

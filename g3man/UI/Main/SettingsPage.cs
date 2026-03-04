@@ -104,7 +104,7 @@ public partial class MainWindow {
 			Program.DataLoader.ReevaluateMemoryStrategy();
 			MarkDirty();
 		};
-		useMoreMemoryCheck.SetTooltipText("g3man utilizes some memory-heavy techniques to speed things up, and to reduce file reads. You can turn those off with this option.");
+		useMoreMemoryCheck.SetTooltipText("g3man utilizes some techniques that involve using a bit more memory to speed things up, and to reduce file reads. You can turn those off with this option.");
 
 
 		saveSettingsButton.SetHalign(Align.End);

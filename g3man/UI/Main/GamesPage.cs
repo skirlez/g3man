@@ -28,7 +28,7 @@ public partial class MainWindow {
 		autoDetectedLabel.SetHalign(Align.Start);
 		autoDetectedLabel.SetMarginStart(10);
 		
-		nothingAutoDetectedLabel = Label.New("Couldn't auto-detect any GameMaker games on your computer");
+		nothingAutoDetectedLabel = Label.New("This feature is not yet implemented");
 		nothingAutoDetectedLabel.SetMargin(20);
 		
 		Stack autodetectedStack = Stack.New();

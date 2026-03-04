@@ -22,7 +22,7 @@ public class Config {
 		ColorScheme = Program.ColorScheme.SystemDefault;
 		AllowModScripting = false;
 		CheckForUpdates = true;
-		UseMoreMemory = false;
+		UseMoreMemory = true;
 	}
 	
 	public Config(JsonElement root) {

@@ -25,12 +25,26 @@ public class Patcher {
 		AllExplicit,
 	}
 	private OverlapBehavior overlapBehavior = OverlapBehavior.ImplicitlyExcludeExplicitlyOverride;
+
+	/**
+	* Keeps track of overriden assets so we don't override the same asset more than once.
+	*/
+	private HashSet<UndertaleObject> overridenAssets;
+	
 	private const string OVERRIDE_PREFIX = "g3man_override_";
 	private const string EXCLUDE_PREFIX = "g3man_fake_";
 	private const string IGNORE_PREFIX = "g3man_ignore_";
 
+	/**
+	 * If mangling is enabled for some asset type, g3man prepends this string to its name.
+	 * It isn't actually an issue for two assets to have the same names. The point of mangling is
+	 * just to allow you to name your assets as generically as you want without worrying that it could
+	 * conflict with other names.
+	 */
+	private const string G3MAN_MANGLE_PREFIX = "g3man_mangled_";
+
 	// mostly the same as undertalemodcli
-	private ScriptOptions scriptOptions = ScriptOptions.Default
+	private static readonly ScriptOptions scriptOptions = ScriptOptions.Default
 		.AddImports(
 			"UndertaleModLib", "UndertaleModLib.Models", "UndertaleModLib.Decompiler",
 			"UndertaleModLib.Scripting", "UndertaleModLib.Compiler",
@@ -85,7 +99,7 @@ public class Patcher {
 	}
 	
 	// every null check here is warranted and added because i found it in the wild at some point
-	private void MergeLists<T>(IList<T?>? to, IList<T?>? from, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
+	private void MergeLists<T>(IList<T?>? to, IList<T?>? from, bool mangle, bool canMimic = true, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
 		if (to is null || from is null)
 			return;
 		Dictionary<string, T> nameMap = to.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
@@ -94,12 +108,14 @@ public class Patcher {
 				continue;
 			if (resource.Name.Content.StartsWith(IGNORE_PREFIX))
 				continue;
-			if (GetMimicedResource(nameMap, resource) is not null)
+			if (canMimic && GetMimicedResource(nameMap, resource) is not null)
 				continue;
 			if (process is not null) {
 				if (!process(resource, nameMap))
 					continue;
 			}
+			if (mangle)
+				resource.Name.Content = G3MAN_MANGLE_PREFIX + resource.Name.Content;
 			to.Add(resource);
 		}
 		HandleOverrides(to, from);
@@ -107,15 +123,15 @@ public class Patcher {
 
 	
 	// TODO:
-	// 1. Calls GetResourceToOverride for each overrider (uses ByName, very bad performance with many overriders)
-	// 2. No conflict checks.
+	// Calls GetResourceToOverride for each overrider (uses ByName, very bad performance with many overriders)
 	private void HandleOverrides<T>(IList<T> to, IList<T?> from) where T : UndertaleNamedResource {
 		List<T> overriders = from.Where(resource => resource is not null).Where(resource => resource!.Name.Content.StartsWith(OVERRIDE_PREFIX)).ToList()!;
 		foreach (T overrider in overriders) {
 			T? old = GetResourceToOverride(to, overrider);
-			if (old is null) {
+			if (old is null || overridenAssets.Contains(old)) {
 				continue;
 			}
+			
 			// This is a bit dumb but it's probably the cleanest way to go about this.
 			// UndertaleModTool doesn't keep track of indices to the Data's resource lists, but just keeps references.
 			// For example, UndertaleGameObject stores the reference to the UndertaleSprite it uses. If we were to replace the sprite at that index,
@@ -134,6 +150,8 @@ public class Patcher {
 				field.SetValue(overrider, field.GetValue(old));
 				field.SetValue(old, temp);
 			}
+
+			overridenAssets.Add(old);
 		}
 	}
 	/**
@@ -141,11 +159,13 @@ public class Patcher {
 	 * 
 	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
 	 */
-	private void merge(UndertaleData data, UndertaleData modData, string modFolderName) {
+	private void merge(UndertaleData data, UndertaleData modData, string[] mangle, string modFolderName) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
 		data.GeneralInfo.LastObj += modData.GeneralInfo.LastObj - 100000;
 
+		bool mangleAll = mangle.Contains("all");
+		
 		int lastTexturePage = data.EmbeddedTextures.Count - 1;
 		int lastTexturePageItem = data.TexturePageItems.Count - 1;
 
@@ -161,7 +181,7 @@ public class Patcher {
 			dict.Add(embeddedTexture, lastTexturePage);
 		}
 		
-		MergeLists(data.Sprites, modData.Sprites, (sprite, _) => {
+		MergeLists(data.Sprites, modData.Sprites, mangleAll || mangle.Contains("sprites"), canMimic: true, (sprite, _) => {
 			foreach (UndertaleSprite.TextureEntry textureEntry in sprite.Textures) {
 				int newIndex = dict[textureEntry.Texture.TexturePage];
 				textureEntry.Texture.TexturePage = data.EmbeddedTextures[newIndex];
@@ -172,7 +192,7 @@ public class Patcher {
 			return true;
 		});
 	
-		MergeLists(data.Sounds, modData.Sounds, (sound, _) => {
+		MergeLists(data.Sounds, modData.Sounds, mangleAll || mangle.Contains("sounds"), canMimic: true, (sound, _) => {
 			// This stuff is unfinished, I don't trust these flags. I'll write the intention with each of these...
 			if (sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsCompressed) || sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded)) {
 				// assign all embedded audio to audiogroup_default (assigning them to different ones would require
@@ -189,12 +209,19 @@ public class Patcher {
 			return true;
 		});
 		
-		MergeLists(data.Code, modData.Code);
+		MergeLists(data.Code, modData.Code, mangleAll || mangle.Contains("code"));
 		
+		
+		MergeLists(data.Functions, modData.Functions, mangleAll || mangle.Contains("functions"), canMimic: false, (function, _) => {
+			function.NameStringID += stringListLength;
+			return true;
+		});
+		/*
 		foreach (UndertaleFunction function in modData.Functions) {
 			data.Functions.Add(function);
 			function.NameStringID += stringListLength;
 		}
+		*/
 
 		foreach (UndertaleVariable variable in modData.Variables) {
 			data.Variables.Add(variable);
@@ -216,8 +243,8 @@ public class Patcher {
 				data.CodeLocals.Add(locals);
 		}
 
-		MergeLists(data.Scripts, modData.Scripts);
-		MergeLists(data.GameObjects,  modData.GameObjects, (gameObject, nameMap) => {
+		MergeLists(data.Scripts, modData.Scripts, mangleAll || mangle.Contains("scripts"));
+		MergeLists(data.GameObjects,  modData.GameObjects, mangleAll || mangle.Contains("objects"), canMimic: true, (gameObject, nameMap) => {
 			UndertaleGameObject parent = gameObject.ParentId;
 			if (parent is null)
 				return true;
@@ -237,7 +264,7 @@ public class Patcher {
 			}
 		}
 
-		MergeLists(data.Rooms, modData.Rooms, (room, _) => {
+		MergeLists(data.Rooms, modData.Rooms, mangleAll || mangle.Contains("rooms"), canMimic: true,(room, _) => {
 			foreach (UndertaleRoom.Layer layer in room.Layers) {
 				if (layer.LayerType != UndertaleRoom.LayerType.Instances) 
 					continue;
@@ -250,17 +277,17 @@ public class Patcher {
 
 
 
-		MergeLists(data.AnimationCurves, modData.AnimationCurves);
+		MergeLists(data.AnimationCurves, modData.AnimationCurves, mangleAll || mangle.Contains("animation_curves"));
 
 		
 		
 		// TODO: test these
-		MergeLists(data.ParticleSystems, modData.ParticleSystems);
-		MergeLists(data.ParticleSystemEmitters, modData.ParticleSystemEmitters);
-		MergeLists(data.Sequences, modData.Sequences);
-		MergeLists(data.Timelines, modData.Timelines);
-		MergeLists(data.Paths, modData.Paths);
-		MergeLists(data.Shaders, modData.Shaders);
+		MergeLists(data.ParticleSystems, modData.ParticleSystems, mangleAll || mangle.Contains("particle_systems"));
+		MergeLists(data.ParticleSystemEmitters, modData.ParticleSystemEmitters, mangleAll || mangle.Contains("particle_system_emitters"));
+		MergeLists(data.Sequences, modData.Sequences, mangleAll || mangle.Contains("sequences"));
+		MergeLists(data.Timelines, modData.Timelines, mangleAll || mangle.Contains("timelines"));
+		MergeLists(data.Paths, modData.Paths, mangleAll || mangle.Contains("paths"));
+		MergeLists(data.Shaders, modData.Shaders, mangleAll || mangle.Contains("shaders"));
 		
 		foreach (UndertaleGlobalInit script in modData.GlobalInitScripts)
 			data.GlobalInitScripts.Add(script);
@@ -332,10 +359,10 @@ public class Patcher {
 			setStatusAndInfo(sb.ToString());
 			return null;
 		}
-		
+
+		overridenAssets = new HashSet<UndertaleObject>();
 		foreach (Mod mod in mods) {
 			UndertaleData? modData = null;
-			
 			if (mod.DatafilePath != "") {
 				setStatusAndInfo($"Merging: {mod.DisplayName}");
 				string fullDatafilePath = Path.Combine(profileLocation, mod.FolderName, mod.DatafilePath);
@@ -349,7 +376,7 @@ public class Patcher {
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
-				merge(data, modData, mod.FolderName);
+				merge(data, modData, mod.Mangle, mod.FolderName);
 				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 			}

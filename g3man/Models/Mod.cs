@@ -14,18 +14,17 @@ public class Mod {
 	public string Description;
 	public string IconPath;
 	
-	public string[] Credits;
-	public string[] Links;
-	
-	public string Page;
+	public string Homepage;
 	public string Source;
-	public string[] Emails;
+	public Credit[] Credits;
 	
 	public SemVer Version;
 	public string TargetGameVersion;
 	public string TargetPatcherVersion;
 	public PatchLocation[] Patches;
 	public string DatafilePath;
+
+	public string[] Mangle;
 	
 	public string PreMergeScriptPath;
 	public string PostMergeScriptPath;
@@ -36,6 +35,9 @@ public class Mod {
 	public RelatedMod[] Depends;
 	public RelatedMod[] Suggests;
 	public RelatedMod[] Breaks;
+
+	public Import[] Imports;
+	public string[] Exports;
 
 	public string FolderName;
 	
@@ -63,12 +65,15 @@ public class Mod {
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		Description = JsonUtil.GetStringOrThrow(root, "description", "");
 		IconPath = JsonUtil.GetStringOrThrow(root, "icon_path", "");
-		Credits = JsonUtil.GetStringArrayOrThrow(root, "credits", []);
-		Links = JsonUtil.GetStringArrayOrThrow(root, "links", []);
 		
-		Page = JsonUtil.GetStringOrThrow(root, "page", "");
+		Credits = JsonUtil.GetObjectArrayOrThrow(root, "credits", [])
+			.Select(x => new Credit(x)).ToArray();
+		
+		Depends = JsonUtil.GetObjectArrayOrThrow(root, "depends", [])
+			.Select(x => new RelatedMod(x)).ToArray();
+		
+		Homepage = JsonUtil.GetStringOrThrow(root, "homepage", "");
 		Source = JsonUtil.GetStringOrThrow(root, "source", "");
-		Emails = JsonUtil.GetStringArrayOrThrow(root, "emails", []);
 		
 		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"), false);
 		TargetGameVersion = JsonUtil.GetStringOrThrow(root, "target_game_version", "");
@@ -89,6 +94,12 @@ public class Mod {
 			.Select(x => new RelatedMod(x)).ToArray();
 		Breaks = JsonUtil.GetObjectArrayOrThrow(root, "breaks", [])
 			.Select(x => new RelatedMod(x)).ToArray();
+
+		Mangle = JsonUtil.GetStringArrayOrThrow(root, "mangle", []);
+		
+		Imports = JsonUtil.GetObjectArrayOrThrow(root, "breaks", [])
+			.Select(x => new Import(x)).ToArray();
+		Exports = JsonUtil.GetStringArrayOrThrow(root, "exports", []);
 		
 		FolderName = folderName;
 	}
@@ -362,3 +373,59 @@ public enum SemVerComparison {
 	Equals
 }
 public class InvalidSemVerRequirementException(string message) : InvalidModException(message);
+
+public readonly struct Credit {
+	public Credit(JsonElement element) {
+		if (element.ValueKind == JsonValueKind.String)
+			Name = element.GetString()!;
+		else if (element.ValueKind == JsonValueKind.Object) {
+			bool hasName = element.TryGetProperty("name", out JsonElement nameElement);
+			if (!hasName || nameElement.ValueKind != JsonValueKind.String)
+				throw new InvalidCreditException("Found element in the \"credits\" field without a \"name\" field, or the \"name\" field did not contain a string.");
+			Name = nameElement.GetString()!;
+			foreach (JsonProperty other in element.EnumerateObject()) {
+				if (!other.Value.ValueKind.Equals(JsonValueKind.String)) {
+					throw new InvalidCreditException(
+						"Found element in the \"credits\" field with an inner field that isn't a string");
+				}
+				OtherFields.Add(other.Name, other.Value.GetString()!);
+			}
+			
+		}
+		else
+			throw new InvalidCreditException("Each element in the \"credits\" field must be a string or an object with a \"name\" field.");
+	}
+	public readonly string Name;
+	public readonly Dictionary<string, string> OtherFields = new Dictionary<string, string>();
+}
+
+public class InvalidCreditException(string message) : InvalidModException(message);
+
+
+public readonly struct Import {
+	public readonly string Name;
+	public readonly string ContingencyType;
+	public readonly Contingency Contingency;
+
+	public Import(JsonElement root) {
+		Name = JsonUtil.GetStringOrThrow(root, "name");
+		ContingencyType = JsonUtil.GetStringOrThrow(root, "contingency_type");
+		if (ContingencyType != "suggest")
+			throw new InvalidImportException("The only contingency type right now is \"suggest\")");
+		Contingency = new RecommendContingency(JsonUtil.GetPropertyOrThrow(root, "contingency"));
+	}
+}
+public class InvalidImportException(string message) : InvalidModException(message);
+
+public interface Contingency { }
+
+// i have a feeling it isn't optimal to do it like this and i'm getting tired
+public readonly struct RecommendContingency : Contingency {
+	public readonly string Name;
+	public readonly string Link;
+	public RecommendContingency(JsonElement root) {
+		Name = JsonUtil.GetStringOrThrow(root, "mod_name");
+		Link = JsonUtil.GetStringOrThrow(root, "link");
+	}
+}
+public class InvalidContingencyException(string message) : InvalidImportException(message);
