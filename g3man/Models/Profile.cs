@@ -7,7 +7,7 @@ namespace g3man.Models;
 
 public class Profile {
 	public string Name;
-	public string FolderName;
+	public string ID;
 	public bool SeparateModdedSave;
 	public string ModdedSaveName;
 	public string[] ModOrder;
@@ -19,9 +19,9 @@ public class Profile {
 
 	private static readonly Logger logger = Logger.Make("PROFILE-PARSER");
 
-	public Profile(string name, string folderName, bool separateModdedSave, string moddedSaveName, string[] modOrder) {
+	public Profile(string name, string id, bool separateModdedSave, string moddedSaveName, string[] modOrder) {
 		Name = name;
-		FolderName = folderName;
+		ID = id;
 		SeparateModdedSave = separateModdedSave;
 		ModdedSaveName = moddedSaveName;
 		ModOrder = modOrder;
@@ -34,11 +34,12 @@ public class Profile {
 	}
 
 	public Profile(JsonElement root, string folderName) {
+		int version = JsonUtil.GetNumberOrThrow(root, "format_version");
+		ID = version == 1 ? folderName : JsonUtil.GetStringOrThrow(root, "id");
 		Name = JsonUtil.GetStringOrThrow(root, "name");
-		FolderName = folderName;
+		
 		SeparateModdedSave = JsonUtil.GetBooleanOrThrow(root, "separate_modded_save");
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
-		
 		ModOrder = JsonUtil.GetOrDefaultClass(root, "mod_order", Array.Empty<string>());
 		ModsDisabled = JsonUtil.GetOrDefaultClass(root, "mods_disabled", Array.Empty<string>());
 		Description = JsonUtil.GetOrDefaultClass(root, "description", "");
@@ -46,7 +47,7 @@ public class Profile {
 		Credits = JsonUtil.GetOrDefaultClass(root, "credits", Array.Empty<string>());
 		Links = JsonUtil.GetOrDefaultClass(root, "links", Array.Empty<string>());
 	}
-
+	
 	public static List<Profile> ParseAll(string directory) {
 		ConcurrentBag<Profile> profiles = new ConcurrentBag<Profile>();
 		string[] profileFolders;
@@ -67,7 +68,7 @@ public class Profile {
 		return profiles.ToList();
 	}
 	
-	public static Profile? Parse(string profileFolder) {
+	public static Profile? Parse(string profileFolder, bool doFolderCheck = true) {
 		string fullPath = Path.Combine(profileFolder, "profile.json");
 		JsonDocument jsonDoc;
 		try {
@@ -79,7 +80,11 @@ public class Profile {
 			return null;
 		}
 		try {
-			Profile profile = new Profile(jsonDoc.RootElement, Path.GetFileName(profileFolder));
+			string folderName = Path.GetFileName(profileFolder);
+			Profile profile = new Profile(jsonDoc.RootElement, folderName);
+			if (doFolderCheck && folderName != profile.ID) {
+				throw new InvalidDataException($"Profile's ID does not match with its folder name. ID is \"{profile.ID}\", but found it in folder \"{folderName}\"");
+			}
 			return profile;
 		}
 		catch (InvalidDataException e) {
@@ -90,8 +95,9 @@ public class Profile {
 
 	public JsonObject ToJson() {
 		return new JsonObject() {
-			["format_version"] = 1,
+			["format_version"] = 2,
 			["name"] = Name,
+			["id"] = ID,
 			["separate_modded_save"] = SeparateModdedSave,
 			["modded_save_name"] = ModdedSaveName,
 			["mod_order"] = new JsonArray(ModOrder.Select(modId => JsonValue.Create(modId)).ToArray<JsonNode?>()),
@@ -105,7 +111,7 @@ public class Profile {
 	
 	public bool Write(string directory) {
 		try {
-			string profileFolder = Path.Combine(directory, "g3man", FolderName);
+			string profileFolder = Path.Combine(directory, "g3man", ID);
 			Directory.CreateDirectory(profileFolder);
 
 			string jsonText = ToJson().ToJsonString(new JsonSerializerOptions() {
@@ -122,7 +128,7 @@ public class Profile {
 
 	public bool Delete(string directory) {
 		try {
-			string profileFolder = Path.Combine(directory, "g3man", FolderName);
+			string profileFolder = Path.Combine(directory, "g3man", ID);
 			Directory.Delete(profileFolder, true);
 			return true;
 		}

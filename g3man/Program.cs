@@ -99,6 +99,10 @@ public static class Program {
 				application.AddWindow(window);
 				window.Show();
 			};
+			application.OnShutdown += (_, _) => {
+				Config.Write();
+				Logfile.Close();
+			};
 
 
 
@@ -135,9 +139,5 @@ public static class Program {
 		None,
 		Windows10,
 		Windows11
-	}
-
-	public static void OnClose() {
-		Logfile.Close();
 	}
 }

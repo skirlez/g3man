@@ -18,8 +18,8 @@ public class UpdateChecker(Action OnStarted, Action<int> OnCompletion) {
                 client.DefaultRequestHeaders.Add("User-Agent", "g3man Update Checker");
                 string result = await client.GetStringAsync(URL);
                 Dictionary<string, object> dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(result)!;
-                string TagName = string.Join("", dictionary["tag_name"].ToString()!.Where(char.IsDigit));
-                int version = int.Parse(TagName);
+                string tagName = string.Join("", dictionary["tag_name"].ToString()!.Where(char.IsDigit));
+                int version = int.Parse(tagName);
                 OnCompletion.Invoke(version);
             }
             catch (Exception e) {

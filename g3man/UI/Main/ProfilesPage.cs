@@ -57,7 +57,7 @@ public partial class MainWindow {
 			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
 		}
-		Profile? profile = profiles.FirstOrDefault(p => p!.FolderName == Program.GetGame()!.ProfileFolderName, null);
+		Profile? profile = profiles.FirstOrDefault(p => p!.ID == Program.GetGame()!.ProfileFolderName, null);
 		if (profile is null) {
 			PopulateProfilesList(profiles);
 			// let user choose profile if for some reason we couldn't use the normal one
@@ -82,7 +82,6 @@ public partial class MainWindow {
 	}
 
 	public void AddToProfilesList(Profile profile, bool selected) {
-		// TODO: bad
 		int newIndex = 0;
 		while (profilesListBox.GetRowAtIndex(newIndex) is not null)
 			newIndex++;
@@ -94,7 +93,8 @@ public partial class MainWindow {
 		profilesListBox.Remove(old);
 		if (profile is not null) {
 			profilesListBox.Insert(createProfileWidgets(profile, selected, index), index);
-			currentProfileLabel.SetText(profile.Name);
+			if (selected)
+				currentProfileLabel.SetText(profile.Name);
 		}
 		else if (selected) {
 			// if deleted currently selected profile, hide mods tab
@@ -147,7 +147,7 @@ public partial class MainWindow {
 		currentProfileLabel.SetText(profile.Name);
 		ParseModsAndUpdateMenu();
 		
-		Program.GetGame()!.ProfileFolderName = profile.FolderName;
+		Program.GetGame()!.ProfileFolderName = profile.ID;
 		try {
 			Program.GetGame()!.Write();
 		}

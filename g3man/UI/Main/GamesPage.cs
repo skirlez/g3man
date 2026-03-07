@@ -21,6 +21,7 @@ public partial class MainWindow {
 
 
 		List<Game> games = Game.Parse(Program.Config.GameDirectories);
+		games.Sort((game1, game2) => string.Compare(game1.DisplayName, game2.DisplayName, StringComparison.Ordinal));
 		Program.Config.UpdateGameDirectories(games);
 		PopulateGamesList(games);
 		

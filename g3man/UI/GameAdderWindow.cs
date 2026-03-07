@@ -66,7 +66,7 @@ public class GameAdderWindow : Window {
 			directory, 
 			datafileName, 
 			IO.HashToString(hash),
-			profile.FolderName);
+			profile.ID);
 		
 		
 		try {

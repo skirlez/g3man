@@ -9,13 +9,13 @@ namespace g3man;
 public class Config {
 	private static readonly Logger logger = Logger.Make("CONFIG");
 	public List<string> GameDirectories;
-	
 	public Program.ColorScheme ColorScheme;
 	public Program.Initializer Initializer;
 	public bool AllowModScripting;
 	public bool CheckForUpdates;
 	public bool UseMoreMemory;
 
+	
 	public Config() {
 		GameDirectories = [];
 		Initializer = Program.Initializer.Gtk4;

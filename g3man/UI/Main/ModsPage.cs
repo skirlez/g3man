@@ -40,9 +40,9 @@ public partial class MainWindow {
 			if (mod.Credits.Length == 0)
 				credits = "";
 			else {
-				credits = $"By {mod.Credits[0]}";
+				credits = $"By {mod.Credits[0].Name}";
 				for (int i = 1; i < mod.Credits.Length; i++)
-					credits += $", {mod.Credits[i]}";
+					credits += $", {mod.Credits[i].Name}";
 			}
 			
 			modDescriptionLabel.SetText(mod.Description + "\n" + credits);
@@ -61,7 +61,7 @@ public partial class MainWindow {
 		Button openModsFolderButton = Button.New();
 		openModsFolderButton.Label = "Open mods folder";
 		openModsFolderButton.OnClicked += (_, _) => {
-			IO.OpenFileExplorer(Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName));
+			IO.OpenFileExplorer(Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID));
 		};
 		
 		Button refreshButton = Button.NewWithLabel("Refresh");
@@ -117,12 +117,12 @@ public partial class MainWindow {
 				return;
 			int index = selected.GetIndex();
 			Mod mod = modsList[index];
-			string modPath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName, mod.FolderName);
+			string modPath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID, mod.FolderName);
 			try {
 				Directory.Delete(modPath, true);
 			}
 			catch (Exception e) {
-				Console.Error.WriteLine(e);
+				Program.Logger.Error(e);
 				PopupWindow popup = new PopupWindow(this, "Error!", "Failed to delete this mod's folder. Please report this as a bug!", "Damn");
 				popup.Dialog();
 				return;
@@ -179,7 +179,7 @@ public partial class MainWindow {
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
 		
-		modsList = Mod.ParseAll(Path.Combine(game.Directory, "g3man", profile.FolderName));
+		modsList = Mod.ParseAll(Path.Combine(game.Directory, "g3man", profile.ID));
 		
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);

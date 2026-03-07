@@ -72,7 +72,7 @@ public class Patcher {
 
 		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyExcludeImplicitlyOverride 
 		             || overlapBehavior == OverlapBehavior.AllExplicit);
-		if (name.StartsWith(EXCLUDE_PREFIX))
+		if (!name.StartsWith(EXCLUDE_PREFIX))
 			return default(T);
 
 		string substr = name.Substring(EXCLUDE_PREFIX.Length);
@@ -244,16 +244,43 @@ public class Patcher {
 		}
 
 		MergeLists(data.Scripts, modData.Scripts, mangleAll || mangle.Contains("scripts"));
+		
+		// TODO: I think there's several instances now where these maps are made more than once. They should be made once.
+		Dictionary<string, UndertaleGameObject> gameObjectNameMap = data.GameObjects.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
+
 		MergeLists(data.GameObjects,  modData.GameObjects, mangleAll || mangle.Contains("objects"), canMimic: true, (gameObject, nameMap) => {
 			UndertaleGameObject parent = gameObject.ParentId;
-			if (parent is null)
-				return true;
-			UndertaleGameObject? parentFromGame = GetMimicedResource(nameMap, parent);
-			if (parentFromGame is not null)
-				gameObject.ParentId = parentFromGame;
+			if (parent is not null) {
+				UndertaleGameObject? parentFromGame = GetMimicedResource(nameMap, parent);
+				if (parentFromGame is not null)
+					gameObject.ParentId = parentFromGame;
+			}
 			return true;
 		});
+		
+		foreach (UndertaleGameObject gameObject in modData.GameObjects) {
+			// This is probably always true.
+			if (gameObject.Events.Count >= 5) {
+				
+				// If there are any collision events, we have to either correct the index used
+				// or if it's a fake object switch to that one
+				UndertalePointerList<UndertaleGameObject.Event>? collisionEvents = gameObject.Events[4];
+				foreach (UndertaleGameObject.Event? collisionEvent in collisionEvents) {
+					int objectIndex = (int)collisionEvent.EventSubtype;
+					UndertaleGameObject collisionObject = modData.GameObjects[objectIndex];
 
+					UndertaleGameObject? collisionObjectFromGame = GetMimicedResource(gameObjectNameMap, collisionObject);
+					if (collisionObjectFromGame is null) {
+						objectIndex = data.GameObjects.IndexOf(collisionObject);
+					}
+					else {
+						objectIndex = data.GameObjects.IndexOf(collisionObjectFromGame);
+					}
+
+					collisionEvent.EventSubtype = (uint)objectIndex;
+				}
+			}
+		}
 
 		{
 			Dictionary<string, UndertaleRoom> nameMap = data.Rooms.ToDictionary(t => t.Name.Content);
@@ -476,9 +503,9 @@ public class Patcher {
 		CompileResult result = group.Compile();
 		if (!result.Successful) {
 			(string error, List<Mod> modsResponsible) = generateCompileError(result, patchBlames, source);
-			string modsResponsibleString = modsResponsible[0].ModId;
+			string modsResponsibleString = identifyMod(modsResponsible[0]);
 			for (int i = 1; i < modsResponsible.Count; i++) {
-				modsResponsibleString += $", {modsResponsible[i]}";
+				modsResponsibleString += $", {identifyMod(modsResponsible[i])}";
 			}
 			statusCallback($"Compilation failed! {CHECK_LOGS}\nOne or more of the following mods are at fault:\n{modsResponsibleString}");
 			logger.Error($"Compilation failed! Below will be a file-by-file analysis,"
@@ -568,6 +595,7 @@ public class Patcher {
 		foreach (Mod mod in mods) {
 			CheckDepends(mods, mod, idMap, issues);
 			CheckBreaks(mods, mod, idMap, issues);
+			CheckImports(mods, mod, idMap, issues);
 		}
 
 		if (!Program.Config.AllowModScripting) {
@@ -667,6 +695,42 @@ public class Patcher {
 						issues.Add($"{issue}\n{allHelp}");
 				}	
 			}
+		}
+	}
+	
+
+	private void CheckImports(List<Mod> mods, Mod mod, Dictionary<string, Mod> idMap, List<string> issues) {
+		foreach (Import import in mod.Imports) {
+
+			List<Mod> WhoExports(string name) {
+				List<Mod> exporters = [];
+				foreach (Mod mod2 in mods) {
+					if (mod2.Exports.Contains(name))
+						exporters.Add(mod2);
+				}
+				return exporters;
+			}
+
+			List<Mod> exporters = WhoExports(import.Name);
+			if (exporters.Count == 0) {
+				RecommendContingency contingency = (RecommendContingency)import.Contingency;
+				lock (issues) {
+ 					issues.Add($"Mod {identifyMod(mod)} depends on the import \"{import.Name}\" but it is not provided by anyone.\nMod's suggestion: Download {contingency.Name} at {contingency.Link}");
+				}
+				return;
+			}
+			if (exporters.Count > 1) {
+				string modsResponsibleString = identifyMod(exporters[0]);
+				for (int i = 1; i < exporters.Count; i++) {
+					modsResponsibleString += $", {identifyMod(exporters[i])}";
+				}
+				lock (issues) {
+					issues.Add($"Mod {identifyMod(mod)} depends on the import \"{import.Name}\" but it is provided more than once,\nby the following mods: {modsResponsibleString}");
+				}
+				return;
+			}
+
+
 		}
 	}
 }

@@ -44,7 +44,7 @@ public class CLI {
             applyCommand.SetAction(parseResult => {
                 DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
                 Program.Logger.Info("Parsing profile and mods...");
-                Profile? profile = Profile.Parse(profileDirectoryInfo.FullName);
+                Profile? profile = Profile.Parse(profileDirectoryInfo.FullName, doFolderCheck: false);
                 if (profile == null) {
                     return 1;
                 }
@@ -53,7 +53,13 @@ public class CLI {
                 if (mods.Count == 0) {
                     return 1;
                 }
-                mods.Sort((mod1, mod2) => int.Sign(Array.IndexOf(profile.ModOrder, mod1.ModId) - Array.IndexOf(profile.ModOrder, mod2.ModId)));
+
+                string[] missingIds = mods.Select(mod => mod.ModId).Where(id => !profile.ModOrder.Contains(id)).ToArray();
+                missingIds.Sort();
+                
+                string[] modOrder = profile.ModOrder.Concat(missingIds).ToArray();
+                
+                mods.Sort((mod1, mod2) => int.Sign(Array.IndexOf(modOrder, mod1.ModId) - Array.IndexOf(modOrder, mod2.ModId)));
                 FileInfo dataFileInfo = parseResult.GetRequiredValue(datafileLocation);
                 Program.Logger.Info("Loading clean datafile...");
                 UndertaleData data;

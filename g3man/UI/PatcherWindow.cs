@@ -131,7 +131,7 @@ public class PatcherWindow : Window {
 					IO.RemoveLastOutputHash(Program.GetGame()!);
 				}
 				catch (Exception e) {
-					Console.Error.WriteLine(e);
+					Program.Logger.Error(e);
 					setStatus("Failed to update clean datafile! Please report this as a bug.");
 					return;
 				}
@@ -163,7 +163,7 @@ public class PatcherWindow : Window {
 				          + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
 			}
 			catch (Exception e) {
-				Console.Error.WriteLine(e);
+				Program.Logger.Error(e);
 				setStatus("Failed to restore clean datafile. Please report this as an error!");
 			}
 
@@ -187,7 +187,7 @@ public class PatcherWindow : Window {
 		
 		
 		Patcher patcher = new Patcher();
-		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
+		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
 		UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;
@@ -196,7 +196,7 @@ public class PatcherWindow : Window {
 			IO.Apply(output, Program.GetGame()!.Directory, profileDirectory, Program.GetGame()!.DatafileName);
 		}
 		catch (Exception e) {
-			Console.Error.WriteLine(e);
+			Program.Logger.Error(e);
 			setStatus("Failed to write output datafile! Check the log.");
 			return;
 		}

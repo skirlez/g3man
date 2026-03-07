@@ -149,11 +149,6 @@ public partial class MainWindow : Window {
 		programBox.Append(pageBox);
 		programBox.Append(Separator.New(Orientation.Horizontal));
 		programBox.Append(currentSetupBox);
-
-		OnCloseRequest += (_, _) => {
-			Program.OnClose();
-			return false;
-		};
 		
 		SetChild(programBox);
 		
@@ -263,7 +258,7 @@ public partial class MainWindow : Window {
 			
 			if (type == ZipType.Mod) {
 				jsonEntries = modJsonEntries;
-				basePath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.FolderName);
+				basePath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
 				if (profileJsonEntries.Length != 0) {
 					PopupWindow popup = new PopupWindow(this, "Wait!",
 						"This is a profile zip. You should install it as a profile in the profiles tab.", "Alright");
@@ -328,7 +323,7 @@ public partial class MainWindow : Window {
 			}
 		}
 		catch (Exception e) {
-			Console.Error.WriteLine(e);
+			Program.Logger.Error(e);
 			PopupWindow popup = new PopupWindow(this, "Error!",
 				"Failed to import from ZIP. Please report this as a bug!", "Damn");
 			popup.Dialog();

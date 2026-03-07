@@ -19,7 +19,6 @@ public class Mod {
 	public Credit[] Credits;
 	
 	public SemVer Version;
-	public string TargetGameVersion;
 	public string TargetPatcherVersion;
 	public PatchLocation[] Patches;
 	public string DatafilePath;
@@ -76,7 +75,6 @@ public class Mod {
 		Source = JsonUtil.GetStringOrThrow(root, "source", "");
 		
 		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"), false);
-		TargetGameVersion = JsonUtil.GetStringOrThrow(root, "target_game_version", "");
 		TargetPatcherVersion = JsonUtil.GetStringOrThrow(root, "target_patcher_version");
 		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches", [])
 			.Select(x => new PatchLocation(x)).ToArray();
@@ -97,7 +95,7 @@ public class Mod {
 
 		Mangle = JsonUtil.GetStringArrayOrThrow(root, "mangle", []);
 		
-		Imports = JsonUtil.GetObjectArrayOrThrow(root, "breaks", [])
+		Imports = JsonUtil.GetObjectArrayOrThrow(root, "imports", [])
 			.Select(x => new Import(x)).ToArray();
 		Exports = JsonUtil.GetStringArrayOrThrow(root, "exports", []);
 		

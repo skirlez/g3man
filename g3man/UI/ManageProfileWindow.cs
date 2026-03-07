@@ -23,10 +23,18 @@ public class ManageProfileWindow : Window {
 		Entry nameEntry = Entry.New();
 		nameEntry.SetText(profile.Name);
 		
-		
 		Box nameBox = Box.New(Orientation.Vertical, 5);
 		nameBox.Append(nameLabel);
 		nameBox.Append(nameEntry);
+		
+		Label IDLabel = Label.New("ID");
+		IDLabel.SetHalign(Align.Start);
+		Entry IDEntry = Entry.New();
+		IDEntry.SetText(profile.ID);
+		
+		Box IDBox = Box.New(Orientation.Vertical, 5);
+		IDBox.Append(IDLabel);
+		IDBox.Append(IDEntry);
 		
 		CheckButton moddedSaveCheck = CheckButton.New();
 		moddedSaveCheck.SetLabel("Separate modded save");
@@ -64,7 +72,7 @@ public class ManageProfileWindow : Window {
 		descriptionBox.Append(descriptionEntry);
 		*/
 		
-		Button editMetadataButton = Button.NewWithLabel("Edit metadata");
+		Button editMetadataButton = Button.NewWithLabel("Not Implemented Yet");
 		editMetadataButton.SetHalign(Align.Start);
 		
 		bool isSelected = Program.GetProfile()! == profile;
@@ -95,29 +103,54 @@ public class ManageProfileWindow : Window {
 		}
 		
 		doneButton.OnClicked += (_, _) => {
-			if (index is null) {
-				string folderName = ToProfileFolderName(nameEntry.GetText());
+			if (nameEntry.GetText() == "") {
+				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
+				popup.Dialog();
+				return;
+			}
+			string folderName = ToProfileFolderName(IDEntry.GetText());
+			if (folderName != profile.ID) {
 				if (folderName == "") {
-					PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
+					PopupWindow popup = new PopupWindow(this, "Cannot save!", "ID cannot be blank.",
+						"Okay I'll ID It");
 					popup.Dialog();
 					return;
 				}
+
+				string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man");
 				string?[] folders;
 				try {
-					folders = Directory.GetDirectories(Path.Combine(Program.GetGame()!.Directory, "g3man")).Select(Path.GetFileName).ToArray();
+					folders = Directory.GetDirectories(profilesFolder).Select(Path.GetFileName).ToArray();
 				}
 				catch (Exception e) {
-					Console.Error.WriteLine(e);
-					PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to save this profile", "Damn");
+					Program.Logger.Error(e);
+					PopupWindow popup = new PopupWindow(this, "Error!",
+						"An error occured trying to save this profile", "Damn");
 					popup.Dialog();
 					return;
 				}
+
 				if (folders.Contains(folderName)) {
-					PopupWindow popup = new PopupWindow(this,  "Conflict!" ,$"A profile with the name \"{folderName}\" already exists, so you'll need to change the name.", "Okay I'll Rename It");
+					PopupWindow popup = new PopupWindow(this, "Conflict!",
+						$"A profile folder \"{folderName}\" already exists, so you'll need to change the ID.",
+						"Okay I'll Change It");
 					popup.Dialog();
 					return;
 				}
-				profile.FolderName = folderName;
+
+				try {
+					Directory.Move(Path.Combine(profilesFolder, profile.ID),
+						Path.Combine(profilesFolder, folderName));
+				}
+				catch (Exception e) {
+					Program.Logger.Error(e);
+					PopupWindow popup = new PopupWindow(this, "Error!",
+						$"An error occured while trying to rename this profile's folder", "Damn");
+					popup.Dialog();
+					return;
+				}
+
+				profile.ID = folderName;
 			}
 
 			if (moddedSaveCheck.GetActive() && string.IsNullOrWhiteSpace(saveNameEntry.GetText())) {
@@ -148,6 +181,7 @@ public class ManageProfileWindow : Window {
 		};
 		
 		box.Append(nameBox);
+		box.Append(IDBox);
 		box.Append(moddedSaveCheck);
 		box.Append(saveNameBox);
 		box.Append(editMetadataButton);
