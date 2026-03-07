@@ -210,18 +210,10 @@ public class Patcher {
 		});
 		
 		MergeLists(data.Code, modData.Code, mangleAll || mangle.Contains("code"));
-		
-		
-		MergeLists(data.Functions, modData.Functions, mangleAll || mangle.Contains("functions"), canMimic: false, (function, _) => {
-			function.NameStringID += stringListLength;
-			return true;
-		});
-		/*
 		foreach (UndertaleFunction function in modData.Functions) {
 			data.Functions.Add(function);
 			function.NameStringID += stringListLength;
 		}
-		*/
 
 		foreach (UndertaleVariable variable in modData.Variables) {
 			data.Variables.Add(variable);
