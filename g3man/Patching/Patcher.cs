@@ -250,7 +250,10 @@ public class Patcher {
 			return true;
 		});
 		
-		foreach (UndertaleGameObject gameObject in modData.GameObjects) {
+		foreach (UndertaleGameObject obj in modData.GameObjects) {
+			UndertaleGameObject? overriden = GetResourceToOverride(data.GameObjects, obj);
+			UndertaleGameObject gameObject = overriden ?? obj;
+
 			// This is probably always true.
 			if (gameObject.Events.Count >= 5) {
 				
