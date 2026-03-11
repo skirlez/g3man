@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using g3man.Models;
 using g3man.Util;
+using GLib;
 using gmlp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
@@ -493,6 +494,27 @@ public class Patcher {
 			return null;
 		}
 
+		if (mods.Any(mod => mod.Imports.Any(GameAPI.IsImportAskingForMe))) {
+			UndertaleScript? g3manAPIScript = data.Scripts.ByName("g3man_api");
+			if (g3manAPIScript is null) {
+				g3manAPIScript = new UndertaleScript();
+				g3manAPIScript.Name = new UndertaleString("g3man_api");
+				g3manAPIScript.Code = new UndertaleCode();
+				g3manAPIScript.Code.Name = new UndertaleString("gml_GlobalScript_g3man_api");
+				
+				data.Code.Add(g3manAPIScript.Code);
+				data.Scripts.Add(g3manAPIScript);
+				
+				UndertaleGlobalInit ginit = new UndertaleGlobalInit();
+				ginit.Code = g3manAPIScript.Code;
+				data.GlobalInitScripts.Add(ginit);
+				data.Strings.Add(g3manAPIScript.Code.Name);
+				data.Strings.Add(g3manAPIScript.Name);
+			}
+
+			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModsDisabled, profile.ID));
+		}
+
 		setStatusAndInfo("Compiling...");
 		
 		CompileResult result = group.Compile();
@@ -517,6 +539,9 @@ public class Patcher {
 			if (!runModScript(mod, m => m.PostPatchScriptPath, new ScriptGlobals(data)))
 				return null;
 		}
+		
+		
+		
 		return data;
 	}
 
@@ -583,11 +608,15 @@ public class Patcher {
 			issues.Add(baseIssue);
 			return issues;
 		}
-
+		
 		
 		
 		Dictionary<string, Mod> idMap = mods.ToDictionary(mod => mod.ModId);
 		foreach (Mod mod in mods) {
+			if (mod.TargetPatcherVersion > Program.Version) {
+				issues.Add($"Mod {identifyMod(mod)} is made for a version of g3man that is too high: {mod.TargetPatcherVersion} (you are on {Program.Version})");
+			}
+			
 			CheckDepends(mods, mod, idMap, issues);
 			CheckBreaks(mods, mod, idMap, issues);
 			CheckImports(mods, mod, idMap, issues);
@@ -604,7 +633,7 @@ public class Patcher {
 	private void CheckModScripts(List<string> issues, Mod mod) {
 		if (mod.HasAnyScripts()) {
 			lock (issues) {
-				issues.Add($"Mod \"{mod.DisplayName}\" wants to run scripts, but mod scripting is disabled! Go to settings to enable it.");
+				issues.Add($"Mod {identifyMod(mod)} wants to run scripts, but mod scripting is disabled! Go to settings to enable it.");
 			}
 		}
 	}
@@ -696,7 +725,9 @@ public class Patcher {
 
 	private void CheckImports(List<Mod> mods, Mod mod, Dictionary<string, Mod> idMap, List<string> issues) {
 		foreach (Import import in mod.Imports) {
-
+			if (GameAPI.IsImportAskingForMe(import))
+				continue;
+			
 			List<Mod> WhoExports(string name) {
 				List<Mod> exporters = [];
 				foreach (Mod mod2 in mods) {
@@ -705,7 +736,7 @@ public class Patcher {
 				}
 				return exporters;
 			}
-
+			
 			List<Mod> exporters = WhoExports(import.Name);
 			if (exporters.Count == 0) {
 				RecommendContingency contingency = (RecommendContingency)import.Contingency;

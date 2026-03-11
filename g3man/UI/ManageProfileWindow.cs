@@ -1,18 +1,19 @@
 using g3man.Models;
+using g3man.UI.Main;
 using g3man.Util;
 using Gdk;
+using Gio;
+using GObject;
 using Gtk;
 
 namespace g3man.UI;
 
 public class ManageProfileWindow : Window {
-	private Main.MainWindow owner;
-	private Profile profile;
+	private Profile? profile;
 	
-	public ManageProfileWindow(Main.MainWindow owner, Profile profile, int? index) {
+	public ManageProfileWindow(Profile? profile, Action<Profile> saveCallback, System.Action? deleteCallback = null) {
 		SetSizeRequest(400, 300);
-		SetTitle("Manage Profile");
-		this.owner = owner;
+		SetTitle(profile is null ? "Create Profile" : "Manage Profile");
 		this.profile = profile;
 		Box box = Box.New(Orientation.Vertical, 10);
 		box.SetMargin(10);
@@ -21,7 +22,7 @@ public class ManageProfileWindow : Window {
 		Label nameLabel = Label.New("Name");
 		nameLabel.SetHalign(Align.Start);
 		Entry nameEntry = Entry.New();
-		nameEntry.SetText(profile.Name);
+		nameEntry.SetText(profile?.Name ?? "");
 		
 		Box nameBox = Box.New(Orientation.Vertical, 5);
 		nameBox.Append(nameLabel);
@@ -29,26 +30,49 @@ public class ManageProfileWindow : Window {
 		
 		Label IDLabel = Label.New("ID");
 		IDLabel.SetHalign(Align.Start);
+
 		Entry IDEntry = Entry.New();
-		IDEntry.SetText(profile.ID);
+		IDEntry.SetText(profile?.ID ?? "");
 		
+		IDEntry.SetSensitive(profile is null || profile.ID != ToProfileFolderName(profile.Name));
+		
+		nameEntry.OnChanged += (sender, _) => {
+			bool enabled = IDEntry.GetSensitive();
+			if (!enabled)
+				IDEntry.SetText(ToProfileFolderName(sender.GetText()));
+		};
+		
+		Button IDLock = Button.New();
+		IDLock.SetTooltipText("If locked, the profile's ID is set automatically.");
+		IDLock.SetIconName("changes-prevent");
+		IDLock.OnClicked += (sender, _) => {
+			bool enabled = IDEntry.GetSensitive();
+			IDEntry.SetSensitive(!enabled);
+			IDLock.SetIconName(enabled ? "changes-prevent" : "changes-allow");
+			if (enabled)
+				IDEntry.SetText(ToProfileFolderName(nameEntry.GetText()));
+		};
+		
+		Box labelBox = Box.New(Orientation.Horizontal, 10);
+		labelBox.Append(IDLabel);
+		labelBox.Append(IDLock);
 		Box IDBox = Box.New(Orientation.Vertical, 5);
-		IDBox.Append(IDLabel);
+		IDBox.Append(labelBox);
 		IDBox.Append(IDEntry);
 		
 		CheckButton moddedSaveCheck = CheckButton.New();
 		moddedSaveCheck.SetLabel("Separate modded save");
-		moddedSaveCheck.SetActive(profile.SeparateModdedSave);
+		moddedSaveCheck.SetActive(profile?.SeparateModdedSave ?? false);
 		
 		Label saveNameLabel = Label.New("Modded save name");
 		saveNameLabel.SetHalign(Align.Start);
 		Entry saveNameEntry = Entry.New();
-		saveNameEntry.SetText(profile.ModdedSaveName);
+		saveNameEntry.SetText(profile?.ModdedSaveName ?? "");
 
 		Box saveNameBox = Box.New(Orientation.Vertical, 5);
 		saveNameBox.Append(saveNameLabel);
 		saveNameBox.Append(saveNameEntry);
-		saveNameBox.SetTooltipText("Set the name of the folder that this profile will save to.");
+		saveNameBox.SetTooltipText("Set the name of the folder that this profile will save to. (in %LOCALAPPDATA% on Windows, ~/.config on Linux)");
 		moddedSaveCheck.OnToggled += (sender, _) => {
 			moddedSaveToggled(sender.GetActive());
 		};
@@ -56,7 +80,7 @@ public class ManageProfileWindow : Window {
 			"This option, if enabled, will allow you to change what save folder the game uses."
 			+ " Meaning, when this profile is applied, the game will save into a different folder, and not know about your vanilla save.");
 		
-		moddedSaveToggled(profile.SeparateModdedSave);
+		moddedSaveToggled(profile?.SeparateModdedSave ?? false);
 		void moddedSaveToggled(bool value) {
 			saveNameBox.SetSensitive(value);
 		}
@@ -75,11 +99,8 @@ public class ManageProfileWindow : Window {
 		Button editMetadataButton = Button.NewWithLabel("Not Implemented Yet");
 		editMetadataButton.SetHalign(Align.Start);
 		
-		bool isSelected = Program.GetProfile()! == profile;
-		
 		Button doneButton = Button.New();
-		doneButton.SetLabel(index is null ? "Create" : "Save");
-		
+		doneButton.SetLabel(profile is null ? "Create" : "Save");
 		
 		Box fateBox = Box.New(Orientation.Horizontal, 5);
 		fateBox.SetHalign(Align.Center);
@@ -87,96 +108,101 @@ public class ManageProfileWindow : Window {
 		fateBox.Append(doneButton);
 		fateBox.SetVexpand(true);
 		
-		if (index is not null) {
+		if (profile is not null) {
 			Button deleteButton = Button.NewWithLabel("Delete");
 			deleteButton.OnClicked += (_, _) => {
-				bool success = profile.Delete(Program.GetGame()!.Directory);
-				if (!success) {
+				try {
+					profile.Delete(Program.GetGame()!.Directory);
+				}
+				catch (Exception e) {
+					Program.Logger.Error(e);
 					PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
 					popup.Dialog();
 					return;
 				}
-				this.owner.UpdateProfilesList(null, index.Value, isSelected);
+				deleteCallback!();
 				Close();
 			};
 			fateBox.Append(deleteButton);
 		}
 		
 		doneButton.OnClicked += (_, _) => {
+			// TODO: can't have it be nicer by making it so we stop the insert-text signal so we limit the characters you can type.
+			// until it works with Entry (seems to just not at the moment) OR
+			// when gir.core supports overriding virtual functions (we could subclass EntryBuffer)
+			IDEntry.SetText(ToProfileFolderName(IDEntry.GetText()));
+			
 			if (nameEntry.GetText() == "") {
 				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
 				popup.Dialog();
 				return;
 			}
-			string folderName = ToProfileFolderName(IDEntry.GetText());
-			if (folderName != profile.ID) {
-				if (folderName == "") {
-					PopupWindow popup = new PopupWindow(this, "Cannot save!", "ID cannot be blank.",
-						"Okay I'll ID It");
-					popup.Dialog();
-					return;
+			Profile newProfile = new Profile(nameEntry.GetText(), IDEntry.GetText(), 
+							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), []);
+			
+			bool oldProfileExistsAndIDChanged = profile is not null && newProfile.ID != profile.ID;
+			string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man");
+			try {
+				if (oldProfileExistsAndIDChanged) {
+					if (newProfile.ID == "") {
+						PopupWindow popup = new PopupWindow(this, "Cannot save!", "ID cannot be blank.",
+							"Okay I'll ID It");
+						popup.Dialog();
+						return;
+					}
+
+					
+					string?[] folders = Directory.GetDirectories(profilesFolder).Select(Path.GetFileName).ToArray();
+					if (folders.Contains(newProfile.ID)) {
+						PopupWindow popup = new PopupWindow(this, "Conflict!",
+							$"A profile with the ID \"{newProfile.ID}\" already exists, so you'll need to change it.",
+							"Okay");
+						popup.Dialog();
+						return;
+					}
+
+					Directory.CreateDirectory(Path.Combine(profilesFolder, newProfile.ID));
+					IO.CopyDirectory(Path.Combine(profilesFolder, profile!.ID),
+						Path.Combine(profilesFolder, newProfile.ID), recursive: true);
 				}
 
-				string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man");
-				string?[] folders;
-				try {
-					folders = Directory.GetDirectories(profilesFolder).Select(Path.GetFileName).ToArray();
-				}
-				catch (Exception e) {
-					Program.Logger.Error(e);
-					PopupWindow popup = new PopupWindow(this, "Error!",
-						"An error occured trying to save this profile", "Damn");
-					popup.Dialog();
-					return;
-				}
-
-				if (folders.Contains(folderName)) {
-					PopupWindow popup = new PopupWindow(this, "Conflict!",
-						$"A profile folder \"{folderName}\" already exists, so you'll need to change the ID.",
-						"Okay I'll Change It");
-					popup.Dialog();
-					return;
-				}
-
-				try {
-					Directory.Move(Path.Combine(profilesFolder, profile.ID),
-						Path.Combine(profilesFolder, folderName));
-				}
-				catch (Exception e) {
-					Program.Logger.Error(e);
-					PopupWindow popup = new PopupWindow(this, "Error!",
-						$"An error occured while trying to rename this profile's folder", "Damn");
-					popup.Dialog();
-					return;
-				}
-
-				profile.ID = folderName;
-			}
-
-			if (moddedSaveCheck.GetActive() && string.IsNullOrWhiteSpace(saveNameEntry.GetText())) {
-				PopupWindow popup = new PopupWindow(this, "Issue!",
+				if (newProfile.SeparateModdedSave && newProfile.ModdedSaveName == "") {
+					PopupWindow popup = new PopupWindow(this, "Issue!",
 						"If \"Separate modded save\" is enabled, \"Modded save name\"\n"
-						+ $"cannot be blank (as it is the game's new save folder name).", 
-					"Okay");
+						+ $"cannot be blank (as it is the game's new save folder name).",
+						"Okay");
+					popup.Dialog();
+					return;
+				}
+				
+				newProfile.Write(Program.GetGame()!.Directory);
+			}
+			catch (Exception e) {
+				Program.Logger.Error(e);
+				PopupWindow popup = new PopupWindow(this, "Error!", "An error occured trying to save this profile.",
+					"Damn");
+				try {
+					Directory.Delete(Path.Combine(profilesFolder, newProfile.ID), true);
+				}
+				catch (Exception _) {
+					// ignored
+				}
 				popup.Dialog();
 				return;
 			}
-			
-			profile.Name = nameEntry.GetText();
-			profile.SeparateModdedSave = moddedSaveCheck.GetActive();
-			profile.ModdedSaveName = saveNameEntry.GetText();
-			bool success = profile.Write(Program.GetGame()!.Directory);
-			if (!success) {
-				// TODO: this still updates the profile, which is kinda weird.
-				PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to save this profile", "Damn");
-				popup.Dialog();
-				return;
+
+			if (oldProfileExistsAndIDChanged) {
+				try {
+					profile!.Delete(Program.GetGame()!.Directory);
+				}
+				catch (Exception e) {
+					Program.Logger.Error(e);
+					PopupWindow popup = new PopupWindow(this,  "Error!" ,"The profile was saved correctly, however, due to an error, the profile has been duplicated.\nWhen you refresh, the older version of this profile will reappear.", "Damn");
+					popup.Dialog();
+				}
 			}
-			if (index is null)
-				this.owner.AddToProfilesList(profile, false);
-			else
-				this.owner.UpdateProfilesList(profile, index.Value, isSelected);
-			
+
+			saveCallback(newProfile);
 			Close();
 		};
 		
@@ -196,11 +222,15 @@ public class ManageProfileWindow : Window {
 	}
 
 	private string ToProfileFolderName(string profileDisplayName) {
-		return profileDisplayName.ToLowerInvariant().Replace(' ', '_');
+		string build = profileDisplayName.ToLowerInvariant().Replace(' ', '_');
+		foreach (char c in Path.GetInvalidFileNameChars()) {
+			build = build.Replace(c, '_');	
+		}
+		return build;
 	}
 	
-	public void Dialog() {
-		SetTransientFor(owner);
+	public void Dialog(MainWindow window) {
+		SetTransientFor(window);
 		SetModal(true);
 		Present();
 	}

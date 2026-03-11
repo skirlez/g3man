@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using g3man.Util;
@@ -40,6 +41,9 @@ public class Profile {
 		
 		SeparateModdedSave = JsonUtil.GetBooleanOrThrow(root, "separate_modded_save");
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
+		if (SeparateModdedSave && ModdedSaveName == "")
+			throw new InvalidDataException($"Profile \"{Name}\" (ID \"{ID}\" has \"separate_modded_save\" set to true, but \"modded_save_name\" is blank");
+		
 		ModOrder = JsonUtil.GetOrDefaultClass(root, "mod_order", Array.Empty<string>());
 		ModsDisabled = JsonUtil.GetOrDefaultClass(root, "mods_disabled", Array.Empty<string>());
 		Description = JsonUtil.GetOrDefaultClass(root, "description", "");
@@ -82,9 +86,8 @@ public class Profile {
 		try {
 			string folderName = Path.GetFileName(profileFolder);
 			Profile profile = new Profile(jsonDoc.RootElement, folderName);
-			if (doFolderCheck && folderName != profile.ID) {
+			if (doFolderCheck && folderName != profile.ID)
 				throw new InvalidDataException($"Profile's ID does not match with its folder name. ID is \"{profile.ID}\", but found it in folder \"{folderName}\"");
-			}
 			return profile;
 		}
 		catch (InvalidDataException e) {
@@ -109,34 +112,21 @@ public class Profile {
 		};
 	}
 	
-	public bool Write(string directory) {
-		try {
-			string profileFolder = Path.Combine(directory, "g3man", ID);
-			Directory.CreateDirectory(profileFolder);
+	public void Write(string directory) {
+		Debug.Assert(ID != "");
+		string profileFolder = Path.Combine(directory, "g3man", ID);
+		Directory.CreateDirectory(profileFolder);
 
-			string jsonText = ToJson().ToJsonString(new JsonSerializerOptions() {
-				WriteIndented = true
-			});
-			File.WriteAllText(Path.Combine(profileFolder, "profile.json"), jsonText);
-			return true;
-		}
-		catch (Exception e) {
-			logger.Error("Failed to write profile.json at " + directory + ":\n" + e.Message);
-		}
-		return false;
+		string jsonText = ToJson().ToJsonString(new JsonSerializerOptions() {
+			WriteIndented = true
+		});
+		File.WriteAllText(Path.Combine(profileFolder, "profile.json"), jsonText);
 	}
 
-	public bool Delete(string directory) {
-		try {
-			string profileFolder = Path.Combine(directory, "g3man", ID);
-			Directory.Delete(profileFolder, true);
-			return true;
-		}
-		catch (Exception e) {
-			logger.Error("Failed to delete profile.json at " + directory + ":\n" + e.Message);
-		}
-
-		return false;
+	public void Delete(string directory) {
+		Debug.Assert(ID != "");
+		string profileFolder = Path.Combine(directory, "g3man", ID);
+		Directory.Delete(profileFolder, true);
 	}
 
 	public void UpdateModsStatus(List<Mod> modsList, Dictionary<Mod, bool> enabledMods) {

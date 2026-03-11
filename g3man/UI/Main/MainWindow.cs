@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using g3man.Models;
+using g3man.Util;
 using Gtk;
+using Pango;
 using Window = Gtk.Window;
 
 namespace g3man.UI.Main;
@@ -49,16 +51,16 @@ public partial class MainWindow : Window {
 		pageStack.SetHexpand(true);
 
 		Box pageSidebar = Box.New(Orientation.Vertical, 8);
-
 		
 		Box gamesPage = Box.New(Orientation.Vertical, 0);
 		Box profilesPage = Box.New(Orientation.Vertical, 0);
 		Box modsPage = Box.New(Orientation.Vertical, 0);
 		Box settingsPage = Box.New(Orientation.Vertical, 0);
+		Box logsPage = Box.New(Orientation.Vertical, 0);
 		Box aboutPage = Box.New(Orientation.Vertical, 0);
 		
-		allPages = [gamesPage, profilesPage, modsPage, settingsPage, aboutPage];
-		pageTitles = ["Games", "Profiles", "Mods", "Settings", aboutTitle];
+		allPages = [gamesPage, profilesPage, modsPage, settingsPage, logsPage, aboutPage];
+		pageTitles = ["Games", "Profiles", "Mods", "Settings", "Logs", aboutTitle];
 		pageButtons = new ToggleButton[pageTitles.Length];
 		
 		
@@ -73,23 +75,14 @@ public partial class MainWindow : Window {
 		
 		pageSidebar.SetMargin(5);
 		
-		// fixes it looking super ugly with adwaita
-		CssProvider pageButtonProvider = new CssProvider();
-		pageButtonProvider.LoadFromString
-		(
-			@"button {
-				font-weight	: normal;
-			}"
-		);
-		
+
 		for (int i = 0; i < allPages.Length; i++) {
 			Box page = allPages[i];
 			pageStack.AddChild(page);
 			
 			ToggleButton pageButton = ToggleButton.New();
 			Label pageButtonLabel = Label.New(pageTitles[i]);
-			pageButton.GetStyleContext().AddProvider(pageButtonProvider, uint.MaxValue);
-			if (i != 4) {
+			if (page != aboutPage) {
 				pageButton.SetChild(pageButtonLabel);
 			}
 			else {
@@ -112,6 +105,19 @@ public partial class MainWindow : Window {
 			pageButtons[i] = pageButton;
 		}
 		
+		if (Program.InitializedUsing == Program.Initializer.Libadwaita) {
+			CssProvider pageButtonProvider = new CssProvider();
+			pageButtonProvider.LoadFromString(
+			@"button {
+				font-weight	: normal;
+			}"
+			);
+			foreach (ToggleButton button in pageButtons) {
+				// priority number obtained via trial and error as the smallest one needed for this to have an effect (lol)
+				button.GetStyleContext().AddProvider(pageButtonProvider, 200);
+			}
+		}
+		
 		pageStack.SetVisibleChild(allPages[0]);
 		pageButtons[0].SetActive(true);
 		
@@ -121,6 +127,7 @@ public partial class MainWindow : Window {
 		SetupProfilesPage(profilesPage);
 		SetupModsPage(modsPage);
 		SetupSettingsPage(settingsPage);
+		SetupLogsPage(logsPage);
 		SetupAboutPage(aboutPage);
 		
 		Debug.Assert(modsListBox is not null 
@@ -131,14 +138,17 @@ public partial class MainWindow : Window {
 		
 		
 		currentGameLabel = Label.New("No game selected");
+		currentGameLabel.SetEllipsize(EllipsizeMode.Start);
 		Label slash = Label.New("/");
 		currentProfileLabel = Label.New("No profile selected");
-		
+		currentProfileLabel.SetEllipsize(EllipsizeMode.End);
 		
 		Box currentSetupBox = Box.New(Orientation.Horizontal, 5);
 		currentSetupBox.Append(currentGameLabel);
+		
 		currentSetupBox.Append(slash);
 		currentSetupBox.Append(currentProfileLabel);
+		
 		
 		currentSetupBox.SetHalign(Align.Center);
 		currentSetupBox.SetHexpand(true);

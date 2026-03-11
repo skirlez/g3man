@@ -40,13 +40,6 @@ Have YOU made ANYTHING with g3man? I would love to add more to this list! Please
 ## Building g3man
 See this [wiki page](https://github.com/skirlez/g3man/wiki/Building-g3man-and-gmlpweb).
 
-## Themes (on the nightly build as of now)
-
-g3man comes with a few themes bundled in. Here are the links to their sources.
-
-- "Windows 10": https://github.com/B00merang-Project/Windows-10
-- "Windows 11": https://github.com/yeyushengfan258/Windows11-gtk-theme (which is a modified version of https://github.com/vinceliuice/Fluent-gtk-theme)
-
 ## TODO List
 
 If you're thinking of contributing, here's a list of things that g3man should have.

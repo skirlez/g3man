@@ -56,10 +56,9 @@ public partial class MainWindow {
 		Box manageModsBox = Box.New(Orientation.Horizontal, 5);
 		manageModsBox.SetHalign(Align.Center);
 		manageModsBox.SetValign(Align.Center);
-		
-		
-		Button openModsFolderButton = Button.New();
-		openModsFolderButton.Label = "Open mods folder";
+
+
+		Button openModsFolderButton = Button.NewWithLabel("Open mods folder");
 		openModsFolderButton.OnClicked += (_, _) => {
 			IO.OpenFileExplorer(Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID));
 		};
@@ -67,7 +66,12 @@ public partial class MainWindow {
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
+			try {
+				Program.GetProfile()!.Write(Program.GetGame()!.Directory);
+			}
+			catch (Exception e) {
+				Program.Logger.Error(e);
+			}
 			ParseModsAndUpdateMenu();
 		};
 		
@@ -156,7 +160,7 @@ public partial class MainWindow {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
 			PatcherWindow window = new PatcherWindow(this);
-			List<Mod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
+			List<Mod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
 			window.Dialog(enabledModsList);
 		};
 

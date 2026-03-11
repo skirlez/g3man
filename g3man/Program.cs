@@ -22,8 +22,17 @@ public static class Program {
 	private static Game? game;
 	private static Profile? profile;
 
-	public static TextWriter Logfile = TextWriter.Null;
-
+	public static string LogFilename = null!;
+	private static TextWriter Logfile = null!;
+	public static GtkBufferTextWriter? GtkBufferLogfile = null;
+	
+	public static TextWriter[] InfoWriters() {
+		return new List<TextWriter?>([Console.Out, Logfile, GtkBufferLogfile]).Where(item => item is not null).ToArray()!;
+	}
+	public static TextWriter[] ErrorWriters() {
+		return new List<TextWriter?>([Console.Error, Logfile, GtkBufferLogfile]).Where(item => item is not null).ToArray()!;
+	}
+	
 	private static Application application = null!;
 	private static MainWindow window = null!;
 
@@ -59,12 +68,19 @@ public static class Program {
 
 		if (args.Length == 0) {
 			try {
+				Gtk.Module.Initialize();
+			}
+			catch (Exception e) {
+				Console.Error.WriteLine("GTK is not installed! Cannot launch UI.");
+			}
+			try {
 				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
 				Directory.CreateDirectory(logs);
-				string filename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
-				StreamWriter logfile = new StreamWriter(Path.Combine(logs, filename));
+				LogFilename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
+				StreamWriter logfile = new StreamWriter(Path.Combine(logs, LogFilename));
 				logfile.AutoFlush = true;
 				Logfile = logfile;
+				GtkBufferLogfile = new GtkBufferTextWriter();
 				Logger = Logger.Make("");
 			}
 			catch (Exception e) {
@@ -87,12 +103,11 @@ public static class Program {
 				if (schemaDir is null || schemaDir.Length == 0)
 					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", "./default-glib-schemas");
 			#endif
-
+			InitializedUsing = Config.Initializer;
 			if (Config.Initializer == Initializer.Gtk4)
 				application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
 			else
 				application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
-			InitializedUsing = Config.Initializer;
 
 			application.OnActivate += (_, _) => {
 				window = new MainWindow();
@@ -100,8 +115,8 @@ public static class Program {
 				window.Show();
 			};
 			application.OnShutdown += (_, _) => {
-				Config.Write();
-				Logfile.Close();
+				//Config.Write();
+				Logfile.Flush();
 			};
 
 

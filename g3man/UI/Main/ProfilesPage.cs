@@ -1,9 +1,11 @@
 using g3man.Models;
 using Gtk;
+using Pango;
 
 namespace g3man.UI.Main;
 
 public partial class MainWindow {
+	private List<Profile> profiles;
 	private void SetupProfilesPage(Box box) {
 		profilesListBox = ListBox.New();
 		profilesListBox.SetSelectionMode(SelectionMode.None);
@@ -16,9 +18,10 @@ public partial class MainWindow {
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
 		addNewProfile.OnClicked += (sender, args) => {
-			Profile profile = new Profile("", "", false, "", []);
-			ManageProfileWindow window = new ManageProfileWindow(this, profile, null);
-			window.Dialog();
+			ManageProfileWindow window = new ManageProfileWindow(null, newProfile => {
+				AddToProfilesList(newProfile, false);
+			});
+			window.Dialog(this);
 		};
 		
 		Button refreshProfiles = Button.NewWithLabel("Refresh");
@@ -52,14 +55,15 @@ public partial class MainWindow {
 	
 	
 	private void ParseProfilesAndUpdateMenu() {
-		List<Profile> profiles = Profile.ParseAll(Path.Combine(Program.GetGame()!.Directory, "g3man"));
+		profiles = Profile.ParseAll(Path.Combine(Program.GetGame()!.Directory, "g3man"));
+		profiles = profiles.OrderBy(profile => profile.Name).ToList();
 		if (profiles.Count == 0) {
 			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
 		}
 		Profile? profile = profiles.FirstOrDefault(p => p!.ID == Program.GetGame()!.ProfileFolderName, null);
 		if (profile is null) {
-			PopulateProfilesList(profiles);
+			PopulateProfilesList();
 			// let user choose profile if for some reason we couldn't use the normal one
 			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
@@ -67,51 +71,56 @@ public partial class MainWindow {
 		Program.SetProfile(profile);
 		currentProfileLabel.SetText(profile.Name);
 		
-		PopulateProfilesList(profiles, profile);
+		PopulateProfilesList(profile);
 		ParseModsAndUpdateMenu();
 		EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 	}
 
 	
-	private void PopulateProfilesList(List<Profile> profiles, Profile? selectedId = null) {
-		profiles = profiles.OrderBy(profile => profile.Name).ToList();
+	private void PopulateProfilesList(Profile? selectedId = null) {
 		profilesListBox.RemoveAll();
 		foreach (Profile profile in profiles) {
 			AddToProfilesList(profile, profile == selectedId);
 		}
 	}
 
-	public void AddToProfilesList(Profile profile, bool selected) {
+	private void AddToProfilesList(Profile profile, bool selected) {
 		int newIndex = 0;
 		while (profilesListBox.GetRowAtIndex(newIndex) is not null)
 			newIndex++;
 		profilesListBox.Append(createProfileWidgets(profile, selected, newIndex));
 	}
 
-	public void UpdateProfilesList(Profile? profile, int index, bool selected) {
+	private void UpdateProfilesList(Profile? profile, int index, bool selected) {
 		ListBoxRow old = profilesListBox.GetRowAtIndex(index)!;
 		profilesListBox.Remove(old);
 		if (profile is not null) {
 			profilesListBox.Insert(createProfileWidgets(profile, selected, index), index);
-			if (selected)
-				currentProfileLabel.SetText(profile.Name);
-		}
-		else if (selected) {
-			// if deleted currently selected profile, hide mods tab
-			EnableExtraCategories(ExtraCategories.Profiles);
-			currentProfileLabel.SetText("No profile selected");
 		}
 	}
 	
 	private ListBoxRow createProfileWidgets(Profile profile, bool selected, int index) {
 		Label profileName = Label.New(profile.Name);
+		profileName.SetEllipsize(EllipsizeMode.End);
 		Box spacer = Box.New(Orientation.Horizontal, 0);
 		spacer.SetHexpand(true);
 			
 		Button manageProfileButton = Button.NewWithLabel("Manage");
 		manageProfileButton.OnClicked += (_, _) => {
-			ManageProfileWindow window = new ManageProfileWindow(this, profile, index);
-			window.Dialog();
+			ManageProfileWindow window = new ManageProfileWindow(profile, newProfile => {
+				bool prevSelected = Program.GetProfile() == profile;
+				UpdateProfilesList(newProfile, index, prevSelected);
+				if (prevSelected) {
+					SelectProfile(newProfile);
+				}
+			}, () => {
+				bool prevSelected = Program.GetProfile() == profile;
+				UpdateProfilesList(null, index, prevSelected);
+				EnableExtraCategories(ExtraCategories.Profiles);
+				currentProfileLabel.SetText("No profile selected");
+			});
+			
+			window.Dialog(this);
 		};
 		Button selectButton = Button.NewWithLabel("Select");
 		if (selected)
@@ -136,14 +145,18 @@ public partial class MainWindow {
 	}
 	
 	
-	private void SelectProfile(Profile profile, Button buttonPressed) {
+	private void SelectProfile(Profile profile, Button? buttonPressed = null) {
 		Program.SetProfile(profile);
 		if (currentExtraCategories == ExtraCategories.Profiles) 
 			EnableExtraCategories(ExtraCategories.ProfilesAndMods);
-		foreach (Button button in selectProfileButtons) {
-			button.SetSensitive(true);
+		if (buttonPressed is not null) {
+			foreach (Button button in selectProfileButtons) {
+				button.SetSensitive(true);
+			}
+
+			buttonPressed.SetSensitive(false);
 		}
-		buttonPressed.SetSensitive(false);
+
 		currentProfileLabel.SetText(profile.Name);
 		ParseModsAndUpdateMenu();
 		

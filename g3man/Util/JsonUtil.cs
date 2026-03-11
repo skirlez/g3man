@@ -13,10 +13,10 @@ public static class JsonUtil {
 			return element.GetProperty(field);
 		}
 		catch (KeyNotFoundException e) {
-			throw new InvalidDataException($"Required field {field} not found");
+			throw new InvalidDataException($"Required field \"{field}\" not found");
 		}
 		catch (InvalidOperationException e) {
-			throw new InvalidDataException($"Tried to find {field} inside something that wasn't an object");
+			throw new InvalidDataException($"Tried to find field \"{field}\" inside something that wasn't an object");
 		}
 	}
 	

@@ -19,7 +19,7 @@ public class Mod {
 	public Credit[] Credits;
 	
 	public SemVer Version;
-	public string TargetPatcherVersion;
+	public int TargetPatcherVersion;
 	public PatchLocation[] Patches;
 	public string DatafilePath;
 
@@ -34,7 +34,7 @@ public class Mod {
 	public RelatedMod[] Depends;
 	public RelatedMod[] Suggests;
 	public RelatedMod[] Breaks;
-
+	
 	public Import[] Imports;
 	public string[] Exports;
 
@@ -75,7 +75,19 @@ public class Mod {
 		Source = JsonUtil.GetStringOrThrow(root, "source", "");
 		
 		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"), false);
-		TargetPatcherVersion = JsonUtil.GetStringOrThrow(root, "target_patcher_version");
+		string target_patcher_version = JsonUtil.GetOrDefaultClass(root, "target_patcher_version", "");
+		if (target_patcher_version != "") {
+			logger.Info(
+				$"Warning for mod \"{DisplayName}\" (ID \"{ModId}\"): The field \"target_patcher_version\" is deprecated."
+				+ "\nPlease instead specify \"target_g3man_version\" as an integer instead.");
+
+			TargetPatcherVersion = int.Parse(target_patcher_version);
+		}
+		else {
+			TargetPatcherVersion = JsonUtil.GetNumberOrThrow(root, "target_g3man_version");
+		}
+		
+
 		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches", [])
 			.Select(x => new PatchLocation(x)).ToArray();
 		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path", "");
@@ -92,8 +104,6 @@ public class Mod {
 			.Select(x => new RelatedMod(x)).ToArray();
 		Breaks = JsonUtil.GetObjectArrayOrThrow(root, "breaks", [])
 			.Select(x => new RelatedMod(x)).ToArray();
-
-		Mangle = JsonUtil.GetStringArrayOrThrow(root, "mangle", []);
 		
 		Imports = JsonUtil.GetObjectArrayOrThrow(root, "imports", [])
 			.Select(x => new Import(x)).ToArray();
@@ -133,7 +143,10 @@ public class Mod {
 			}
 
 			try {
-				Mod mod = new Mod(jsonDoc.RootElement, Path.GetFileName(modFolder));
+				string folderName = Path.GetFileName(modFolder);
+				Mod mod = new Mod(jsonDoc.RootElement, folderName);
+				if (folderName != mod.ModId)
+					throw new InvalidDataException($"Mod's ID does not match with its folder name. ID is \"{mod.ModId}\", but found it in folder \"{folderName}\"");
 				mods.Add(mod);
 			}
 			catch (InvalidDataException e) {
@@ -406,24 +419,44 @@ public readonly struct Import {
 	public readonly Contingency Contingency;
 
 	public Import(JsonElement root) {
-		Name = JsonUtil.GetStringOrThrow(root, "name");
-		ContingencyType = JsonUtil.GetStringOrThrow(root, "contingency_type");
-		if (ContingencyType != "suggest")
-			throw new InvalidImportException("The only contingency type right now is \"suggest\")");
-		Contingency = new RecommendContingency(JsonUtil.GetPropertyOrThrow(root, "contingency"));
+		if (root.ValueKind == JsonValueKind.String) {
+			Name = root.GetString()!;
+			ContingencyType = "give_up";
+			Contingency = new GiveUpContingency();
+		}
+		else if (root.ValueKind == JsonValueKind.Object) {
+			Name = JsonUtil.GetStringOrThrow(root, "name");
+			ContingencyType = JsonUtil.GetStringOrThrow(root, "contingency_type");
+			if (ContingencyType == "give_up")
+				Contingency = new GiveUpContingency();
+			else if (ContingencyType == "suggest")
+				Contingency = new RecommendContingency(JsonUtil.GetPropertyOrThrow(root, "contingency"));
+			else
+				throw new InvalidImportException(
+					$"{ContingencyType} is not a valid contingency type. Valid: \"give_up\", \"suggest\")");
+		}
+		else
+			throw new InvalidCreditException("Elements in the \"imports\" field can only be strings or objects.");
 	}
 }
 public class InvalidImportException(string message) : InvalidModException(message);
 
 public interface Contingency { }
 
+public readonly struct GiveUpContingency : Contingency {
+	public GiveUpContingency() {}
+}
+
 // i have a feeling it isn't optimal to do it like this and i'm getting tired
 public readonly struct RecommendContingency : Contingency {
 	public readonly string Name;
 	public readonly string Link;
 	public RecommendContingency(JsonElement root) {
-		Name = JsonUtil.GetStringOrThrow(root, "mod_name");
+		Name = JsonUtil.GetStringOrThrow(root, "name");
 		Link = JsonUtil.GetStringOrThrow(root, "link");
 	}
 }
+
+
+
 public class InvalidContingencyException(string message) : InvalidImportException(message);

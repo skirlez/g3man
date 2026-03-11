@@ -49,7 +49,9 @@ public class CLI {
                     return 1;
                 }
 
-                List<Mod> mods = Mod.ParseAll(Path.Combine(profileDirectoryInfo.FullName));
+                List<Mod> mods = Mod.ParseAll(Path.Combine(profileDirectoryInfo.FullName))
+                    .Where(mod => !profile.ModsDisabled.Contains(mod.ModId))
+                    .ToList();
                 if (mods.Count == 0) {
                     return 1;
                 }

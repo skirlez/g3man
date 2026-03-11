@@ -43,13 +43,6 @@
     <ProjectReference Include="..\UndertaleModLib\UndertaleModLib.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="Publishing\themes\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>themes\%(RecursiveDir)%(Filename)%(Extension)</Link>
-    </Content>
-  </ItemGroup>
-
   <!-- Thanks to the Pinta project for figuring this out https://github.com/PintaProject/Pinta/ -->
   <!-- For Windows, copy GTK library dependencies to the build folder. -->
   <Import Condition="'$(IsWindows)'=='true'" Project="Publishing/bundle_gtk.targets" />
