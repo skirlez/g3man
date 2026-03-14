@@ -34,7 +34,7 @@ public class ManageProfileWindow : Window {
 		Entry IDEntry = Entry.New();
 		IDEntry.SetText(profile?.ID ?? "");
 		
-		IDEntry.SetSensitive(profile is null || profile.ID != ToProfileFolderName(profile.Name));
+		IDEntry.SetSensitive(profile is not null && profile.ID != ToProfileFolderName(profile.Name));
 		
 		nameEntry.OnChanged += (sender, _) => {
 			bool enabled = IDEntry.GetSensitive();
@@ -72,7 +72,7 @@ public class ManageProfileWindow : Window {
 		Box saveNameBox = Box.New(Orientation.Vertical, 5);
 		saveNameBox.Append(saveNameLabel);
 		saveNameBox.Append(saveNameEntry);
-		saveNameBox.SetTooltipText("Set the name of the folder that this profile will save to. (in %LOCALAPPDATA% on Windows, ~/.config on Linux)");
+		saveNameBox.SetTooltipText("Set the name of the folder that this profile will save to. (inside %LOCALAPPDATA% on Windows, ~/.config on Linux)");
 		moddedSaveCheck.OnToggled += (sender, _) => {
 			moddedSaveToggled(sender.GetActive());
 		};
@@ -132,13 +132,19 @@ public class ManageProfileWindow : Window {
 			// when gir.core supports overriding virtual functions (we could subclass EntryBuffer)
 			IDEntry.SetText(ToProfileFolderName(IDEntry.GetText()));
 			
-			if (nameEntry.GetText() == "") {
+
+			Profile newProfile = new Profile(nameEntry.GetText(), IDEntry.GetText(), 
+							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), []);
+			if (newProfile.Name == "") {
 				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
 				popup.Dialog();
 				return;
 			}
-			Profile newProfile = new Profile(nameEntry.GetText(), IDEntry.GetText(), 
-							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), []);
+			if (newProfile.ID == "") {
+				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your profile an ID.", "Okay I'll ID It");
+				popup.Dialog();
+				return;
+			}
 			
 			bool oldProfileExistsAndIDChanged = profile is not null && newProfile.ID != profile.ID;
 			string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man");

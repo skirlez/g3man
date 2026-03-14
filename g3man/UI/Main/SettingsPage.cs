@@ -52,7 +52,7 @@ public partial class MainWindow {
 			initializerRestartLabel.SetVisible(Program.InitializedUsing != selected);
 			MarkDirty();
 		};
-		initializerDropDown.SetTooltipText("Set which library g3man should use to create its window.\nWith GTK4, you'll be able to change themes.\nWith libadwaita, g3man will look like a GNOME app.");
+		initializerDropDown.SetTooltipText("Set which library g3man should use to create its window.\nWith libadwaita, g3man will look like a GNOME app.");
 
 		
 		Box initializerBox = Box.New(Orientation.Horizontal, 10);

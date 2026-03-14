@@ -5,25 +5,25 @@ public class Logger {
 	private readonly string errorPrefix;
 	private readonly string debugPrefix;
 	
-	private readonly TextWriter[] infos;
-	private readonly TextWriter[] errors;
+	private readonly List<TextWriter> infos;
+	private readonly List<TextWriter> errors;
 
 
 	/**
 	* Create a logger that logs to standard out, standard error, and the log file.
 	*/
 	public static Logger Make(string prefix) {
-		return new Logger(prefix, Program.InfoWriters(), Program.ErrorWriters());
+		return new Logger(prefix, Program.InfoWriters, Program.ErrorWriters);
 	}
 	
 	/**
 	* Create a logger that only logs to standard error and the log file.
 	*/
 	public static Logger MakeWithoutInfo(string prefix) {
-		return new Logger(prefix, [], Program.ErrorWriters());
+		return new Logger(prefix, [], Program.ErrorWriters);
 	}
 	
-	private Logger(string prefix, TextWriter[] infos, TextWriter[] errors) {
+	private Logger(string prefix, List<TextWriter> infos, List<TextWriter> errors) {
 		if (prefix == "")
 			infoPrefix = errorPrefix = debugPrefix = "";
 		else {

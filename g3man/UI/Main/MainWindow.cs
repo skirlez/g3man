@@ -8,6 +8,7 @@ using Window = Gtk.Window;
 
 namespace g3man.UI.Main;
 
+#pragma warning disable CS8618
 public partial class MainWindow : Window {
 	private ListBox gamesListBox;
 	private Entry gameDirectoryEntry;
@@ -29,9 +30,6 @@ public partial class MainWindow : Window {
 	private Label currentGameLabel;
 	private Label currentProfileLabel;
 	
-	private Box[] allPages;
-	private string[] pageNames;
-	private string[] pageTitles;
 	private ToggleButton[] pageButtons;
 	
 	private const string aboutTitle = "About";
@@ -59,8 +57,8 @@ public partial class MainWindow : Window {
 		Box logsPage = Box.New(Orientation.Vertical, 0);
 		Box aboutPage = Box.New(Orientation.Vertical, 0);
 		
-		allPages = [gamesPage, profilesPage, modsPage, settingsPage, logsPage, aboutPage];
-		pageTitles = ["Games", "Profiles", "Mods", "Settings", "Logs", aboutTitle];
+		Box[] allPages = [gamesPage, profilesPage, modsPage, settingsPage, logsPage, aboutPage];
+		string[] pageTitles = ["Games", "Profiles", "Mods", "Settings", "Logs", aboutTitle];
 		pageButtons = new ToggleButton[pageTitles.Length];
 		
 		
@@ -130,13 +128,6 @@ public partial class MainWindow : Window {
 		SetupLogsPage(logsPage);
 		SetupAboutPage(aboutPage);
 		
-		Debug.Assert(modsListBox is not null 
-			&& profilesListBox is not null
-			&& gameDirectoryEntry is not null
-			&& gamesListBox is not null
-			&& selectProfileButtons is not null);
-		
-		
 		currentGameLabel = Label.New("No game selected");
 		currentGameLabel.SetEllipsize(EllipsizeMode.Start);
 		Label slash = Label.New("/");
@@ -149,11 +140,9 @@ public partial class MainWindow : Window {
 		currentSetupBox.Append(slash);
 		currentSetupBox.Append(currentProfileLabel);
 		
-		
 		currentSetupBox.SetHalign(Align.Center);
 		currentSetupBox.SetHexpand(true);
 		currentSetupBox.SetMargin(10);
-
 
 		Box programBox = Box.New(Orientation.Vertical, 0);
 		programBox.Append(pageBox);

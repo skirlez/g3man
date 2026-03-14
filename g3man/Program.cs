@@ -23,15 +23,11 @@ public static class Program {
 	private static Profile? profile;
 
 	public static string LogFilename = null!;
-	private static TextWriter Logfile = null!;
-	public static GtkBufferTextWriter? GtkBufferLogfile = null;
+	private static TextWriter? Logfile = null;
+	public static GtkTextBufferWriter? GtkLogWriter = null;
 	
-	public static TextWriter[] InfoWriters() {
-		return new List<TextWriter?>([Console.Out, Logfile, GtkBufferLogfile]).Where(item => item is not null).ToArray()!;
-	}
-	public static TextWriter[] ErrorWriters() {
-		return new List<TextWriter?>([Console.Error, Logfile, GtkBufferLogfile]).Where(item => item is not null).ToArray()!;
-	}
+	public static List<TextWriter> InfoWriters = new List<TextWriter>([Console.Out]);
+	public static List<TextWriter> ErrorWriters = new List<TextWriter>([Console.Error]);
 	
 	private static Application application = null!;
 	private static MainWindow window = null!;
@@ -55,6 +51,8 @@ public static class Program {
 		profile = newProfile;
 	}
 
+	public static Thread MainThread = null!;
+
 	#if WINDOWS
 		[DllImport("kernel32.dll")]
 		static extern bool AttachConsole(int dwProcessId);
@@ -65,35 +63,38 @@ public static class Program {
 		#if WINDOWS
 			AttachConsole(ATTACH_PARENT_PROCESS);
 		#endif
-
+		MainThread = Thread.CurrentThread;
+		LogFilename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
 		if (args.Length == 0) {
+			Logger = Logger.Make("");
+			try {
+				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
+				Directory.CreateDirectory(logs);
+				StreamWriter logfile = new StreamWriter(Path.Combine(logs, LogFilename));
+				logfile.AutoFlush = true;
+				
+				Logfile = logfile;
+				InfoWriters.Add(Logfile);
+				ErrorWriters.Add(Logfile);
+			}
+			catch (Exception e) {
+				Logger.Error("Failed to initialize logging to file: " + e);
+				Logger.Error("This session will not be logged to file.");
+			}
+
 			try {
 				Gtk.Module.Initialize();
 			}
 			catch (Exception e) {
-				Console.Error.WriteLine("GTK is not installed! Cannot launch UI.");
+				Logger.Error($"GTK failed to initialize: {e}");
+				return 1;
 			}
-			try {
-				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
-				Directory.CreateDirectory(logs);
-				LogFilename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
-				StreamWriter logfile = new StreamWriter(Path.Combine(logs, LogFilename));
-				logfile.AutoFlush = true;
-				Logfile = logfile;
-				GtkBufferLogfile = new GtkBufferTextWriter();
-				Logger = Logger.Make("");
-			}
-			catch (Exception e) {
-				Logger = Logger.Make("");
-				Logger.Error("Failed to initialize logging to file: " + e);
-				Logger.Error("This session will not be logged to file.");
-			}
-			JsonElement? configJson = Config.Read();
-			if (configJson is null)
-				Config = new Config();
-			else
-				Config = new Config(configJson.Value);
-			DataLoader = new DataLoader();
+			
+			GtkLogWriter = new GtkTextBufferWriter();
+			InfoWriters.Add(GtkLogWriter);
+			ErrorWriters.Add(GtkLogWriter);
+	
+			
 			#if WINDOWS
 				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
 				// Doesn't happen to me anymore!
@@ -103,24 +104,43 @@ public static class Program {
 				if (schemaDir is null || schemaDir.Length == 0)
 					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", "./default-glib-schemas");
 			#endif
-			InitializedUsing = Config.Initializer;
-			if (Config.Initializer == Initializer.Gtk4)
-				application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+			
+			JsonElement? configJson = Config.Read();
+			if (configJson is null)
+				Config = new Config();
 			else
-				application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+				Config = new Config(configJson.Value);
+			InitializedUsing = Config.Initializer;
+			if (InitializedUsing == Initializer.Libadwaita) {
+				try {
+					application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+				}
+				catch (Exception e) {
+					Logger.Error($"Failed to create Libadwaita application instance: {e}\nTrying GTK instead...");
+					InitializedUsing = Initializer.Gtk4;
+				}
+			}
+
+			if (InitializedUsing == Initializer.Gtk4) {
+				try {
+					application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
+				}
+				catch (Exception e) {
+					Logger.Error($"Failed to create GTK application instance: {e}");
+					return 1;
+				}
+			}
 
 			application.OnActivate += (_, _) => {
+				DataLoader = new DataLoader();
 				window = new MainWindow();
 				application.AddWindow(window);
 				window.Show();
 			};
 			application.OnShutdown += (_, _) => {
 				//Config.Write();
-				Logfile.Flush();
+				Logfile?.Flush();
 			};
-
-
-
 			return application.RunWithSynchronizationContext([]);
 		}
 
@@ -131,7 +151,6 @@ public static class Program {
 
 
 	// TODO; I don't really know if this is correct.
-	// Seems to work, but there's barely any documentation for this stuff.
 	public static void RunOnMainThreadEventually(Action action) {
 		GLib.MainContext.Default().InvokeFull((int)GLib.ThreadPriority.Low, () => {
 			action.Invoke();
@@ -152,7 +171,5 @@ public static class Program {
 	public enum Theme {
 		SystemDefault,
 		None,
-		Windows10,
-		Windows11
 	}
 }

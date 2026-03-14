@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using g3man.Util;
+using GObject;
 using Gtk;
 
 namespace g3man.UI.Main;
@@ -11,8 +13,14 @@ public partial class MainWindow {
 		Label logsLabel = Label.New($"Current log: {Program.LogFilename}");
 		logsLabel.SetMargin(10);
 		
-		TextView view = TextView.NewWithBuffer(Program.GtkBufferLogfile!.GetBuffer());
-
+		Debug.Assert(Program.GtkLogWriter is not null);
+		TextView view = TextView.NewWithBuffer(Program.GtkLogWriter.GetBuffer());
+		view.SetWrapMode(WrapMode.WordChar);
+		view.SetLeftMargin(5);
+		view.SetTopMargin(3);
+		view.SetRightMargin(5);
+		view.SetBottomMargin(3);
+		
 		view.SetEditable(false);
 		view.SetMonospace(true);
 		
@@ -20,16 +28,39 @@ public partial class MainWindow {
 		logWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
 		logWindow.SetVexpand(true);
 		logWindow.SetChild(view);
+		logWindow.SetMargin(10);
+		logWindow.SetHasFrame(true);
 		
-
-		Frame frame = Frame.New(null);
-		frame.Child = logWindow;
-		frame.SetChild(logWindow);
-		frame.SetMarginTop(5);
-		frame.SetMarginStart(10);
-		frame.SetMarginEnd(10);
-		frame.SetMarginBottom(5);
-	
+		/*
+		// if you're at the bottom of the log, it should stay there if new lines come in
+		
+		// ... unfortunately doesn't work because there's seemingly no (working) way to handle
+		// all ways to move the scrollbar.
+		
+		// checking for if the value of the scrollbar moves away from the bottom is not sufficient
+		// seems to cause it to always think it's moved away from the bottom *after* we try to set it to 
+		// the new bottom when the scrollbar's upper bound is changed. I don't know.
+		
+		Adjustment scrollbar = logWindow.GetVadjustment();
+		bool stuckToBottom = true;
+		logWindow.OnEdgeReached += (sender, args) => {
+		   	if (!stuckToBottom && args.Pos == PositionType.Bottom) {
+		   		Console.WriteLine(args.Pos);
+		   		stuckToBottom = true;
+		   	}
+		};
+		Adjustment.UpperPropertyDefinition.Notify(
+			sender: scrollbar,
+			signalHandler: (_, _) => {
+				if (stuckToBottom) {
+					scrollbar.SetValue(scrollbar.GetUpper() - scrollbar.GetPageSize());
+				}
+			}
+		);
+		*/
+		
+		
+		
 
 		Button openLogsFolderButton = Button.NewWithLabel("Open logs folder");
 		openLogsFolderButton.SetMargin(10);
@@ -39,7 +70,7 @@ public partial class MainWindow {
 		};
 		
 		page.Append(logsLabel);
-		page.Append(frame);
+		page.Append(logWindow);
 		page.Append(openLogsFolderButton);
 	}
 	
