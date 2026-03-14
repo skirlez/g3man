@@ -8,7 +8,7 @@ using Gtk;
 
 namespace g3man.UI;
 
-public class ManageProfileWindow : Window {
+public class ManageProfileWindow : G3manWindow {
 	private Profile? profile;
 	
 	public ManageProfileWindow(Profile? profile, Action<Profile> saveCallback, System.Action? deleteCallback = null) {

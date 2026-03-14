@@ -23,8 +23,8 @@ public partial class MainWindow {
 		{
 			Program.ColorScheme selected = (Program.ColorScheme)themeDropDown.GetActive();
 			Program.ApplyColorScheme(selected);
-			#if WINDOWS
-				Program.Titlebar?.ApplyCurrentThemeColor();
+			#if THEMABLE_TITLEBAR
+				ApplyCurrentThemeToTitlebar();
 			#endif
 			Program.Config.ColorScheme = selected;
 			MarkDirty();

@@ -43,7 +43,7 @@ public class Config {
 			allowModScripting = 0;
 		AllowModScripting = allowModScripting == 1;
 		
-		UseMoreMemory = JsonUtil.GetOrDefault(root, "use_more_memory", false);
+		UseMoreMemory = JsonUtil.GetOrDefault(root, "use_more_memory", true);
 		CheckForUpdates = JsonUtil.GetOrDefault(root, "check_for_updates", true);
 
 	}

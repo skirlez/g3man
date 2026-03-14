@@ -8,7 +8,7 @@ using Thread = System.Threading.Thread;
 
 namespace g3man.UI;
 
-public class GameAdderWindow : Window {
+public class GameAdderWindow : G3manWindow {
 	public static Logger logger = Logger.Make("GAMEADDER");
 	
 	private readonly Label label;

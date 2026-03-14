@@ -2,23 +2,20 @@ using Gtk;
 
 namespace g3man.UI;
 
-public class PopupWindow : Window
-{
-
-    
+public class PopupWindow : G3manWindow {
     public static Action<PopupWindow> CloseAction = (window => {
         window.Close();
     });
     private Window owner;
-
     public PopupWindow(Window owner, string title, string message, string buttonText) 
-        : this(owner, title, message, [buttonText], [CloseAction]) { }
+        : this(owner, title, message, [buttonText], [CloseAction]) {}
 
     public PopupWindow(Window owner, string title, string message, 
             string[] buttonTexts, Action<PopupWindow>[] actions) {
         SetTitle(title);
         SetResizable(false);
         SetSizeRequest(400, 200);
+        
         this.owner = owner;
         
         Label messageLabel = Label.New(message);

@@ -8,7 +8,7 @@ using UndertaleModLib;
 
 namespace g3man.UI;
 
-public class PatcherWindow : Window {
+public class PatcherWindow : G3manWindow {
 	private volatile bool canClose = false;
 	
 	private Label statusLabel;

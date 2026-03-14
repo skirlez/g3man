@@ -10,7 +10,8 @@ using Window = Gtk.Window;
 namespace g3man.UI.Main;
 
 #pragma warning disable CS8618
-public partial class MainWindow : Window {
+
+public partial class MainWindow : G3manWindow {
 	private ListBox gamesListBox;
 	private Entry gameDirectoryEntry;
 	private List<Button> selectGameButtons;

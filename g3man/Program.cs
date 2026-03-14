@@ -35,7 +35,6 @@ public static class Program {
 	public static List<TextWriter> ErrorWriters = new List<TextWriter>([Console.Error]);
 	
 	private static Application application = null!;
-	private static MainWindow window = null!;
 
 	public static Profile? GetProfile() {
 		return profile;
@@ -62,54 +61,8 @@ public static class Program {
 		[DllImport("kernel32.dll")]
 		static extern bool AttachConsole(int dwProcessId);
 		private const int ATTACH_PARENT_PROCESS = -1;
-	
-		[DllImport("dwmapi.dll")]
-		private static extern uint DwmSetWindowAttribute(
-			IntPtr hwnd,
-			uint dwAttribute,
-			ref uint pvAttribute,
-			uint cbAttribute 
-		);
-	
-		
-		private const uint DWMWA_CAPTION_COLOR = 35;
-		private const uint DWMWA_COLOR_DEFAULT = 0xFFFFFFFF;
-
-		public class WindowTitlebar(HWND hwnd)
-		{
-			private enum Color : uint
-			{
-				Default = DWMWA_COLOR_DEFAULT,
-				GtkDark = 0x002D2D2D,
-				AdwaitaDark = 0x00201D1D,
-			}
-
-			private Color getAppropriateColor() {
-				if (InitializedUsing == Initializer.Gtk4) {
-					Settings? settings = Settings.GetDefault();
-					if (settings is not null && settings.GtkInterfaceColorScheme == InterfaceColorScheme.Dark)
-						return Color.GtkDark;
-					return Color.Default;
-				}
-				return Adw.StyleManager.GetDefault().GetColorScheme() switch {
-					Adw.ColorScheme.Default 
-						or Adw.ColorScheme.ForceLight 
-						or Adw.ColorScheme.PreferLight => Color.Default,
-					Adw.ColorScheme.ForceDark 
-						or Adw.ColorScheme.PreferDark => Color.AdwaitaDark,
-					_ => throw new UnreachableException()
-				};
-			}
-			public void ApplyCurrentThemeColor()
-			{
-				uint cast = (uint)getAppropriateColor();
-				DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ref cast, sizeof(uint));
-			}
-		}
-		public static WindowTitlebar? Titlebar;
-	
 	#endif
-
+	
 	public static int Main(string[] args) {
 		#if WINDOWS
 			AttachConsole(ATTACH_PARENT_PROCESS);
@@ -182,29 +135,17 @@ public static class Program {
 					return 1;
 				}
 			}
-
+			#if WINDOWS
+				GdkWin32.Module.Initialize();
+			#endif
+			
 			application.OnActivate += (_, _) => {
 				DataLoader = new DataLoader();
-				window = new MainWindow();
+				MainWindow window = new MainWindow();
 				application.AddWindow(window);
 				ApplyColorScheme(Config.ColorScheme);
 				
-				#if WINDOWS
-					GdkWin32.Module.Initialize();
-					window.OnRealize += (_, _) => {
-						Surface? surface = window.GetSurface();
-						if (surface is null)
-							return;
-						if (!Win32Surface.IsWin32(surface))
-							return;
-						Titlebar = new WindowTitlebar(Win32Surface.GetImplHwnd(surface));
-						Titlebar.ApplyCurrentThemeColor();
-					};
-				#endif
-		
 				window.Show();
-				
-
 			};
 			application.OnShutdown += (_, _) => {
 				//Config.Write();
@@ -263,4 +204,6 @@ public static class Program {
 			});
 		}
 	}
+
+
 }
