@@ -76,13 +76,13 @@
   },
   {
     "pname": "Magick.NET-Q8-AnyCPU",
-    "version": "14.10.1",
-    "hash": "sha256-cfibwNXXErSxUVxMx/PDSTlWvsFBY+m8y2vzo4n43F0="
+    "version": "14.10.4",
+    "hash": "sha256-EJL6U0Fy/eTLy4mlxjzI8qKv1EpQASHM+O2mRUzSQr8="
   },
   {
     "pname": "Magick.NET.Core",
-    "version": "14.10.1",
-    "hash": "sha256-Qg7x5eX0ZQ3oXkcamS/qE/HgmTNQ+Dppyi6exerwgkI="
+    "version": "14.10.4",
+    "hash": "sha256-qadZhuOIB3uNWz+nAEx+57oAYRQtPZ+1jk67sutzcKo="
   },
   {
     "pname": "Microsoft.AspNetCore.App.Runtime.win-x64",
@@ -101,28 +101,28 @@
   },
   {
     "pname": "Microsoft.CodeAnalysis.Analyzers",
-    "version": "3.11.0",
-    "hash": "sha256-hQ2l6E6PO4m7i+ZsfFlEx+93UsLPo4IY3wDkNG11/Sw="
+    "version": "5.3.0-2.25625.1",
+    "hash": "sha256-W2CaLe+fpnD2/2VL6jPW/Ct17qOt4lGZKK2X8HU7MLI="
   },
   {
     "pname": "Microsoft.CodeAnalysis.Common",
-    "version": "5.0.0",
-    "hash": "sha256-g4ALvBSNyHEmSb1l5TFtWW7zEkiRmhqLx4XWZu9sr2U="
+    "version": "5.3.0",
+    "hash": "sha256-O5RVbqAWXL2FcCNtn+dPAVJ/5aiaxc8nQWojJSsx61w="
   },
   {
     "pname": "Microsoft.CodeAnalysis.CSharp",
-    "version": "5.0.0",
-    "hash": "sha256-ctBCkQGFpH/xT5rRE3xibu9YxPD108RuC4a4Z25koG8="
+    "version": "5.3.0",
+    "hash": "sha256-A3jxlZEyfgEn9unhoQqbOsA0wd/mA8aak6dRlu5mHIU="
   },
   {
     "pname": "Microsoft.CodeAnalysis.CSharp.Scripting",
-    "version": "5.0.0",
-    "hash": "sha256-gg4OAfXklchvNp8po5IGZZC3xXtk8aPh10QyLX2utGU="
+    "version": "5.3.0",
+    "hash": "sha256-QgwDOamE+Ae371I9Ep1Yo1LG1pqXxbTsVEnr7M+FLSU="
   },
   {
     "pname": "Microsoft.CodeAnalysis.Scripting.Common",
-    "version": "5.0.0",
-    "hash": "sha256-cNKFc/VwWgEPWCxTXw++lSwE3zGlcayzRtsJbJ5kIa4="
+    "version": "5.3.0",
+    "hash": "sha256-P/KxnbPb/1cIEYGCuNeTh/1fR6CUixKAul9GBiYqCrg="
   },
   {
     "pname": "Microsoft.NETCore.App.Host.win-x64",
@@ -161,8 +161,8 @@
   },
   {
     "pname": "System.CommandLine",
-    "version": "2.0.1",
-    "hash": "sha256-NDBiPUt/ZZIMBcLHpF/6IMX/UpfsC/XnH3p4i4MHCFw="
+    "version": "2.0.5",
+    "hash": "sha256-gavBH1nbVZW50miEpDQ6KKRDfHRlFz6ZLYkh0LOWug4="
   },
   {
     "pname": "System.IO.Pipelines",
