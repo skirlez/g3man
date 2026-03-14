@@ -40,14 +40,6 @@ jobs:
         with:
           python-version: '3.12' 
 
-      - name: Choose Dependencies to Bundle
-        if: runner.os == 'Windows'
-        env:
-          MINGWROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64
-        run: |
-          cd g3man/Publishing
-          python3 generate_library_inclusions_windows.py
-
       - name: Publish
         env:
           MINGWROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64

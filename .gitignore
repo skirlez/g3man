@@ -1,7 +1,5 @@
 # g3man Artifacts
-g3man/Publishing/libraries.txt
 g3man/Publishing/package
-g3man/Publishing/bundle_gtk.targets
 g3man/Publishing/g3man*.zip
 
 # Some file this library generates

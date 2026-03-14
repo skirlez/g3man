@@ -43,9 +43,4 @@
   <ItemGroup Condition="'$(IsWindows)'=='true'">
     <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.7.0" />
   </ItemGroup>
-  
-
-  <!-- Thanks to the Pinta project for figuring this out https://github.com/PintaProject/Pinta/ -->
-  <!-- For Windows, copy GTK library dependencies to the build folder. -->
-  <Import Condition="'$(IsWindows)'=='true'" Project="Publishing/bundle_gtk.targets" />
 </Project>
