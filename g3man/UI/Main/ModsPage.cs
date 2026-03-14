@@ -21,7 +21,6 @@ public partial class MainWindow {
 		modInfoWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
 		modInfoWindow.SetMargin(10);
 		modInfoWindow.SetChild(modDescriptionLabel);
-
 		
 		modsListBox = ListBox.New();
 		modsListBox.SetHexpand(true);

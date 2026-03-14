@@ -22,8 +22,6 @@ public class Mod {
 	public int TargetPatcherVersion;
 	public PatchLocation[] Patches;
 	public string DatafilePath;
-
-	public string[] Mangle;
 	
 	public string PreMergeScriptPath;
 	public string PostMergeScriptPath;

@@ -228,8 +228,9 @@ public class ManageProfileWindow : Window {
 	}
 
 	private string ToProfileFolderName(string profileDisplayName) {
-		string build = profileDisplayName.ToLowerInvariant().Replace(' ', '_');
-		foreach (char c in Path.GetInvalidFileNameChars()) {
+		char[] disallowed = Path.GetInvalidFileNameChars().Concat(['.', '/', '\\']).ToArray();
+		string build = profileDisplayName.ToLowerInvariant().Replace(' ', '-');
+		foreach (char c in disallowed) {
 			build = build.Replace(c, '_');	
 		}
 		return build;

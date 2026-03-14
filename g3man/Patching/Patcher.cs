@@ -21,19 +21,19 @@ public class Patcher {
 	public const string CleanDataBackupName = "BACKUP_clean_data.win";
 
 	enum OverlapBehavior {
-		ImplicitlyExcludeExplicitlyOverride,
-		ExplicitlyExcludeImplicitlyOverride,
+		ImplicitlyFakeExplicitlyOverride,
+		ExplicitlyFakeImplicitlyOverride,
 		AllExplicit,
 	}
-	private OverlapBehavior overlapBehavior = OverlapBehavior.ImplicitlyExcludeExplicitlyOverride;
+	private OverlapBehavior overlapBehavior = OverlapBehavior.ImplicitlyFakeExplicitlyOverride;
 
 	/**
 	* Keeps track of overriden assets so we don't override the same asset more than once.
 	*/
-	private HashSet<UndertaleObject> overridenAssets;
+	private HashSet<UndertaleObject> overridenAssets = new HashSet<UndertaleObject>();
 	
 	private const string OVERRIDE_PREFIX = "g3man_override_";
-	private const string EXCLUDE_PREFIX = "g3man_fake_";
+	private const string FAKE_PREFIX = "g3man_fake_";
 	private const string IGNORE_PREFIX = "g3man_ignore_";
 
 	/**
@@ -65,18 +65,18 @@ public class Patcher {
 	 */
 	private T? GetMimicedResource<T>(Dictionary<string, T> nameMap, T resource) where T : UndertaleNamedResource {
 		string name = resource.Name.Content;
-		if (overlapBehavior == OverlapBehavior.ImplicitlyExcludeExplicitlyOverride) {
+		if (overlapBehavior == OverlapBehavior.ImplicitlyFakeExplicitlyOverride) {
 			if (!nameMap.ContainsKey(name))
 				return default(T);
 			return nameMap[name];
 		}
 
-		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyExcludeImplicitlyOverride 
+		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyFakeImplicitlyOverride 
 		             || overlapBehavior == OverlapBehavior.AllExplicit);
-		if (!name.StartsWith(EXCLUDE_PREFIX))
+		if (!name.StartsWith(FAKE_PREFIX))
 			return default(T);
 
-		string substr = name.Substring(EXCLUDE_PREFIX.Length);
+		string substr = name.Substring(FAKE_PREFIX.Length);
 		if (!nameMap.ContainsKey(substr))
 			return default(T);
 		return nameMap[substr];
@@ -86,21 +86,21 @@ public class Patcher {
 	 * If the resource should override some other resource according to the patcher's settings, return the object it should replace.
 	 * Otherwise returns null.
 	 */
-	private T? GetResourceToOverride<T>(IList<T> list, T resource) where T : UndertaleNamedResource {
+	private T? GetResourceToOverride<T>(IList<T?> list, T resource) where T : UndertaleNamedResource {
 		string name = resource.Name.Content;
-		if (overlapBehavior == OverlapBehavior.ImplicitlyExcludeExplicitlyOverride ||
+		if (overlapBehavior == OverlapBehavior.ImplicitlyFakeExplicitlyOverride ||
 		    overlapBehavior == OverlapBehavior.AllExplicit) {
 			if (!name.StartsWith(OVERRIDE_PREFIX))
 				return default(T);
 			return list.ByName(name.Substring(OVERRIDE_PREFIX.Length));
 		}
-		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyExcludeImplicitlyOverride);
+		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyFakeImplicitlyOverride);
 		T? old = list.ByName(name);
 		return old;
 	}
 	
 	// every null check here is warranted and added because i found it in the wild at some point
-	private void MergeLists<T>(IList<T?>? to, IList<T?>? from, bool mangle, bool canMimic = true, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
+	private void MergeLists<T>(IList<T?>? to, IList<T?>? from, bool canMimic = true, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
 		if (to is null || from is null)
 			return;
 		Dictionary<string, T> nameMap = to.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
@@ -115,8 +115,6 @@ public class Patcher {
 				if (!process(resource, nameMap))
 					continue;
 			}
-			if (mangle)
-				resource.Name.Content = G3MAN_MANGLE_PREFIX + resource.Name.Content;
 			to.Add(resource);
 		}
 		HandleOverrides(to, from);
@@ -125,7 +123,7 @@ public class Patcher {
 	
 	// TODO:
 	// Calls GetResourceToOverride for each overrider (uses ByName, very bad performance with many overriders)
-	private void HandleOverrides<T>(IList<T> to, IList<T?> from) where T : UndertaleNamedResource {
+	private void HandleOverrides<T>(IList<T?> to, IList<T?> from) where T : UndertaleNamedResource {
 		List<T> overriders = from.Where(resource => resource is not null).Where(resource => resource!.Name.Content.StartsWith(OVERRIDE_PREFIX)).ToList()!;
 		foreach (T overrider in overriders) {
 			T? old = GetResourceToOverride(to, overrider);
@@ -160,12 +158,11 @@ public class Patcher {
 	 * 
 	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
 	 */
-	private void merge(UndertaleData data, UndertaleData modData, string[] mangle, string modFolderName) {
+	private void merge(UndertaleData data, UndertaleData modData, string modFolderName) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
 		data.GeneralInfo.LastObj += modData.GeneralInfo.LastObj - 100000;
-
-		bool mangleAll = mangle.Contains("all");
+		
 		
 		int lastTexturePage = data.EmbeddedTextures.Count - 1;
 		int lastTexturePageItem = data.TexturePageItems.Count - 1;
@@ -182,7 +179,7 @@ public class Patcher {
 			dict.Add(embeddedTexture, lastTexturePage);
 		}
 		
-		MergeLists(data.Sprites, modData.Sprites, mangleAll || mangle.Contains("sprites"), canMimic: true, (sprite, _) => {
+		MergeLists(data.Sprites, modData.Sprites, canMimic: true, (sprite, _) => {
 			foreach (UndertaleSprite.TextureEntry textureEntry in sprite.Textures) {
 				int newIndex = dict[textureEntry.Texture.TexturePage];
 				textureEntry.Texture.TexturePage = data.EmbeddedTextures[newIndex];
@@ -193,7 +190,7 @@ public class Patcher {
 			return true;
 		});
 	
-		MergeLists(data.Sounds, modData.Sounds, mangleAll || mangle.Contains("sounds"), canMimic: true, (sound, _) => {
+		MergeLists(data.Sounds, modData.Sounds, canMimic: true, (sound, _) => {
 			// This stuff is unfinished, I don't trust these flags. I'll write the intention with each of these...
 			if (sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsCompressed) || sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded)) {
 				// assign all embedded audio to audiogroup_default (assigning them to different ones would require
@@ -210,7 +207,7 @@ public class Patcher {
 			return true;
 		});
 		
-		MergeLists(data.Code, modData.Code, mangleAll || mangle.Contains("code"));
+		MergeLists(data.Code, modData.Code);
 		foreach (UndertaleFunction function in modData.Functions) {
 			data.Functions.Add(function);
 			function.NameStringID += stringListLength;
@@ -236,12 +233,12 @@ public class Patcher {
 				data.CodeLocals.Add(locals);
 		}
 
-		MergeLists(data.Scripts, modData.Scripts, mangleAll || mangle.Contains("scripts"));
+		MergeLists(data.Scripts, modData.Scripts);
 		
 		// TODO: I think there's several instances now where these maps are made more than once. They should be made once.
 		Dictionary<string, UndertaleGameObject> gameObjectNameMap = data.GameObjects.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
 
-		MergeLists(data.GameObjects,  modData.GameObjects, mangleAll || mangle.Contains("objects"), canMimic: true, (gameObject, nameMap) => {
+		MergeLists(data.GameObjects,  modData.GameObjects, canMimic: true, (gameObject, nameMap) => {
 			UndertaleGameObject parent = gameObject.ParentId;
 			if (parent is not null) {
 				UndertaleGameObject? parentFromGame = GetMimicedResource(nameMap, parent);
@@ -266,12 +263,7 @@ public class Patcher {
 					UndertaleGameObject collisionObject = modData.GameObjects[objectIndex];
 
 					UndertaleGameObject? collisionObjectFromGame = GetMimicedResource(gameObjectNameMap, collisionObject);
-					if (collisionObjectFromGame is null) {
-						objectIndex = data.GameObjects.IndexOf(collisionObject);
-					}
-					else {
-						objectIndex = data.GameObjects.IndexOf(collisionObjectFromGame);
-					}
+					objectIndex = data.GameObjects.IndexOf(collisionObjectFromGame ?? collisionObject);
 
 					collisionEvent.EventSubtype = (uint)objectIndex;
 				}
@@ -287,7 +279,7 @@ public class Patcher {
 			}
 		}
 
-		MergeLists(data.Rooms, modData.Rooms, mangleAll || mangle.Contains("rooms"), canMimic: true,(room, _) => {
+		MergeLists(data.Rooms, modData.Rooms, canMimic: true,(room, _) => {
 			foreach (UndertaleRoom.Layer layer in room.Layers) {
 				if (layer.LayerType != UndertaleRoom.LayerType.Instances) 
 					continue;
@@ -296,21 +288,17 @@ public class Patcher {
 			}
 			return true;
 		});
-
-
-
-
-		MergeLists(data.AnimationCurves, modData.AnimationCurves, mangleAll || mangle.Contains("animation_curves"));
-
 		
+		MergeLists(data.AnimationCurves, modData.AnimationCurves);
+
 		
 		// TODO: test these
-		MergeLists(data.ParticleSystems, modData.ParticleSystems, mangleAll || mangle.Contains("particle_systems"));
-		MergeLists(data.ParticleSystemEmitters, modData.ParticleSystemEmitters, mangleAll || mangle.Contains("particle_system_emitters"));
-		MergeLists(data.Sequences, modData.Sequences, mangleAll || mangle.Contains("sequences"));
-		MergeLists(data.Timelines, modData.Timelines, mangleAll || mangle.Contains("timelines"));
-		MergeLists(data.Paths, modData.Paths, mangleAll || mangle.Contains("paths"));
-		MergeLists(data.Shaders, modData.Shaders, mangleAll || mangle.Contains("shaders"));
+		MergeLists(data.ParticleSystems, modData.ParticleSystems);
+		MergeLists(data.ParticleSystemEmitters, modData.ParticleSystemEmitters);
+		MergeLists(data.Sequences, modData.Sequences);
+		MergeLists(data.Timelines, modData.Timelines);
+		MergeLists(data.Paths, modData.Paths);
+		MergeLists(data.Shaders, modData.Shaders);
 		
 		foreach (UndertaleGlobalInit script in modData.GlobalInitScripts)
 			data.GlobalInitScripts.Add(script);
@@ -321,7 +309,7 @@ public class Patcher {
 		data.GeneralInfo.FunctionClassifications |= modData.GeneralInfo.FunctionClassifications;
 	}
 
-	private const string CHECK_LOGS = "Check the log for more details.";
+	private const string CHECK_LOG = "Check the log for more details.";
 
 	private string identifyMod(Mod mod) {
 		return $"{mod.DisplayName} (ID \"{mod.ModId}\")";
@@ -338,7 +326,7 @@ public class Patcher {
 				return;
 			}
 			logger.Error($"{message}\n{error}");
-			statusCallback($"{message} {CHECK_LOGS}");
+			statusCallback($"{message} {CHECK_LOG}");
 		}
 		
 		bool runModScript(Mod mod, Func<Mod, string> getScriptPath, ScriptGlobals globals) {
@@ -382,13 +370,12 @@ public class Patcher {
 			setStatusAndInfo(sb.ToString());
 			return null;
 		}
-
-		overridenAssets = new HashSet<UndertaleObject>();
+		
 		foreach (Mod mod in mods) {
-			UndertaleData? modData = null;
 			if (mod.DatafilePath != "") {
 				setStatusAndInfo($"Merging: {mod.DisplayName}");
 				string fullDatafilePath = Path.Combine(profileLocation, mod.FolderName, mod.DatafilePath);
+				UndertaleData? modData = null;
 				try {
 					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
 					modData = UndertaleIO.Read(stream);
@@ -399,7 +386,7 @@ public class Patcher {
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
-				merge(data, modData, mod.Mangle, mod.FolderName);
+				merge(data, modData, mod.FolderName);
 				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 			}
@@ -489,7 +476,7 @@ public class Patcher {
 			Language.ApplyPatches(record, source, order);
 		}
 		catch (PatchApplicationException e) {
-			statusCallback($"Patching failed! {CHECK_LOGS}\n{e.Blame()}");
+			statusCallback($"Patching failed! {CHECK_LOG}\n{e.Blame()}");
 			logger.Error($"Patching failed! {e.FullMessage()}");
 			return null;
 		}
@@ -524,7 +511,7 @@ public class Patcher {
 			for (int i = 1; i < modsResponsible.Count; i++) {
 				modsResponsibleString += $", {identifyMod(modsResponsible[i])}";
 			}
-			statusCallback($"Compilation failed! {CHECK_LOGS}\nOne or more of the following mods are at fault:\n{modsResponsibleString}");
+			statusCallback($"Compilation failed! {CHECK_LOG}\nOne or more of the following mods are at fault:\n{modsResponsibleString}");
 			logger.Error($"Compilation failed! Below will be a file-by-file analysis,"
 				+ " showing which files failed to compile, and which mods change that file."
 				+ $"\n{error}");

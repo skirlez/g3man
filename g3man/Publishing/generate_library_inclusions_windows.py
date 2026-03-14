@@ -1,4 +1,12 @@
+import subprocess
 import os
+
+if os.name != "nt":
+	print("This is a Windows only script.")
+	exit()
+	
+mingwroot = os.environ.get("MINGWROOT", "C:\\msys64\\mingw64")
+
 
 magic_string = "REPLACE_HERE"
 
@@ -34,15 +42,19 @@ bundle_gtk_targets_template = rf"""
 """
 
 if __name__ == "__main__":
-    if not os.path.isfile("libraries.txt"):
-        print("Please make a libraries.txt with the required libraries.")
-        print("Should be the output of `ldd libadwaita-1-0.dll | grep \"\\/mingw.*\\.dll\" -o`")
-        exit()
-    with open("libraries.txt", "rt") as f:
-        includes = "<GtkFile Include=\"$(MinGWBinFolder)\\libadwaita-1-0.dll\" />"
-        for line in f:
-            name = os.path.basename(line.strip())
-            includes += f"\n    <GtkFile Include=\"$(MinGWBinFolder)\\{name}\" />"
-    with open("bundle_gtk.targets", "wt") as f:
-        f.write(bundle_gtk_targets_template.replace(magic_string, includes))
-    print("Updated bundle_gtk.targets!")
+	result = subprocess.run(
+		["ldd", f"{mingwroot}/bin/libadwaita-1-0.dll"],
+		capture_output = True,
+		text = True)
+	if (result.returncode != 0):
+		exit()
+	include_lines = result.stdout.split("\n")
+	print(include_lines)
+	
+	includes = "<GtkFile Include=\"$(MinGWBinFolder)\\libadwaita-1-0.dll\" />"
+	for line in include_lines:
+		name = os.path.basename(line.strip())
+		includes += f"\n    <GtkFile Include=\"$(MinGWBinFolder)\\{name}\" />"
+	with open("bundle_gtk.targets", "wt") as f:
+		f.write(bundle_gtk_targets_template.replace(magic_string, includes))
+	print("Updated bundle_gtk.targets!")
