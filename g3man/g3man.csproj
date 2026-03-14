@@ -36,12 +36,14 @@
     <PackageReference Include="GirCore.Gtk-4.0" Version="0.7.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.3.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.5" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\gmlp\gmlp.csproj" />
     <ProjectReference Include="..\UndertaleModLib\UndertaleModLib.csproj" />
   </ItemGroup>
+  
+  <ItemGroup Condition="'$(IsWindows)'=='true'">
+    <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.7.0" />
+  </ItemGroup>
+  
 
   <!-- Thanks to the Pinta project for figuring this out https://github.com/PintaProject/Pinta/ -->
   <!-- For Windows, copy GTK library dependencies to the build folder. -->

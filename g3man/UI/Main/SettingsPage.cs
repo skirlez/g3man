@@ -22,7 +22,10 @@ public partial class MainWindow {
 		themeDropDown.OnChanged += (_, _) =>
 		{
 			Program.ColorScheme selected = (Program.ColorScheme)themeDropDown.GetActive();
-			ApplyColorScheme(selected);
+			Program.ApplyColorScheme(selected);
+			#if WINDOWS
+				Program.Titlebar?.ApplyCurrentThemeColor();
+			#endif
 			Program.Config.ColorScheme = selected;
 			MarkDirty();
 		};

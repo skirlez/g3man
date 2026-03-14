@@ -2,11 +2,16 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using g3man.Models;
-using g3man.UI;
 using g3man.Util;
+using Gdk;
 using Gtk;
 using DateTime = System.DateTime;
 using MainWindow = g3man.UI.Main.MainWindow;
+
+#if WINDOWS
+	using GdkWin32;
+	using Win32;
+#endif
 
 namespace g3man;
 
@@ -56,7 +61,53 @@ public static class Program {
 	#if WINDOWS
 		[DllImport("kernel32.dll")]
 		static extern bool AttachConsole(int dwProcessId);
-		const int ATTACH_PARENT_PROCESS = -1;
+		private const int ATTACH_PARENT_PROCESS = -1;
+	
+		[DllImport("dwmapi.dll")]
+		private static extern uint DwmSetWindowAttribute(
+			IntPtr hwnd,
+			uint dwAttribute,
+			ref uint pvAttribute,
+			uint cbAttribute 
+		);
+	
+		
+		private const uint DWMWA_CAPTION_COLOR = 35;
+		private const uint DWMWA_COLOR_DEFAULT = 0xFFFFFFFF;
+
+		public class WindowTitlebar(HWND hwnd)
+		{
+			private enum Color : uint
+			{
+				Default = DWMWA_COLOR_DEFAULT,
+				GtkDark = 0x002D2D2D,
+				AdwaitaDark = 0x00201D1D,
+			}
+
+			private Color getAppropriateColor() {
+				if (InitializedUsing == Initializer.Gtk4) {
+					Settings? settings = Settings.GetDefault();
+					if (settings is not null && settings.GtkInterfaceColorScheme == InterfaceColorScheme.Dark)
+						return Color.GtkDark;
+					return Color.Default;
+				}
+				return Adw.StyleManager.GetDefault().GetColorScheme() switch {
+					Adw.ColorScheme.Default 
+						or Adw.ColorScheme.ForceLight 
+						or Adw.ColorScheme.PreferLight => Color.Default,
+					Adw.ColorScheme.ForceDark 
+						or Adw.ColorScheme.PreferDark => Color.AdwaitaDark,
+					_ => throw new UnreachableException()
+				};
+			}
+			public void ApplyCurrentThemeColor()
+			{
+				uint cast = (uint)getAppropriateColor();
+				DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, ref cast, sizeof(uint));
+			}
+		}
+		public static WindowTitlebar? Titlebar;
+	
 	#endif
 
 	public static int Main(string[] args) {
@@ -103,6 +154,7 @@ public static class Program {
 				string? schemaDir = Environment.GetEnvironmentVariable("GSETTINGS_SCHEMA_DIR");
 				if (schemaDir is null || schemaDir.Length == 0)
 					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", "./default-glib-schemas");
+				Environment.SetEnvironmentVariable("GTK_CSD", "0");
 			#endif
 			
 			JsonElement? configJson = Config.Read();
@@ -135,7 +187,24 @@ public static class Program {
 				DataLoader = new DataLoader();
 				window = new MainWindow();
 				application.AddWindow(window);
+				ApplyColorScheme(Config.ColorScheme);
+				
+				#if WINDOWS
+					GdkWin32.Module.Initialize();
+					window.OnRealize += (_, _) => {
+						Surface? surface = window.GetSurface();
+						if (surface is null)
+							return;
+						if (!Win32Surface.IsWin32(surface))
+							return;
+						Titlebar = new WindowTitlebar(Win32Surface.GetImplHwnd(surface));
+						Titlebar.ApplyCurrentThemeColor();
+					};
+				#endif
+		
 				window.Show();
+				
+
 			};
 			application.OnShutdown += (_, _) => {
 				//Config.Write();
@@ -147,8 +216,7 @@ public static class Program {
 		Logger = Logger.Make("");
 		return CLI.Invoke(args);
 	}
-
-
+	
 
 	// TODO; I don't really know if this is correct.
 	public static void RunOnMainThreadEventually(Action action) {
@@ -171,5 +239,28 @@ public static class Program {
 	public enum Theme {
 		SystemDefault,
 		None,
+	}
+
+
+	public static void ApplyColorScheme(ColorScheme colorScheme) {
+		if (InitializedUsing == Initializer.Gtk4) {
+			Settings? settings = Settings.GetDefault();
+			if (settings is null)
+				return;
+			settings.GtkInterfaceColorScheme = colorScheme switch {
+				ColorScheme.SystemDefault => InterfaceColorScheme.Default,
+				ColorScheme.Light => InterfaceColorScheme.Light,
+				ColorScheme.Dark => InterfaceColorScheme.Dark,
+				_ => throw new UnreachableException()
+			};
+		}
+		else {
+			Adw.StyleManager.GetDefault().SetColorScheme(colorScheme switch {
+				ColorScheme.SystemDefault => Adw.ColorScheme.Default,
+				ColorScheme.Light => Adw.ColorScheme.ForceLight,
+				ColorScheme.Dark => Adw.ColorScheme.ForceDark,
+				_ => throw new UnreachableException()
+			});
+		}
 	}
 }

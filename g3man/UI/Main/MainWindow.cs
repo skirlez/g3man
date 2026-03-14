@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using g3man.Models;
 using g3man.Util;
+using Gdk;
 using Gtk;
 using Pango;
 using Window = Gtk.Window;
@@ -150,8 +151,6 @@ public partial class MainWindow : Window {
 		programBox.Append(currentSetupBox);
 		
 		SetChild(programBox);
-		
-		ApplyColorScheme(Program.Config.ColorScheme);
 	}
 
 	enum ExtraCategories {
@@ -208,27 +207,7 @@ public partial class MainWindow : Window {
 		});
 	}
 	
-	private void ApplyColorScheme(Program.ColorScheme colorScheme) {
-		if (Program.InitializedUsing == Program.Initializer.Gtk4) {
-			Settings? settings = Settings.GetDefault();
-			if (settings is null)
-				return;
-			settings.GtkInterfaceColorScheme = colorScheme switch {
-				Program.ColorScheme.SystemDefault => InterfaceColorScheme.Default,
-				Program.ColorScheme.Light => InterfaceColorScheme.Light,
-				Program.ColorScheme.Dark => InterfaceColorScheme.Dark,
-				_ => throw new UnreachableException()
-			};
-		}
-		else {
-			Adw.StyleManager.GetDefault().SetColorScheme(colorScheme switch {
-				Program.ColorScheme.SystemDefault => Adw.ColorScheme.Default,
-				Program.ColorScheme.Light => Adw.ColorScheme.ForceLight,
-				Program.ColorScheme.Dark => Adw.ColorScheme.ForceDark,
-				_ => throw new UnreachableException()
-			});
-		}
-	}
+
 
 	
 	enum ZipType {
