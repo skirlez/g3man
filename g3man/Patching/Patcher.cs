@@ -443,7 +443,7 @@ public class Patcher {
 					List<string> targets;
 					string patchText;
 					try {
-						patchText = File.ReadAllText(patchPath);
+						patchText = File.ReadAllText(patchPath).ReplaceLineEndings("\n");
 					}
 					catch (Exception e) {
 						setStatusAndError($"An error occured while trying to read a patch file at {relativePath} from {identifyMod(mod)}!", e.ToString());
