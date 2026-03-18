@@ -40,10 +40,15 @@ public class Game {
 	public string GetBackupDatafilePath() {
 		return Path.Combine(Directory, "g3man", Patcher.CleanDataBackupName);
 	}
+	public string GetProfileFolderPath(Profile profile) {
+		return Path.Combine(Directory, "g3man", profile.ID);
+	}
 	public string GetOutputDatafilePath() {
 		return Path.Combine(Directory, DatafileName);
 	}
 
+
+	
 	public JsonObject ToJson() {
 		return new JsonObject() {
 			["format_version"] = 1,

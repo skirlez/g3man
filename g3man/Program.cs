@@ -46,13 +46,17 @@ public static class Program {
 	}
 	public static void SetGame(Game newGame) {
 		game = newGame;
-		DataLoader.LoadAsync(newGame);
 	}
 	public static Game? GetGame() {
 		return game;
 	}
 	public static void SetProfile(Profile newProfile) {
 		profile = newProfile;
+	}
+	public static string CurrentProfileFolderPath() {
+		Debug.Assert(game is not null);
+		Debug.Assert(profile is not null);
+		return game.GetProfileFolderPath(profile);
 	}
 
 	public static Thread MainThread = null!;

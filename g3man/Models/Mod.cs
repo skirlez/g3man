@@ -1,27 +1,30 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using g3man.Models;
 using g3man.Util;
 
 namespace g3man.Models;
 
-public class Mod {
+public class Mod : IMod {
 	public static Logger logger = Logger.Make("MOD-PARSER");
 	
-	public string ModId;
-	public string DisplayName;
-	public string Description;
+	public string ModId { get; }
+	public string DisplayName { get; }
+	public string Description { get; }
 	public string IconPath;
 	
 	public string Homepage;
 	public string Source;
-	public Credit[] Credits;
-	
+	public Credit[] Credits { get; }
+
+	public SemVer? MaybeVersion => Version;
 	public SemVer Version;
+	
 	public int TargetPatcherVersion;
 	public PatchLocation[] Patches;
+	
 	public string DatafilePath;
+	public string XdeltaPath;
 	
 	public string PreMergeScriptPath;
 	public string PostMergeScriptPath;
@@ -37,6 +40,7 @@ public class Mod {
 	public string[] Exports;
 
 	public string FolderName;
+	
 	
 	/*
 	public Mod(string modId, string displayName, string description, string[] credits, string version, string targetGameVersion, 
@@ -89,6 +93,7 @@ public class Mod {
 		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches", [])
 			.Select(x => new PatchLocation(x)).ToArray();
 		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path", "");
+		XdeltaPath = JsonUtil.GetStringOrThrow(root, "xdelta_path", "");
 		
 		PreMergeScriptPath = JsonUtil.GetStringOrThrow(root, "pre_merge_script_path", "");
 		PostMergeScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
@@ -157,6 +162,19 @@ public class Mod {
 
 
 		return mods.ToList();
+	}
+
+
+	public string GetXdeltaPath(string profileFolder) {
+		if (XdeltaPath == "")
+			return "";
+		return Path.Combine(profileFolder, ModId, XdeltaPath);
+	}
+
+	public void Delete(string profileFolder) {
+		Debug.Assert(ModId != "");
+		string modFolder = Path.Combine(profileFolder, ModId);
+		Directory.Delete(modFolder, true);
 	}
 }
 public class InvalidModException(string message) : Exception(message);

@@ -21,8 +21,8 @@ public partial class MainWindow : G3manWindow {
 	
 	private ListBox modsListBox;
 	private ScrolledWindow modsListWindow;
-	private List<Mod> modsList;
-	private Dictionary<Mod, bool> enabledMods;
+	private List<IMod> modsList;
+	private Dictionary<IMod, bool> enabledMods;
 	
 	private Label noModsLabel;
 	
@@ -304,7 +304,7 @@ public partial class MainWindow : G3manWindow {
 		catch (Exception e) {
 			Program.Logger.Error(e);
 			PopupWindow popup = new PopupWindow(this, "Error!",
-				"Failed to import from ZIP. Please report this as a bug!", "Damn");
+				"Failed to import from ZIP. This file might not be a ZIP file.", "Damn");
 			popup.Dialog();
 			return;
 		}

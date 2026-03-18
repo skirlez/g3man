@@ -4,6 +4,7 @@ using g3man.Models;
 using g3man.Util;
 using UndertaleModLib;
 using UndertaleModLib.Decompiler;
+using Xdelta = g3man.Util.Xdelta;
 
 namespace g3man;
 
@@ -15,7 +16,8 @@ public class DataLoader {
 	private volatile string? hash;
 	
 	private MemoryStream dataMemory = new MemoryStream();
-	private string lastHash = "";
+	private Game? lastGame;
+	private List<Xdelta>? lastXdeltaPaths;
 	public readonly LoaderLock Lock = new LoaderLock();
 	private readonly Logger logger;
 	
@@ -26,6 +28,7 @@ public class DataLoader {
 			LoaderAction action;
 			UndertaleData readData = null!;
 			string readHash = null!;
+			List<Xdelta> xdeltas;
 			bool doCloning = false;
 			
 			while (true) {
@@ -51,49 +54,86 @@ public class DataLoader {
 						
 						Monitor.PulseAll(Lock);
 						Monitor.Wait(Lock);
-						logger.Debug("Loading data");
 					}
 					
 					doCloning = Program.Config.UseMoreMemory;
 					Debug.Assert(Lock.Path is not null);
 					path = Lock.Path;
 					action = Lock.Action;
+					xdeltas = Lock.Xdeltas;
 					if (!doCloning) {
 						if (dataMemory.Length != 0) {
 							dataMemory.Dispose();
 							dataMemory = new MemoryStream();
 						}
 					}
-					if (action == LoaderAction.Clone && dataMemory.Length == 0) {
-						action = LoaderAction.Proceed;
-						logger.Debug("Told to clone, but we don't have a clone, so we're loading from disk");
+
+					if (action == LoaderAction.Clone) {
+						if (dataMemory.Length == 0) {
+							action = LoaderAction.Proceed;
+							logger.Debug("Told to clone, but we don't have a clone, so we're loading from disk");
+						}
+						else {
+							logger.Debug("Cloning data in memory");
+						}
+					}
+					else {
+						logger.Debug("Loading data");
 					}
 				}
 
 				
 				if (action == LoaderAction.Proceed) {
+					MemoryStream memoryStream = new MemoryStream();
 					try {
-						if (doCloning) {
+						if (xdeltas.Count == 0) {
+							using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
 							dataMemory.SetLength(0);
-							{
-								using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
-								stream.CopyTo(dataMemory);
-							}
-							readData = UndertaleIO.Read(dataMemory);
+							stream.CopyTo(memoryStream);
 						}
 						else {
-							{
-								using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
-								readData = UndertaleIO.Read(stream);
+							
+							logger.Debug($"Found {xdeltas.Count} xdelta patches");
+							logger.Debug($"Applying: {xdeltas.First().Filename}");
+							int status = xdeltas.First().Decode(path, memoryStream);
+							for (int i = 1; i < xdeltas.Count; i++) {
+								if (status != 0) {
+									break;
+								}
+								logger.Debug($"Applying: {xdeltas[i].Filename}");
+								byte[] bytes = memoryStream.ToArray();
+								memoryStream.SetLength(0);
+								status = xdeltas[i].DecodeFromMemory(bytes, memoryStream);
 							}
+							if (status != 0) {
+								logger.Error("Xdelta application failed");
+								Lock.Errored = true;
+								continue;
+							}
+							logger.Debug("Applied all Xdelta patches");
 						}
 					}
 					catch (Exception e) {
+						logger.Error("Failed to read datafile: " + e);
+						Lock.Errored = true;
+						continue;
+					}
+
+					try {
+						readData = UndertaleIO.Read(memoryStream);
+					}
+					catch (Exception e) {
+						readData = null!;
 						logger.Error("Failed to load datafile: " + e);
 						Lock.Errored = true;
+						continue;
 					}
+
+					if (doCloning)
+						dataMemory = memoryStream;
 				}
 				else if (action == LoaderAction.Clone) {
+					// should not fail; this already loaded once
 					dataMemory.Position = 0;
 					readData = UndertaleIO.Read(dataMemory);
 				}
@@ -122,9 +162,11 @@ public class DataLoader {
 		return bye;
 	}
 	
+	// I'm starting to think this feature is stupid and i should remove it
 	public void ReevaluateMemoryStrategy() {
-		if (Program.GetGame() is null)
+		if (lastGame is null)
 			return;
+		Debug.Assert(lastXdeltaPaths is not null);
 		lock (Lock) {
 			if (!Program.Config.UseMoreMemory && !Lock.IsLoading && dataMemory.Length != 0) {
 				logger.Debug("Discarding dataMemory due to UseMoreMemory being disabled");
@@ -134,13 +176,18 @@ public class DataLoader {
 			}
 			if (Program.Config.UseMoreMemory && dataMemory.Length == 0) {
 				logger.Debug("We're now allowed to use more memory but we don't have the dataMemory clone. So we're going to load the same game again to obtain it.");
-				Program.DataLoader.LoadAsync(Program.GetGame()!, allowSameGame: true);
+				Program.DataLoader.LoadAsync(lastGame, lastXdeltaPaths, allowSameGame: true);
 			}
 		}
 	}
 	
-	public void LoadAsync(Game newGame, bool allowSameGame = false) {
-		if (newGame.Hash == lastHash && !allowSameGame) {
+	public bool IsAlreadyGiven(Game game, List<Xdelta> xdeltaPaths) {
+		return lastGame is not null
+			&& game.Hash == lastGame.Hash
+			&& xdeltaPaths.Select(x => x.Filepath).Order().SequenceEqual(lastXdeltaPaths!.Select(x => x.Filepath).Order());
+	}
+	public void LoadAsync(Game newGame, List<Xdelta> xdeltaPaths, bool allowSameGame = false) {
+		if (IsAlreadyGiven(newGame, xdeltaPaths) && !allowSameGame) {
 			logger.Debug("Same data as what's already loaded or being loaded");
 			return;
 		}
@@ -148,7 +195,9 @@ public class DataLoader {
 		logger.Debug("New request for " + newGame.DisplayName);
 		lock (Lock) {
 			Lock.Path = newGame.GetCleanDatafilePath();
-			lastHash = newGame.Hash;
+			Lock.Xdeltas = xdeltaPaths;
+			lastGame = newGame;
+			lastXdeltaPaths = xdeltaPaths;
 			
 			if (Lock.IsLoading) {
 				logger.Debug("Telling loader to load new game after it is done with this one");
@@ -168,8 +217,10 @@ public class DataLoader {
 	public class LoaderLock() {
 		public LoaderAction Action = LoaderAction.Proceed;
 		public string? Path = null;
+		public List<Xdelta> Xdeltas = [];
 		public bool IsLoading = false;
 		public bool Errored = false;
+		public string ProfileFolder = "";
 	}
 
 	public enum LoaderAction {

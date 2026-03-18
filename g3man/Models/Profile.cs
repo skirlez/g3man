@@ -129,14 +129,13 @@ public class Profile {
 		Directory.Delete(profileFolder, true);
 	}
 
-	public void UpdateModsStatus(List<Mod> modsList, Dictionary<Mod, bool> enabledMods) {
+	public void UpdateModsStatus(List<IMod> modsList, Dictionary<IMod, bool> enabledMods) {
 		ModOrder = modsList.Select(mod => mod.ModId).ToArray();
 		List<string> disabledIds = [];
 		foreach (var kvp in enabledMods) {
 			if (!kvp.Value)
 				disabledIds.Add(kvp.Key.ModId);
 		}
-
 		ModsDisabled = disabledIds.ToArray();
 	}
 }

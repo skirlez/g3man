@@ -15,8 +15,11 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 - Mods can be applied simultaneously, and should keep working after most updates
 - Mod scripting: mods can run .csx scripts, like UndertaleModTool
 - A profile system to easily switch between sets of mods
+- xdelta support: Alongside g3man mods, you can add 1* xdelta patch.
 - Support for both Linux and Windows
 - CLI support
+
+* (You can have several, but every consecutive patch has to be made for the output of the prior patches)
 
 ## Installation
 
@@ -70,6 +73,10 @@ If you're thinking of contributing, here's a list of things that g3man should ha
 - Code Documentation
 
   There's not much right now. Would be nice to have
+
+## License
+AGPLv3. Xdelta code included in `c/xdelta3` is Apache License 2.0 (`c/xdelta3/LICENSE`)
+
 
 ## Contributing
 Please contribute

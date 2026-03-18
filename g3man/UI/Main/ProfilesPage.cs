@@ -18,7 +18,7 @@ public partial class MainWindow {
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
 		addNewProfile.OnClicked += (sender, args) => {
-			ManageProfileWindow window = new ManageProfileWindow(null, newProfile => {
+			ManageProfileWindow window = new ManageProfileWindow(null, (newProfile, _) => {
 				AddToProfilesList(newProfile, false);
 			});
 			window.Dialog(this);
@@ -107,7 +107,11 @@ public partial class MainWindow {
 			
 		Button manageProfileButton = Button.NewWithLabel("Manage");
 		manageProfileButton.OnClicked += (_, _) => {
-			ManageProfileWindow window = new ManageProfileWindow(profile, newProfile => {
+			ManageProfileWindow window = new ManageProfileWindow(profile, (newProfile, createdNew) => {
+				if (createdNew) {
+					AddToProfilesList(newProfile, false);
+					return;
+				}
 				bool prevSelected = Program.GetProfile() == profile;
 				UpdateProfilesList(newProfile, index, prevSelected);
 				if (prevSelected) {

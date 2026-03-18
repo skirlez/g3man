@@ -5,6 +5,7 @@ using g3man.Patching;
 using g3man.Util;
 using Gtk;
 using UndertaleModLib;
+using Xdelta = g3man.Util.Xdelta;
 
 namespace g3man.UI;
 
@@ -45,7 +46,7 @@ public class PatcherWindow : G3manWindow {
 		SetChild(box);
 	}
 
-	public void Dialog(List<Mod> mods) {
+	public void Dialog(List<IMod> mods) {
 		SetTransientFor(owner);
 		SetModal(true);
 		
@@ -65,7 +66,8 @@ public class PatcherWindow : G3manWindow {
 				Present();
 		});
 	}
-	private void DoThing(List<Mod> mods) {
+	private void DoThing(List<IMod> mods) {
+		List<Xdelta> xdeltas = Xdelta.FromMods(mods, Program.CurrentProfileFolderPath());
 		setStatus("Hashing current datafile...");
 		string hash;
 		try {
@@ -78,8 +80,9 @@ public class PatcherWindow : G3manWindow {
 		
 		string lastHash = IO.GetLastOutputHash(Program.GetGame()!);
 		
+		
 		if (lastHash != hash && hash != "" && lastHash != "") {
-			string[] buttonTexts = ["Update Clean Datafile", "Overwrite", "Cancel"];
+			string[] buttonTexts = ["Update Clean Datafile", "Use Old", "Cancel"];
 			object lockObject = new object();
 			int choice = 0;
 			PopupWindow popupWindow = new PopupWindow(this, "Question",
@@ -137,7 +140,7 @@ public class PatcherWindow : G3manWindow {
 				}
 
 
-				Program.DataLoader.LoadAsync(Program.GetGame()!);
+				Program.DataLoader.LoadAsync(Program.GetGame()!, xdeltas);
 			}
 			else if (choice == 2) {
 				// do nothing
@@ -170,6 +173,11 @@ public class PatcherWindow : G3manWindow {
 			return;
 		}
 		
+		if (!Program.DataLoader.IsAlreadyGiven(Program.GetGame()!, xdeltas)) {
+			Program.DataLoader.LoadAsync(Program.GetGame()!, xdeltas);
+			setStatus("Reloading datafile to patch .xdelta...");
+		}
+		
 		UndertaleData data;
 		lock (Program.DataLoader.Lock) {
 			while (!Program.DataLoader.CanSnatch()) {
@@ -184,11 +192,12 @@ public class PatcherWindow : G3manWindow {
 			data = Program.DataLoader.Snatch();
 		}
 
-		
+
+		List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
 		
 		Patcher patcher = new Patcher();
 		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
-		UndertaleData? output = patcher.Patch(mods, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
+		UndertaleData? output = patcher.Patch(noXdeltas, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;
 		setStatus("Writing...");
