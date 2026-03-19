@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
-rm -rf build
+rmdir build /S /Q
 cmake -B build
 cmake --build build

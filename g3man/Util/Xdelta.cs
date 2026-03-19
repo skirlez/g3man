@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using g3man.Models;
 
@@ -12,26 +13,31 @@ public readonly struct Xdelta(string path) {
 	public static List<Xdelta> FromMods(IEnumerable<IMod> mods, string profileFolder) {
 		return mods.Select(mod => mod.GetXdeltaPath(profileFolder)).Where(path => path != "").Select(x => new Xdelta(x)).ToList();
 	}
+
+
+	private const string 
+	libg3man =
+		#if LINUX
+			"libg3man.so"
+		#elif WINDOWS
+			"libg3man.dll"
+		#endif
+	;
+	[DllImport(libg3man)]
+	private static extern int start_decode(string source_path, string input_path);
 	
+	[DllImport(libg3man)]
+	private static extern unsafe int start_decode_from_memory(byte* source, int source_length, string input_path);
 	
-	#if LINUX
-		[DllImport("libg3man.so")]
-		private static extern int start_decode(string source_path, string input_path);
-		
-		
-		[DllImport("libg3man.so")]
-		private static extern unsafe int start_decode_from_memory(byte* source, int source_length, string input_path);
-		
-		[DllImport("libg3man.so")]
-		private static extern ReturnCode decode(out IntPtr written_buffer, out int written_count);
-	#endif
+	[DllImport(libg3man)]
+	private static extern ReturnCode decode(out IntPtr written_buffer, out int written_count);
 		
 	
 	private enum ReturnCode {
 		TAKE_OUTPUT = 0,
 		CALL_AGAIN = 1,
 		DONE = 2,
-		ERROR = 3
+		ERRORED = 3
 	}
 	
 	public int Decode(string sourcePath, MemoryStream outputStream) {
@@ -66,7 +72,7 @@ public readonly struct Xdelta(string path) {
 					continue;
 				case ReturnCode.DONE:
 					return 0;
-				case ReturnCode.ERROR:
+				case ReturnCode.ERRORED:
 				default:
 					Console.WriteLine(ret);
 					return 1;

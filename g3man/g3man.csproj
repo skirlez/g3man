@@ -20,12 +20,16 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsWindows)'=='true'">
     <DefineConstants>WINDOWS,THEMABLE_TITLEBAR</DefineConstants>
+    <Lsuffix>dll</Lsuffix>
+    <BuildCLibsCommand>build.bat</BuildCLibsCommand>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsOSX)'=='true'">
     <DefineConstants>OSX</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsLinux)'=='true'">
     <DefineConstants>LINUX</DefineConstants>
+    <Lsuffix>so</Lsuffix>
+    <BuildCLibsCommand>sh build.sh</BuildCLibsCommand>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -45,21 +49,22 @@
 
   <Target Name="BuildCLibs" BeforeTargets="BeforeBuild">
   <Exec
-    Command="cd ../c; bash build.sh"
-    Condition="!Exists('../c/build/libxdelta3.so') Or !Exists('../c/build/libg3man.so')" />
+  	WorkingDirectory="../c"
+    Command="$(BuildCLibsCommand)"
+    Condition="!Exists('../c/build/libxdelta3.$(Lsuffix)') Or !Exists('../c/build/libg3man.$(Lsuffix)')" />
   </Target>
 
   <ItemGroup>
-    <Content Include="../c/build/libxdelta3.so">
-      <Link>libxdelta3.so</Link>
+    <Content Include="../c/build/libxdelta3.$(Lsuffix)">
+      <Link>libxdelta3.$(Lsuffix)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   	</Content>
-    <Content Include="../c/build/libg3man.so">
-      <Link>libg3man.so</Link>
+    <Content Include="../c/build/libg3man.$(Lsuffix)">
+      <Link>libg3man.$(Lsuffix)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   	</Content>
   </ItemGroup>
-
+  
   <ItemGroup Condition="'$(IsWindows)'=='true'">
     <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.7.0" />
   </ItemGroup>

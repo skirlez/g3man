@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "g3man.h"
-#include "xdelta3/xdelta3.h"
 
 
 
@@ -34,7 +33,11 @@ int start_decode(const char* source_path, const char* input_path) {
 		return 1;
 	}
 	
-	FILE* source_file = fopen(source_path, "r");
+	FILE* source_file;
+	ret = fopen_s(&source_file, source_path, "rb");
+	if (ret != 0) { 
+		return 1;
+	}
 	
 	source.max_winsize = SOURCE_BLOCK_SIZE; // I don't understand this one
 	source.name = "datafile";
@@ -48,18 +51,22 @@ int start_decode(const char* source_path, const char* input_path) {
 		return 1;
 	}
 	stream.getblk = get_block_file;
-	input_file = fopen(input_path, "r");
+	ret = fopen_s(&input_file, input_path, "rb");
+	if (ret != 0) { 
+		return 1;
+	}
 	return 0;
 }
 
 const uint8_t* in_memory_source;
-uint8_t in_memory_source_length;
+usize_t in_memory_source_length;
 int get_block_memory(xd3_stream *cstream, xd3_source *csource, xoff_t blkno) {
 	csource->curblkno = blkno;
 	usize_t offset = blkno * SOURCE_BLOCK_SIZE;
-	if (offset + SOURCE_BLOCK_SIZE > in_memory_source_length)
+	if (offset + SOURCE_BLOCK_SIZE >= in_memory_source_length)
 		csource->onblk = in_memory_source_length - offset;
-	csource->onblk = SOURCE_BLOCK_SIZE;
+	else
+		csource->onblk = SOURCE_BLOCK_SIZE;
 	csource->curblk = in_memory_source + offset;
 	return 0;
 }
@@ -89,7 +96,10 @@ int start_decode_from_memory(const uint8_t* source_data, usize_t source_length, 
 		return 1;
 	}
 	stream.getblk = get_block_memory;
-	input_file = fopen(input_path, "r");
+	ret = fopen_s(&input_file, input_path, "rb");
+	if (ret != 0) { 
+		return 1;
+	}
 	return 0;
 }
 
@@ -97,8 +107,8 @@ typedef enum {
 	TAKE_OUTPUT = 0,
 	CALL_AGAIN = 1,
 	DONE = 2,
-	ERROR = 3
-} decode_flags;
+	ERRORED = 3
+} return_codes;
 
 
 uint8_t buf[INPUT_BLOCK_SIZE];
@@ -134,7 +144,7 @@ int decode(uint8_t** written_buffer, usize_t* written_count) {
 					printf("%s\n", stream.msg);
 				else
 					printf("No error given\n");
-				return ERROR;
+				return ERRORED;
 		}
 	}
 }

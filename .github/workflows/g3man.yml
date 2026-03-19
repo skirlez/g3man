@@ -34,6 +34,7 @@ jobs:
           cache: true
           install: >-
             mingw-w64-x86_64-libadwaita
+            mingw-w64-x86_64-cmake
 
       - uses: actions/setup-python@v6
         with:

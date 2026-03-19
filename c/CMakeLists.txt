@@ -74,6 +74,7 @@ else()
     add_compile_definitions(SECONDARY_LZMA=0)
 endif()
 
+
 add_library(${PROJECT_NAME} SHARED "${XD3_SOURCES}")
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
