@@ -35,10 +35,10 @@ public class Game {
 	}
 
 	public string GetCleanDatafilePath() {
-		return Path.Combine(Directory, "g3man", Patcher.CleanDataName);
+		return Path.Combine(Directory, "g3man", DatafilePatcher.CleanDataName);
 	}
 	public string GetBackupDatafilePath() {
-		return Path.Combine(Directory, "g3man", Patcher.CleanDataBackupName);
+		return Path.Combine(Directory, "g3man", DatafilePatcher.CleanDataBackupName);
 	}
 	public string GetProfileFolderPath(Profile profile) {
 		return Path.Combine(Directory, "g3man", profile.ID);

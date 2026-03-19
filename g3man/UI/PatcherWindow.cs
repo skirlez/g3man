@@ -67,7 +67,8 @@ public class PatcherWindow : G3manWindow {
 		});
 	}
 	private void DoThing(List<IMod> mods) {
-		List<Xdelta> xdeltas = Xdelta.FromMods(mods, Program.CurrentProfileFolderPath());
+		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, Program.CurrentProfileFolderPath());
+		
 		setStatus("Hashing current datafile...");
 		string hash;
 		try {
@@ -140,7 +141,7 @@ public class PatcherWindow : G3manWindow {
 				}
 
 
-				Program.DataLoader.LoadAsync(Program.GetGame()!, xdeltas);
+				Program.DataLoader.LoadAsync(Program.GetGame()!, datafileXdeltaPatches);
 			}
 			else if (choice == 2) {
 				// do nothing
@@ -173,11 +174,28 @@ public class PatcherWindow : G3manWindow {
 			return;
 		}
 		
-		if (!Program.DataLoader.IsAlreadyGiven(Program.GetGame()!, xdeltas)) {
-			Program.DataLoader.LoadAsync(Program.GetGame()!, xdeltas);
-			setStatus("Reloading datafile to patch .xdelta...");
+		if (!Program.DataLoader.IsAlreadyGiven(Program.GetGame()!, datafileXdeltaPatches))
+			Program.DataLoader.LoadAsync(Program.GetGame()!, datafileXdeltaPatches);
+		foreach (IMod mod in mods) {
+			List<XdeltaSourcePair> patches = mod.GetXdeltaTargetPairs(Program.GetGame()!.Directory, Program.CurrentProfileFolderPath());
+			if (patches.Count == 0)
+				continue;
+
+			string xdeltaFolder = Path.Combine(Program.GetGame()!.Directory, "g3man-live", "xdelta", mod.ModId);
+			Directory.CreateDirectory(xdeltaFolder);
+			foreach (XdeltaSourcePair patch in patches) {
+				setStatus($"Applying: {patch.Filename}");
+				using FileStream stream = new FileStream(Path.Combine(xdeltaFolder, patch.RelativeSourcePath), FileMode.Create);
+				int ret = patch.Decode(stream);
+				if (ret != 0) {
+					setStatus($"Failed to apply patch: {patch.Filename}");
+					return;
+				}
+			}
 		}
 		
+		
+		setStatus("Waiting for game data to load...");
 		UndertaleData data;
 		lock (Program.DataLoader.Lock) {
 			while (!Program.DataLoader.CanSnatch()) {
@@ -186,7 +204,6 @@ public class PatcherWindow : G3manWindow {
 					          + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
 					return;
 				}
-				setStatus("Waiting for game data to load...");
 				Monitor.Wait(Program.DataLoader.Lock);
 			}
 			data = Program.DataLoader.Snatch();
@@ -194,15 +211,16 @@ public class PatcherWindow : G3manWindow {
 
 
 		List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
-		
-		Patcher patcher = new Patcher();
+		DatafilePatcher datafilePatcher = new DatafilePatcher();
 		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
-		UndertaleData? output = patcher.Patch(noXdeltas, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
+		UndertaleData? output = datafilePatcher.Patch(noXdeltas, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;
+		
+		bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 		setStatus("Writing...");
 		try {
-			IO.Apply(output, Program.GetGame()!.Directory, profileDirectory, Program.GetGame()!.DatafileName);
+			IO.Apply(output, Program.GetGame()!.Directory, profileDirectory, Program.GetGame()!.DatafileName, createOldSymlink);
 		}
 		catch (Exception e) {
 			Program.Logger.Error(e);

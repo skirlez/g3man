@@ -16,7 +16,7 @@ using MainWindow = g3man.UI.Main.MainWindow;
 namespace g3man;
 
 public static class Program {
-	public const int Version = 6;
+	public const int Version = 7;
 
 	public static Logger Logger = null!;
 	public static DataLoader DataLoader = null!;

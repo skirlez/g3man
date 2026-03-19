@@ -163,8 +163,7 @@ public partial class MainWindow {
 		currentGameLabel.SetText(game.DisplayName);
 		ParseProfilesAndUpdateMenu();
 		if (Program.GetProfile() is not null) {
-			List<Xdelta> xdeltas = Xdelta.FromMods(modsList.Where(m => enabledMods.ContainsKey(m)),
-				Program.CurrentProfileFolderPath());
+			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(modsList.Where(m => enabledMods.ContainsKey(m)), Program.CurrentProfileFolderPath());
 			Program.DataLoader.LoadAsync(game, xdeltas);
 		}
 	}

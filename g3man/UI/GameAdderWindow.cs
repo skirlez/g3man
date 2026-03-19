@@ -47,7 +47,7 @@ public class GameAdderWindow : G3manWindow {
 			return new Result<Success, Error>(new Error("An error occurred while reading the game's datafile", e));
 		}
 		
-		if (Patcher.IsDataPatched(data)) {
+		if (DatafilePatcher.IsDataPatched(data)) {
 			// TODO: Write something to check if the clean datafile still exists so we can cleanly readd the game
 			return new Result<Success, Error>(new Error("This game is already patched by g3man. Please make sure the game's datafile is not modified so g3man can copy it.", null));
 		}

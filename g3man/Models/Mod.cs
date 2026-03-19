@@ -21,10 +21,14 @@ public class Mod : IMod {
 	public SemVer Version;
 	
 	public int TargetPatcherVersion;
+	public bool CreateOldProfileSymlink => TargetPatcherVersion < 7;
+	
 	public PatchLocation[] Patches;
 	
 	public string DatafilePath;
-	public string XdeltaPath;
+	
+	private Dictionary<string, string> XdeltaPatches;
+	private List<string> DatafileXdeltaPatches;
 	
 	public string PreMergeScriptPath;
 	public string PostMergeScriptPath;
@@ -92,9 +96,16 @@ public class Mod : IMod {
 
 		Patches = JsonUtil.GetObjectArrayOrThrow(root, "patches", [])
 			.Select(x => new PatchLocation(x)).ToArray();
-		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_path", "");
-		XdeltaPath = JsonUtil.GetStringOrThrow(root, "xdelta_path", "");
-		
+		DatafilePath = JsonUtil.GetOrDefaultClass(root, "datafile_path", "");
+
+		if (root.TryGetProperty("xdelta_patches", out JsonElement xdeltaPatches))
+			(XdeltaPatches, DatafileXdeltaPatches) = DeserializeXdeltaPatches(xdeltaPatches);
+		else {
+			XdeltaPatches = new Dictionary<string, string>();
+			DatafileXdeltaPatches = [];
+		}
+
+
 		PreMergeScriptPath = JsonUtil.GetStringOrThrow(root, "pre_merge_script_path", "");
 		PostMergeScriptPath = JsonUtil.GetStringOrThrow(root, "post_merge_script_path", "");
 		
@@ -164,17 +175,34 @@ public class Mod : IMod {
 		return mods.ToList();
 	}
 
+	public List<XdeltaSourcePair> GetXdeltaTargetPairs(string gameFolder, string profileFolder) {
+		return XdeltaPatches.Select(kvp => new XdeltaSourcePair(gameFolder, kvp.Key, Path.Combine(profileFolder, ModId), kvp.Value)).ToList();
+	}
 
-	public string GetXdeltaPath(string profileFolder) {
-		if (XdeltaPath == "")
-			return "";
-		return Path.Combine(profileFolder, ModId, XdeltaPath);
+	public List<Xdelta> GetDatafileXdeltaPatches(string profileFolder) {
+		return DatafileXdeltaPatches.Select(p => new Xdelta(Path.Combine(profileFolder, ModId), p)).ToList();
 	}
 
 	public void Delete(string profileFolder) {
 		Debug.Assert(ModId != "");
 		string modFolder = Path.Combine(profileFolder, ModId);
 		Directory.Delete(modFolder, true);
+	}
+	
+	private (Dictionary<string, string>, List<string>) DeserializeXdeltaPatches(JsonElement element) {
+		Dictionary<string, string> dict = new Dictionary<string, string>();
+		List<string> datafilePatches = [];
+		foreach (JsonProperty property in element.EnumerateObject()) {
+			if (property.Value.ValueKind != JsonValueKind.String) {
+				throw new InvalidDataException(
+					$"In field xdelta_patches: Expected a map of strings to strings but found a {property.Value.ValueKind}");
+			}
+			if (IO.DatafileNames.Contains(property.Name))
+				datafilePatches.Add(property.Value.GetString()!);
+			else
+				dict[property.Name] = property.Value.GetString()!;
+		}
+		return (dict, datafilePatches);
 	}
 }
 public class InvalidModException(string message) : Exception(message);

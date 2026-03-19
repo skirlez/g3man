@@ -6,17 +6,18 @@ namespace g3man.Util;
 
 
 
-public readonly struct Xdelta(string path) {
-	public readonly string Filename = System.IO.Path.GetFileName(path);
-	public readonly string Filepath = path;
-
-	public static List<Xdelta> FromMods(IEnumerable<IMod> mods, string profileFolder) {
-		return mods.Select(mod => mod.GetXdeltaPath(profileFolder)).Where(path => path != "").Select(x => new Xdelta(x)).ToList();
+public readonly struct Xdelta(string containingFolder, string relativePath) {
+	/*
+	 * Filename of the .xdelta file.
+	 */
+	private readonly string inputPath = Path.Combine(containingFolder, relativePath);
+	public string Filename => Path.GetFileName(inputPath);
+	
+	public static List<Xdelta> GetDatafileXdeltaPatches(IEnumerable<IMod> mods, string profileFolder) {
+		return mods.SelectMany(x => x.GetDatafileXdeltaPatches(profileFolder)).ToList();
 	}
-
-
-	private const string 
-	libg3man =
+	
+	private const string libg3man =
 		#if LINUX
 			"libg3man.so"
 		#elif WINDOWS
@@ -40,17 +41,17 @@ public readonly struct Xdelta(string path) {
 		ERRORED = 3
 	}
 	
-	public int Decode(string sourcePath, MemoryStream outputStream) {
-		int start_ret = start_decode(sourcePath, Filepath);
+	public int Decode(string sourcePath, Stream outputStream) {
+		int start_ret = start_decode(sourcePath, inputPath);
 		if (start_ret != 0)
 			return start_ret;
 		return DecodeLoop(outputStream);
 	}
 	
-	public int DecodeFromMemory(byte[] source, MemoryStream outputStream) {
+	public int DecodeFromMemory(byte[] source, Stream outputStream) {
 		unsafe {
 			fixed (byte* ptr = source) {
-				int start_ret = start_decode_from_memory(ptr, source.Length, Filepath);
+				int start_ret = start_decode_from_memory(ptr, source.Length, inputPath);
 				if (start_ret != 0)
 					return start_ret;
 				return DecodeLoop(outputStream);
@@ -58,7 +59,7 @@ public readonly struct Xdelta(string path) {
 		}
 	}
 
-	private int DecodeLoop(MemoryStream outputStream) {
+	private int DecodeLoop(Stream outputStream) {
 		while (true) {
 			ReturnCode ret = decode(out IntPtr outputBuffer, out int outputWritten);
 			switch (ret) {
@@ -78,6 +79,22 @@ public readonly struct Xdelta(string path) {
 					return 1;
 			}
 		}
+	}
+
+	public static bool SequenceEquals(List<Xdelta> a, List<Xdelta> b) {
+		return a.Select(x => x.inputPath).Order().SequenceEqual(b.Select(x => x.inputPath).Order());
+	}
+}
+
+public readonly struct XdeltaSourcePair(string gameFolder, string relativeSourcePath, string containingFolder, string relativeInputPath)
+{
+	private readonly Xdelta xdelta = new Xdelta(containingFolder, relativeInputPath);
+	public string Filename => xdelta.Filename;
+	public string RelativeSourcePath => relativeSourcePath;
+	
+	
+	public int Decode(Stream outputStream) {
+		return xdelta.Decode(Path.Combine(gameFolder, relativeSourcePath), outputStream);
 	}
 }
 

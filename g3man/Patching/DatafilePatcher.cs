@@ -16,7 +16,7 @@ namespace g3man.Patching;
 
 using PatchBlame = Dictionary<string, List<string>>;
 
-public class Patcher {
+public class DatafilePatcher {
 	public const string CleanDataName = "clean_data.win";
 	public const string CleanDataBackupName = "BACKUP_clean_data.win";
 

@@ -79,14 +79,14 @@ public class CLI {
 
                 string datafileName = parseResult.GetValue(outName) ?? "data.win";
                 
-                Patcher patcher = new Patcher();
-                UndertaleData? output = patcher.Patch(mods, profile, profileDirectoryInfo.FullName, data, Program.Logger, status => {});
+                DatafilePatcher datafilePatcher = new DatafilePatcher();
+                UndertaleData? output = datafilePatcher.Patch(mods, profile, profileDirectoryInfo.FullName, data, Program.Logger, status => {});
                 if (output == null)
                     return 1;
-                
+                bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
                 Program.Logger.Info("Writing...");
                 try {
-                    IO.Apply(data,  outLocationInfo.FullName, profileDirectoryInfo.FullName, datafileName);
+                    IO.Apply(data,  outLocationInfo.FullName, profileDirectoryInfo.FullName, datafileName, createOldSymlink);
                 }
                 catch (Exception e) {
                     Program.Logger.Error("Failed to save output data.win");

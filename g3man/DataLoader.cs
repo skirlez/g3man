@@ -184,7 +184,7 @@ public class DataLoader {
 	public bool IsAlreadyGiven(Game game, List<Xdelta> xdeltaPaths) {
 		return lastGame is not null
 			&& game.Hash == lastGame.Hash
-			&& xdeltaPaths.Select(x => x.Filepath).Order().SequenceEqual(lastXdeltaPaths!.Select(x => x.Filepath).Order());
+			&& Xdelta.SequenceEquals(xdeltaPaths, lastXdeltaPaths!);
 	}
 	public void LoadAsync(Game newGame, List<Xdelta> xdeltaPaths, bool allowSameGame = false) {
 		if (IsAlreadyGiven(newGame, xdeltaPaths) && !allowSameGame) {

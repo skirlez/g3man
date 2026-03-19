@@ -11,8 +11,9 @@ public static class IO {
 	public const string TempDataName = "g3man_temp_data.win";
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
 	public const string OutputHashTextFileName = "g3man_output_hash.txt";
-	
-	public static void Apply(UndertaleData data, string gameDirectory, string appliedProfileDirectory, string datafileName) {
+	public static readonly string[] DatafileNames = ["data.win", "game.unx", "game.ios", "game.droid"];
+
+	public static void Apply(UndertaleData data, string gameDirectory, string appliedProfileDirectory, string datafileName, bool createOldSymlink) {
 		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
 		byte[] hashBytes;
 
@@ -40,14 +41,17 @@ public static class IO {
 		
 		File.Move(tempFilePath, Path.Combine(gameDirectory, datafileName), true);
 		File.Delete(tempFilePath);
-		
+
 		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
-		if (Directory.Exists(appliedProfileSymlink))
-			Directory.Delete(appliedProfileSymlink, false);
-		if (File.Exists(appliedProfileSymlink))
-			File.Delete(appliedProfileSymlink);
+		DeleteSymlink(appliedProfileSymlink);
+		if (createOldSymlink) {
+			SymlinkFolder(appliedProfileDirectory, appliedProfileSymlink);
+		}
 		
-		SymlinkFolder(appliedProfileDirectory, appliedProfileSymlink);
+		Directory.CreateDirectory(Path.Combine(gameDirectory, "g3man-live"));
+		string liveProfileSymlink = Path.Combine(gameDirectory, "g3man-live", "profile");
+		DeleteSymlink(liveProfileSymlink);
+		SymlinkFolder(appliedProfileDirectory, liveProfileSymlink);
 	}
 	
 	/* On normal operating systems, this makes a symlink.
@@ -66,6 +70,14 @@ public static class IO {
 		#else
 			throw new Exception("Function not implemented for this OS");
 		#endif
+	}
+
+	private static void DeleteSymlink(string path)
+	{
+		if (File.Exists(path))
+			File.Delete(path);
+		else if (Directory.Exists(path))
+			Directory.Delete(path, false);
 	}
 
 	public static void OpenFileExplorer(string directory) {

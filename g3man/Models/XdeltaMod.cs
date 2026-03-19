@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using g3man.Util;
 
 namespace g3man.Models;
 
@@ -10,12 +11,17 @@ public class XdeltaMod : IMod {
 	public string Description => "";
 	public Credit[] Credits => [];
 	public SemVer? MaybeVersion => null;
+	
+	public bool CreateOldProfileSymlink
+	{
+		get => false;
+	}
 
-	public string filename;
+	public string Filename;
 	
 	public XdeltaMod(string path) {
-		filename = Path.GetFileName(path);
-		DisplayName = filename;
+		Filename = Path.GetFileName(path);
+		DisplayName = Filename;
 		ModId = Path.GetFileNameWithoutExtension(path).ToLower();
 	}
 	
@@ -31,11 +37,16 @@ public class XdeltaMod : IMod {
 	}
 
 
-	public string GetXdeltaPath(string profileFolder) {
-		return Path.Combine(profileFolder, filename);
+	public List<XdeltaSourcePair> GetXdeltaTargetPairs(string gameFolder, string profileFolder) {
+		return [];
+	}
+
+	public List<Xdelta> GetDatafileXdeltaPatches(string profileFolder)
+	{
+		return [new Xdelta(profileFolder, Filename)];
 	}
 
 	public void Delete(string profileFolder) {
-		File.Delete(Path.Combine(profileFolder, filename));
+		File.Delete(Path.Combine(profileFolder, Filename));
 	}
 }
