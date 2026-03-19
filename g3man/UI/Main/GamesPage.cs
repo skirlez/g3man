@@ -1,6 +1,7 @@
 using g3man.Models;
 using g3man.Util;
 using Gtk;
+using Xdelta = g3man.Util.Xdelta;
 
 namespace g3man.UI.Main;
 
@@ -161,6 +162,11 @@ public partial class MainWindow {
 		Program.SetGame(game);
 		currentGameLabel.SetText(game.DisplayName);
 		ParseProfilesAndUpdateMenu();
+		if (Program.GetProfile() is not null) {
+			List<Xdelta> xdeltas = Xdelta.FromMods(modsList.Where(m => enabledMods.ContainsKey(m)),
+				Program.CurrentProfileFolderPath());
+			Program.DataLoader.LoadAsync(game, xdeltas);
+		}
 	}
 	
 }

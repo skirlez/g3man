@@ -10,6 +10,7 @@
     <NeutralLanguage>en</NeutralLanguage>
     <ResourceLanguages>en</ResourceLanguages>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -39,7 +40,26 @@
     <ProjectReference Include="..\gmlp\gmlp.csproj" />
     <ProjectReference Include="..\UndertaleModLib\UndertaleModLib.csproj" />
   </ItemGroup>
-  
+
+
+
+  <Target Name="BuildCLibs" BeforeTargets="BeforeBuild">
+  <Exec
+    Command="cd ../c; bash build.sh"
+    Condition="!Exists('../c/build/libxdelta3.so') Or !Exists('../c/build/libg3man.so')" />
+  </Target>
+
+  <ItemGroup>
+    <Content Include="../c/build/libxdelta3.so">
+      <Link>libxdelta3.so</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  	</Content>
+    <Content Include="../c/build/libg3man.so">
+      <Link>libg3man.so</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  	</Content>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(IsWindows)'=='true'">
     <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.7.0" />
   </ItemGroup>

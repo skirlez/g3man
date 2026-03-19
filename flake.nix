@@ -8,6 +8,20 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
 
+      libxdelta = {
+        default = pkgs.stdenv.mkDerivation {
+          pname = "xdelta";
+          version = "3.1";
+          src = ./xdelta;
+          nativeBuildInputs = with pkgs; [
+            cmake
+          ];
+          installPhase = ''
+            cp libxdelta3.so $out/lib
+          '';
+        };
+      };
+      
       g3man = pkgs.buildDotnetModule {
         pname = "g3man";
         version = "6";
@@ -34,12 +48,13 @@
         runtimeDeps = with pkgs; [
           gtk4
           libadwaita
+          libxdelta
         ];
 
 
         dotnet-sdk = pkgs.dotnetCorePackages.sdk_10_0;
         dotnet-runtime = pkgs.dotnetCorePackages.runtime_10_0;
-        executables = [ "g3man" ];
+        executables = ["g3man"];
       };
 
 
@@ -49,11 +64,10 @@
           dotnetCorePackages.sdk_10_0
           glib # for GSETTINGS_SCHEMAS_PATH
           git # UndertaleModLib uses it
-        ];
-        buildInputs = with pkgs; [
-          git
-          gtk4
-          libadwaita
+          
+          llvmPackages.clang-tools
+          cmake
+          bear
         ];
         strictDeps = true;
         shellHook = ''

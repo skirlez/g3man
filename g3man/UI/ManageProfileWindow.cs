@@ -11,7 +11,7 @@ namespace g3man.UI;
 public class ManageProfileWindow : G3manWindow {
 	private Profile? profile;
 	
-	public ManageProfileWindow(Profile? profile, Action<Profile> saveCallback, System.Action? deleteCallback = null) {
+	public ManageProfileWindow(Profile? profile, Action<Profile, bool> saveCallback, System.Action? deleteCallback = null) {
 		SetSizeRequest(400, 300);
 		SetTitle(profile is null ? "Create Profile" : "Manage Profile");
 		this.profile = profile;
@@ -101,32 +101,16 @@ public class ManageProfileWindow : G3manWindow {
 		
 		Button doneButton = Button.New();
 		doneButton.SetLabel(profile is null ? "Create" : "Save");
-		
+
+
+
 		Box fateBox = Box.New(Orientation.Horizontal, 5);
 		fateBox.SetHalign(Align.Center);
 		fateBox.SetValign(Align.End);
 		fateBox.Append(doneButton);
 		fateBox.SetVexpand(true);
 		
-		if (profile is not null) {
-			Button deleteButton = Button.NewWithLabel("Delete");
-			deleteButton.OnClicked += (_, _) => {
-				try {
-					profile.Delete(Program.GetGame()!.Directory);
-				}
-				catch (Exception e) {
-					Program.Logger.Error(e);
-					PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
-					popup.Dialog();
-					return;
-				}
-				deleteCallback!();
-				Close();
-			};
-			fateBox.Append(deleteButton);
-		}
-		
-		doneButton.OnClicked += (_, _) => {
+		void SaveProfile(bool asNew) {
 			// TODO: can't have it be nicer by making it so we stop the insert-text signal so we limit the characters you can type.
 			// until it works with Entry (seems to just not at the moment) OR
 			// when gir.core supports overriding virtual functions (we could subclass EntryBuffer)
@@ -149,14 +133,13 @@ public class ManageProfileWindow : G3manWindow {
 			bool oldProfileExistsAndIDChanged = profile is not null && newProfile.ID != profile.ID;
 			string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man");
 			try {
-				if (oldProfileExistsAndIDChanged) {
+				if (oldProfileExistsAndIDChanged || asNew) {
 					if (newProfile.ID == "") {
 						PopupWindow popup = new PopupWindow(this, "Cannot save!", "ID cannot be blank.",
 							"Okay I'll ID It");
 						popup.Dialog();
 						return;
 					}
-
 					
 					string?[] folders = Directory.GetDirectories(profilesFolder).Select(Path.GetFileName).ToArray();
 					if (folders.Contains(newProfile.ID)) {
@@ -197,7 +180,7 @@ public class ManageProfileWindow : G3manWindow {
 				return;
 			}
 
-			if (oldProfileExistsAndIDChanged) {
+			if (oldProfileExistsAndIDChanged && !asNew) {
 				try {
 					profile!.Delete(Program.GetGame()!.Directory);
 				}
@@ -208,9 +191,32 @@ public class ManageProfileWindow : G3manWindow {
 				}
 			}
 
-			saveCallback(newProfile);
+			saveCallback(newProfile, asNew);
 			Close();
-		};
+		}
+		
+		if (profile is not null) {
+			Button deleteButton = Button.NewWithLabel("Delete");
+			deleteButton.OnClicked += (_, _) => {
+				try {
+					profile.Delete(Program.GetGame()!.Directory);
+				}
+				catch (Exception e) {
+					Program.Logger.Error(e);
+					PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
+					popup.Dialog();
+					return;
+				}
+				deleteCallback!();
+				Close();
+			};
+			Button saveAsNew = Button.NewWithLabel("Save as New");
+			saveAsNew.OnClicked += (_, _) => SaveProfile(asNew: true);
+			fateBox.Append(deleteButton);
+			fateBox.Append(saveAsNew);
+		}
+		
+		doneButton.OnClicked += (_, _) => SaveProfile(asNew: false);
 		
 		box.Append(nameBox);
 		box.Append(IDBox);
@@ -241,4 +247,5 @@ public class ManageProfileWindow : G3manWindow {
 		SetModal(true);
 		Present();
 	}
+	
 }

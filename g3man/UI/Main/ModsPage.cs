@@ -31,9 +31,12 @@ public partial class MainWindow {
 			}
 
 			int index = args.Row.GetIndex();
-			Mod mod = modsList[index];
+			IMod mod = modsList[index];
 			
-			modNameLabel.SetText($"{mod.DisplayName} ({mod.Version})");
+			if (mod.MaybeVersion is null)
+				modNameLabel.SetText($"{mod.DisplayName}");
+			else
+				modNameLabel.SetText($"{mod.DisplayName} ({mod.MaybeVersion})");
 			
 			string credits;
 			if (mod.Credits.Length == 0)
@@ -51,7 +54,7 @@ public partial class MainWindow {
 		modsListWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
 		modsListWindow.SetChild(modsListBox);
 		modsListWindow.SetPropagateNaturalHeight(true);
-		
+
 		Box manageModsBox = Box.New(Orientation.Horizontal, 5);
 		manageModsBox.SetHalign(Align.Center);
 		manageModsBox.SetValign(Align.Center);
@@ -91,24 +94,45 @@ public partial class MainWindow {
 			if (next is null)
 				return;
 			int index = selected.GetIndex();
+
+			IMod mod = modsList[index];
+			if (direction == 1 && mod is XdeltaMod && modsList[index + direction] is not XdeltaMod ||
+				direction == -1 && mod is not XdeltaMod && modsList[index + direction] is XdeltaMod) {
+				PopupWindow popup = new PopupWindow(this, "Stop!",
+					"An xdelta mod cannot have lower priority than non-xdelta mods.", "Ohhh");
+				popup.Dialog();
+				return;
+			}
+
+			modsList.RemoveAt(index);
+			modsList.Insert(index + direction, mod);
+			
 			modsListBox.UnselectAll();
 			modsListBox.Remove(selected);
 			modsListBox.Insert(selected, index + direction);
 			modsListBox.SelectRow(selected);
 
-			// we assume the list is identical to the listbox (so this operation will be valid)
-			Mod mod = modsList[index];
-			modsList.RemoveAt(index);
-			modsList.Insert(index + direction, mod);
+
 		}
 		
-		Button importFromZipButton = Button.NewWithLabel("Import from ZIP");
+		Button importFromZipButton = Button.NewWithLabel("Import");
 		importFromZipButton.OnClicked += (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
-			DoFileDialog("Select a mod ZIP file", [zipFilter], (file) => {
-				TryExtractingZip(file, ZipType.Mod);
+			
+			FileFilter xdeltaFilter = FileFilter.New();
+			xdeltaFilter.SetName("Xdelta patches");
+			xdeltaFilter.AddPattern("*.xdelta");
+			DoFileDialog("Select a mod's file", [zipFilter, xdeltaFilter], (file) => {
+				string? path = file.GetPath();
+				if (path is null)
+					return;
+				if (Path.GetExtension(path) == ".xdelta") {
+					File.Copy(path, Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID, Path.GetFileName(path)), true);
+				}
+				else
+					TryExtractingZip(file, ZipType.Mod);
 				ParseModsAndUpdateMenu();
 			});
 		};
@@ -119,14 +143,14 @@ public partial class MainWindow {
 			if (selected is null)
 				return;
 			int index = selected.GetIndex();
-			Mod mod = modsList[index];
-			string modPath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID, mod.FolderName);
+			IMod mod = modsList[index];
+			string profileFolder = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
 			try {
-				Directory.Delete(modPath, true);
+				mod.Delete(profileFolder);
 			}
 			catch (Exception e) {
 				Program.Logger.Error(e);
-				PopupWindow popup = new PopupWindow(this, "Error!", "Failed to delete this mod's folder. Please report this as a bug!", "Damn");
+				PopupWindow popup = new PopupWindow(this, "Error!", "Failed to delete this mod. Please report this as a bug!", "Damn");
 				popup.Dialog();
 				return;
 			}
@@ -159,7 +183,7 @@ public partial class MainWindow {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
 			PatcherWindow window = new PatcherWindow(this);
-			List<Mod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
+			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
 			window.Dialog(enabledModsList);
 		};
 
@@ -181,19 +205,24 @@ public partial class MainWindow {
 		
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
-		
-		modsList = Mod.ParseAll(Path.Combine(game.Directory, "g3man", profile.ID));
+
+		modsList = new List<IMod>();
+		modsList.AddRange(Mod.ParseAll(Path.Combine(game.Directory, "g3man", profile.ID)));
+		List<XdeltaMod> xdeltaMods = XdeltaMod.ParseAll(Path.Combine(game.Directory, "g3man", profile.ID));
+		modsList.AddRange(xdeltaMods);
 		
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);
 		
 		List<string> modOrder = profile.ModOrder.ToList();
+		List<string> missingXdeltas = xdeltaMods.Select(m => m.ModId).Where(id => !modOrder.Contains(id)).ToList();
+		modOrder.InsertRange(0, missingXdeltas);
 		modsList.Sort((mod1, mod2) => int.Sign(modOrder.IndexOf(mod1.ModId) - modOrder.IndexOf(mod2.ModId)));
 	
-		enabledMods = new Dictionary<Mod, bool>();
+		enabledMods = new Dictionary<IMod, bool>();
 		List<string> disabledIds = profile.ModsDisabled.ToList();
 
-		foreach (Mod mod in modsList) {
+		foreach (IMod mod in modsList) {
 			ListBoxRow row = ListBoxRow.New();
 			CheckButton modEnabled = CheckButton.New();
 			
