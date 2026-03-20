@@ -20,7 +20,6 @@ int get_block_file(xd3_stream *cstream, xd3_source *csource, xoff_t blkno) {
 	csource->curblkno = blkno;
 	fseek(csource->ioh, blkno * SOURCE_BLOCK_SIZE, SEEK_SET);
 	csource->onblk = fread(block, sizeof(uint8_t), SOURCE_BLOCK_SIZE, csource->ioh);
-	csource->curblk = block;
 	return 0;
 }
 
@@ -44,7 +43,7 @@ int start_decode(const char* source_path, const char* input_path) {
 	source.ioh = source_file;
 	source.blksize = SOURCE_BLOCK_SIZE;
 	source.curblkno = (xoff_t) -1;
-	source.curblk = NULL; 
+	source.curblk = block;
 	
 	ret = xd3_set_source(&stream, &source);
 	if (ret != 0) { 

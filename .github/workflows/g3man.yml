@@ -35,15 +35,20 @@ jobs:
           install: >-
             mingw-w64-x86_64-libadwaita
             mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-ninja
+            
 
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12' 
 
-      - name: test
+      - name: Compile C Libraries
         if: runner.os == 'Windows'
+        shell: msys2 {0}
         run: |
-          where cmake
+            cd c
+            sh build.sh
 
       - name: Publish
         env:
