@@ -10,17 +10,23 @@ Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool
 This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), an interactive website for creating gmlp patches used by g3man. You can try it out [here](https://skirlez.github.io/g3man/)!
 
 ## Features
-
-- Support for all GameMaker games compiled with VM mode (theoretically)
-- Mods can be applied simultaneously, and should keep working after most updates
-- Mod scripting: mods can run .csx scripts, like UndertaleModTool
+- Support for all GameMaker games compiled in VM mode (theoretically)
+- Its own mod format:
+	- Mods can be applied simultaneously, and should keep working after most updates
+	- Mod scripting: mods can run .csx scripts, like UndertaleModTool
+  - Dependency checking
 - A profile system to easily switch between sets of mods
-- Xdelta mod support: g3man allows, alongside its own (new) mod format, the loading of .xdelta mod(s)*
-- General Xdelta support: g3man mods themselves can employ xdelta files to patch other game files.
+- Profile save separation
 - Support for both Linux and Windows
-- CLI support
+- (limited) CLI support
+- Efficient pre-loading of the game's datafile
 
-* (You can have several, but every consecutive patch has to be made for the output of the prior patches)
+
+Coming in Version 7:
+- Xdelta mod support: g3man allows, alongside its own mod format, the loading of .xdelta mod(s)*
+- General Xdelta support: g3man mods themselves can employ xdelta files to patch other game files
+
+*(You can have several, but every consecutive patch has to be made for the output of the prior patches)
 
 ## Installation
 
@@ -37,7 +43,7 @@ Go to the [Releases](https://github.com/skirlez/g3man/releases) page, and follow
 
 [Void Stranger Endless Void](https://github.com/skirlez/void-stranger-endless-void/): a level builder for Void Stranger
 
-[Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the [example mod](https://github.com/Skirlez/nubbys-forgery-example-mod): an API for Nubby's Number Factory, and a mod that depends on it to add new things to the game
+[Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the example mods ([1](https://github.com/Skirlez/nubbys-forgery-example-mod), [2](https://github.com/skirlez/nubbys-forgery-example-mod-2)): an API for Nubby's Number Factory, and two mods that depends on it to add new things to the game
 
 Have YOU made ANYTHING with g3man? I would love to add more to this list! Please open an issue regarding your creation, even if it's something really small.
 
