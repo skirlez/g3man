@@ -32,11 +32,7 @@ int start_decode(const char* source_path, const char* input_path) {
 		return 1;
 	}
 	
-	FILE* source_file;
-	ret = fopen_s(&source_file, source_path, "rb");
-	if (ret != 0) { 
-		return 1;
-	}
+	FILE* source_file = fopen(source_path, "rb");
 	
 	source.max_winsize = SOURCE_BLOCK_SIZE; // I don't understand this one
 	source.name = "datafile";
@@ -50,10 +46,7 @@ int start_decode(const char* source_path, const char* input_path) {
 		return 1;
 	}
 	stream.getblk = get_block_file;
-	ret = fopen_s(&input_file, input_path, "rb");
-	if (ret != 0) { 
-		return 1;
-	}
+	input_file = fopen(input_path, "rb");
 	return 0;
 }
 
@@ -95,10 +88,7 @@ int start_decode_from_memory(const uint8_t* source_data, usize_t source_length, 
 		return 1;
 	}
 	stream.getblk = get_block_memory;
-	ret = fopen_s(&input_file, input_path, "rb");
-	if (ret != 0) { 
-		return 1;
-	}
+	input_file = fopen(input_path, "rb");
 	return 0;
 }
 

@@ -38,17 +38,16 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-ninja
             
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12' 
-
       - name: Compile C Libraries
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
             cd c
             sh build.sh
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12' 
 
       - name: Publish
         env:

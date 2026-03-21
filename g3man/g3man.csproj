@@ -47,14 +47,14 @@
 
 
 
-  <Target Name="BuildCLibs" BeforeTargets="BeforeBuild">
+  <Target Condition="'$(DontHandleCLibs)'!='true'" Name="BuildCLibs" BeforeTargets="BeforeBuild">
   <Exec
   	WorkingDirectory="../c"
     Command="$(BuildCLibsCommand)"
     Condition="!Exists('../c/build/libxdelta3.$(Lsuffix)') Or !Exists('../c/build/libg3man.$(Lsuffix)')" />
   </Target>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(DontHandleCLibs)'!='true'">
     <Content Include="../c/build/libxdelta3.$(Lsuffix)">
       <Link>libxdelta3.$(Lsuffix)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

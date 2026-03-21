@@ -10,23 +10,23 @@ set(XD3_SOURCES xdelta3/xdelta3.c)
 set(XD3_TARGET_LIBS "")
 
 option( XD3_ENABLE_SECONDARY_COMPRESSION
-        "Compiles builtin in support for secondary compression (DJW and FGK). \
-        To also include lzma as secondary compression, you should enable it with the corresponding option"
-        OFF)
+								"Compiles builtin in support for secondary compression (DJW and FGK). \
+								To also include lzma as secondary compression, you should enable it with the corresponding option"
+								OFF)
 
 option( XD3_ENABLE_LZMA
-        "Includes lzma as secondary compression. \
-        For this to work, libzma must be available to find_package when building
-        This option has no effect if secondary compression is not enabled."
-        OFF)
+								"Includes lzma as secondary compression. \
+								For this to work, libzma must be available to find_package when building
+								This option has no effect if secondary compression is not enabled."
+								OFF)
 
 option( XD3_ENABLE_ENCODER
-        "Enable also the encoding code, and not only the decoder."
-        OFF)
+								"Enable also the encoding code, and not only the decoder."
+								OFF)
 
 option( XD3_ENABLE_VCDIFF_TOOLS
-        "Enable additional vcdiff code (e.g., get xdelta patch's header information"
-        OFF)
+								"Enable additional vcdiff code (e.g., get xdelta patch's header information"
+								OFF)
 
 add_compile_definitions(SIZEOF_SIZE_T=${XD3_SIZEOF_SIZE_T})
 add_compile_definitions(SIZEOF_UNSIGNED_LONG_LONG=${XD3_SIZEOF_UNSIGNED_LONG_LONG})
@@ -35,53 +35,72 @@ add_compile_definitions(XD3_MAIN=1) #enables main function
 add_compile_definitions(EXTERNAL_COMPRESSION=0)
 add_compile_definitions(XD3_USE_LARGESIZET=1)
 if(WIN32)
-    add_compile_definitions(XD3_WIN32=1) #this forces using the win32 io library
-    add_compile_definitions(WIN32=1)
+	add_compile_definitions(XD3_WIN32=1) #this forces using the win32 io library
+	add_compile_definitions(WIN32=1)
 else()
-    add_compile_definitions(XD3_WIN32=0)
-    add_compile_definitions(WIN32=0)
-    # here we are defaulting to using the stdio io library. If posix is need,
-    # we must change  the following compile definition to use XD3_POSIX
-    add_compile_definitions(XD3_STDIO=1)
+	add_compile_definitions(XD3_WIN32=0)
+	add_compile_definitions(WIN32=0)
+	# here we are defaulting to using the stdio io library. If posix is need,
+	# we must change  the following compile definition to use XD3_POSIX
+	add_compile_definitions(XD3_STDIO=1)
 endif()
 
 add_compile_definitions(NOT_MAIN=1) # changes the main function name to xd3_main_cmdline
 set(XD3_SOURCES ${XD3_SOURCES})
 
 if(XD3_ENABLE_ENCODER)
-    add_compile_definitions(XD3_ENCODER=1)
+	add_compile_definitions(XD3_ENCODER=1)
 else()
-    add_compile_definitions(XD3_ENCODER=0)
+	add_compile_definitions(XD3_ENCODER=0)
 endif()
 
 if(XD3_ENABLE_VCDIFF_TOOLS)
-    add_compile_definitions(VCDIFF_TOOLS=1)
+	add_compile_definitions(VCDIFF_TOOLS=1)
 else()
-    add_compile_definitions(VCDIFF_TOOLS=0)
+	add_compile_definitions(VCDIFF_TOOLS=0)
 endif()
 
 if(XD3_ENABLE_SECONDARY_COMPRESSION)
-    add_compile_definitions(SECONDARY_DJW=1) #(passing djwn chooses compression n with djw. Other second compressions do not seem to support level)
-    add_compile_definitions(SECONDARY_FGK=1)
-    if(XD3_ENABLE_LZMA)
-        #find_package(LibLZMA 5.2.1 REQUIRED CONFIG)
-        set(XD3_TARGET_LIBS liblzma ${XD3_TARGET_LIBS})
-        add_compile_definitions(SECONDARY_LZMA=1)
-    endif()
+	add_compile_definitions(SECONDARY_DJW=1) #(passing djwn chooses compression n with djw. Other second compressions do not seem to support level)
+	add_compile_definitions(SECONDARY_FGK=1)
+	if(XD3_ENABLE_LZMA)
+		#find_package(LibLZMA 5.2.1 REQUIRED CONFIG)
+		set(XD3_TARGET_LIBS liblzma ${XD3_TARGET_LIBS})
+		add_compile_definitions(SECONDARY_LZMA=1)
+	endif()
 else()
-    add_compile_definitions(SECONDARY_DJW=0)
-    add_compile_definitions(SECONDARY_FGK=0)
-    add_compile_definitions(SECONDARY_LZMA=0)
+	add_compile_definitions(SECONDARY_DJW=0)
+	add_compile_definitions(SECONDARY_FGK=0)
+	add_compile_definitions(SECONDARY_LZMA=0)
 endif()
 
 
-add_library(${PROJECT_NAME} SHARED "${XD3_SOURCES}")
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${PROJECT_NAME} ${XD3_TARGET_LIBS})
+option(G3MAN_SKIP_LIBG3MAN
+		""
+								OFF)
+
+option(G3MAN_SKIP_LIBXDELTA
+		""
+								OFF)
+
+if (NOT G3MAN_SKIP_LIBXDELTA)
+	add_library(xdelta3 SHARED "${XD3_SOURCES}")
+	target_include_directories(xdelta3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+	target_link_directories(xdelta3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+	target_link_libraries(xdelta3 ${XD3_TARGET_LIBS})
+endif()
 
 
-add_library(g3man SHARED g3man.c)
-target_link_libraries(g3man
-    PRIVATE xdelta3
-)
+if (NOT G3MAN_SKIP_LIBG3MAN)
+	add_library(g3man SHARED g3man.c)
+	if (G3MAN_SKIP_LIBXDELTA)
+		find_library(XDELTA3_LIB
+						NAMES xdelta3
+		)
+	else()
+		set(XDELTA3_LIB xdelta3)
+	endif()
+	target_link_libraries(g3man
+					PRIVATE ${XDELTA3_LIB}
+	)
+endif()
