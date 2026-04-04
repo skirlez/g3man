@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using g3man.Models;
 using g3man.Patching;
+using g3man.UI.Main;
 using g3man.Util;
 using Gtk;
 using UndertaleModLib;
@@ -13,12 +14,12 @@ public class GameAdderWindow : G3manWindow {
 	
 	private readonly Label label;
 	private readonly string directory;
-	private Main.MainWindow owner;
-	public GameAdderWindow(string directory, Main.MainWindow owner) {
+	private MainWindow mainWindow;
+	public GameAdderWindow(string directory, MainWindow mainWindow) {
 		SetSizeRequest(350, 150);
 		SetResizable(false);
 		this.directory = directory;
-		this.owner = owner;
+		this.mainWindow = mainWindow;
 		
 		label = Label.New("Adding game...");
 		label.SetHalign(Align.Center);
@@ -35,6 +36,8 @@ public class GameAdderWindow : G3manWindow {
 		if (datafileInfo is null)
 			return new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile", null));
 		(string datafileName, string datafilePath) = datafileInfo.Value;
+		string outputDatafileName = "g3man_" + datafileName;
+		
 		
 		byte[] hash;
 		UndertaleData data;
@@ -52,21 +55,27 @@ public class GameAdderWindow : G3manWindow {
 			return new Result<Success, Error>(new Error("This game is already patched by g3man. Please make sure the game's datafile is not modified so g3man can copy it.", null));
 		}
 
+		string defaultProfileID = "default";
 
-		Profile profile = new Profile("Default", "default",false, "", []);
+		GameEntry entry = new GameEntry(directory, defaultProfileID);
+		
+		Game game = new Game(entry,
+			data.GeneralInfo.DisplayName.Content,
+			data.GeneralInfo.FileName.Content, 
+			datafileName, 
+			0,
+			ProgramPaths.GuessExecutablePath(directory),
+			-1, outputDatafileName);
+
+		Profile profile = new Profile("Default", defaultProfileID, false, "", []);
 		try {
-			profile.Write(directory);
+			profile.Write(game);
 		}
 		catch (Exception e) {
 			return new Result<Success, Error>(new Error("Failed to create default profile folders", e));
 		}
 		
-		Game game = new Game(data.GeneralInfo.DisplayName.Content,
-			data.GeneralInfo.FileName.Content, 
-			directory, 
-			datafileName, 
-			IO.HashToString(hash),
-			profile.ID);
+
 		
 		
 		try {
@@ -87,24 +96,25 @@ public class GameAdderWindow : G3manWindow {
 
 	}
 	
-	public void Dialog() {
-		SetTransientFor(owner);
+	public void Dialog(Window window) {
+		SetTransientFor(window);
 		SetModal(true);
 		Present();
 		Thread thread = new Thread(() => {
 			
 			Result<Success, Error> result;
-			if (Program.Config.GameDirectories.Any(existingDirectory => existingDirectory == directory))
+			/*
+			if (Program.Config.GameEntries.Any(entry => entry.Path == directory))
 				result = new Result<Success, Error>(new Error("You already have a game with this directory added.", null));
 			else 
-				result = LoadAndSetupGame();
+			*/
+			result = LoadAndSetupGame();
 
 			Program.RunOnMainThreadEventually(() => {
 				if (result.IsOk()) {
 					Success s = result.GetValue();
-					Program.AddGame(s.Game);
-					owner.AddToGamesList(s.Game, false);	
-					
+					Program.AddGameEntry(s.Game.Entry);
+					mainWindow.AddToGamesList(s.Game, false);	
 					Close();
 				}
 				else

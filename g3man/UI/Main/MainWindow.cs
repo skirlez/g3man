@@ -22,6 +22,7 @@ public partial class MainWindow : G3manWindow {
 	private ListBox modsListBox;
 	private ScrolledWindow modsListWindow;
 	private List<IMod> modsList;
+	private List<Game> gamesList;
 	private Dictionary<IMod, bool> enabledMods;
 	
 	private Label noModsLabel;
@@ -42,11 +43,11 @@ public partial class MainWindow : G3manWindow {
 	private Label aboutButtonLabelWithUpdate;
 	
 	private ExtraCategories currentExtraCategories;
-	
-	
+
+
 	public MainWindow() {
 		Title = "g3man";
-		SetDefaultSize(300, 300);
+		SetDefaultSize(700, 600);
 		Stack pageStack = Stack.New();
 		pageStack.SetHexpand(true);
 
@@ -183,34 +184,6 @@ public partial class MainWindow : G3manWindow {
 		modsButton.SetSensitive(true);
 	}
 	
-	private void DoFileDialog(string title, List<FileFilter> filters, Action<Gio.File> callback) {
-		FileDialog dialog = new FileDialog();
-		dialog.Title = title;
-		
-		FileFilter allFilter = FileFilter.New();
-		allFilter.SetName("All Files");
-		allFilter.AddPattern("*");
-			
-		Gio.ListStore filtersStore = Gio.ListStore.New(FileFilter.GetGType());
-		foreach (FileFilter filter in filters)
-			filtersStore.Append(filter);
-		filtersStore.Append(allFilter);
-			
-		dialog.SetFilters(filtersStore);
-		dialog.SetDefaultFilter(filters[0]);
-			
-		Task<Gio.File?> task = dialog.OpenAsync(this);
-		task.GetAwaiter().OnCompleted(() => {
-			if (!task.IsCompletedSuccessfully)
-				return;
-			Gio.File file = task.Result!;
-			callback(file);
-		});
-	}
-	
-
-
-	
 	enum ZipType {
 		Mod,
 		Profile
@@ -237,7 +210,7 @@ public partial class MainWindow : G3manWindow {
 			
 			if (type == ZipType.Mod) {
 				jsonEntries = modJsonEntries;
-				basePath = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
+				basePath = Program.CurrentProfileFolderPath();
 				if (profileJsonEntries.Length != 0) {
 					PopupWindow popup = new PopupWindow(this, "Wait!",
 						"This is a profile zip. You should install it as a profile in the profiles tab.", "Alright");
@@ -253,7 +226,7 @@ public partial class MainWindow : G3manWindow {
 			}
 			else {
 				jsonEntries = profileJsonEntries;
-				basePath = Path.Combine(Program.GetGame()!.Directory, "g3man");
+				basePath = Path.Combine(Program.GetGame()!.Directory, "g3man", "profiles");
 				if (profileJsonEntries.Length == 0) {
 					string message;
 					string buttonText;

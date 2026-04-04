@@ -1,4 +1,5 @@
 using g3man.Models;
+using g3man.Util;
 using Gtk;
 using Pango;
 
@@ -34,10 +35,11 @@ public partial class MainWindow {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
-			DoFileDialog("Select a profile ZIP file", [zipFilter], (file) => {
+			FileDialogWindow window = new FileDialogWindow("Select a profile ZIP file", [zipFilter], (file) => {
 				TryExtractingZip(file, ZipType.Profile);
 				ParseProfilesAndUpdateMenu();
 			});
+			window.Dialog(this);
 		};
 		
 		
@@ -55,13 +57,13 @@ public partial class MainWindow {
 	
 	
 	private void ParseProfilesAndUpdateMenu() {
-		profiles = Profile.ParseAll(Path.Combine(Program.GetGame()!.Directory, "g3man"));
+		profiles = Profile.ParseAll(Path.Combine(Program.GetGame()!.Directory, "g3man", "profiles"));
 		profiles = profiles.OrderBy(profile => profile.Name).ToList();
 		if (profiles.Count == 0) {
 			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
 		}
-		Profile? profile = profiles.FirstOrDefault(p => p!.ID == Program.GetGame()!.ProfileFolderName, null);
+		Profile? profile = profiles.FirstOrDefault(p => p!.ID == Program.GetGame()!.Entry.ProfileFolderName, null);
 		if (profile is null) {
 			PopulateProfilesList();
 			// let user choose profile if for some reason we couldn't use the normal one
@@ -164,9 +166,9 @@ public partial class MainWindow {
 		currentProfileLabel.SetText(profile.Name);
 		ParseModsAndUpdateMenu();
 		
-		Program.GetGame()!.ProfileFolderName = profile.ID;
+		Program.GetGame()!.Entry.ProfileFolderName = profile.ID;
 		try {
-			Program.GetGame()!.Write();
+			Program.Config.Write();
 		}
 		catch (Exception e) {
 			Program.Logger.Error("Failed to update game.json after selecting profile: " + e);

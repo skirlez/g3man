@@ -14,6 +14,7 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 - Its own mod format:
 	- Mods can be applied simultaneously, and should keep working after most updates
 	- Mod scripting: mods can run .csx scripts, like UndertaleModTool
+	- A custom patch language/format called GMLP
   - Dependency checking
 - A profile system to easily switch between sets of mods
 - Profile save separation

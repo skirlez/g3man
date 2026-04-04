@@ -12,29 +12,38 @@ public partial class MainWindow {
 		gamesLabel.SetMarginStart(10);
 		gamesLabel.SetMarginTop(10);
 
+
+		
 		noGamesAddedLabel = Label.New("There are no games added");
 		noGamesAddedLabel.SetMargin(10);
-
+		
 		gamesListBox = ListBox.New();
 		gamesListBox.SetSelectionMode(SelectionMode.None);
 		gamesListBox.SetPlaceholder(noGamesAddedLabel);
 		selectGameButtons = [];
-
-
-		List<Game> games = Game.Parse(Program.Config.GameDirectories);
+		gamesList = new List<Game>();
+		
+		
+		List<Game> games = Game.Parse(Program.Config.GameEntries);
 		games.Sort((game1, game2) => string.Compare(game1.DisplayName, game2.DisplayName, StringComparison.Ordinal));
-		Program.Config.UpdateGameDirectories(games);
 		PopulateGamesList(games);
 		
-		Label autoDetectedLabel = Label.New("Auto-detected");
+		ScrolledWindow gamesListWindow = ScrolledWindow.New();
+		gamesListWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+		gamesListWindow.SetPropagateNaturalHeight(true);
+		gamesListWindow.SetChild(gamesListBox);
+		
+		Label autoDetectedLabel = Label.New("Auto-detect");
 		autoDetectedLabel.SetHalign(Align.Start);
 		autoDetectedLabel.SetMarginStart(10);
 		
-		nothingAutoDetectedLabel = Label.New("This feature is not yet implemented");
-		nothingAutoDetectedLabel.SetMargin(20);
-		
-		Stack autodetectedStack = Stack.New();
-		autodetectedStack.AddChild(nothingAutoDetectedLabel);
+		Button autoDetectButton = Button.NewWithLabel("Auto-detect games");
+		autoDetectButton.OnClicked += (_, _) => {
+			AutoDetectWindow window = new AutoDetectWindow(this, gamesList);
+			window.Dialog();
+		};
+		autoDetectButton.SetHalign(Align.Center);
+		autoDetectButton.SetMargin(10);
 		
 		Label manualLabel = Label.New("Manually add game");
 		manualLabel.SetHalign(Align.Start);
@@ -46,7 +55,7 @@ public partial class MainWindow {
 		gameDirectoryEntry.SetMaxWidthChars(75);
 		Button browseButton = Button.NewWithLabel("Browse");
 		browseButton.OnClicked += (_, _) => {
-			FileDialog dialog = new FileDialog();
+			FileDialog dialog = FileDialog.New();
 			dialog.Title = "Select a GameMaker game's folder";
 			Task<Gio.File?> task = dialog.SelectFolderAsync(this);
 			task.GetAwaiter().OnCompleted(() => {
@@ -84,7 +93,7 @@ public partial class MainWindow {
 		addGameButton.SetHalign(Align.Center);
 		addGameButton.OnClicked += (sender, args) => {
 			GameAdderWindow adderWindow = new GameAdderWindow(gameDirectoryEntry.GetText(), this);
-			adderWindow.Dialog();
+			adderWindow.Dialog(this);
 		};
 		
 		gameDirectoryEntry.GetBuffer().OnDeletedText += (buffer, args) => {
@@ -97,13 +106,13 @@ public partial class MainWindow {
 		
 		box.Append(gamesLabel);
 		box.Append(Separator.New(Orientation.Horizontal));
-		box.Append(gamesListBox);
+		box.Append(gamesListWindow);
+		box.Append(Separator.New(Orientation.Horizontal));
 		box.Append(autoDetectedLabel);
+		box.Append(autoDetectButton);
 		box.Append(Separator.New(Orientation.Horizontal));
-		box.Append(autodetectedStack);
-
 		box.Append(manualLabel);
-		box.Append(Separator.New(Orientation.Horizontal));
+		
 		box.Append(gameDirectoryBox);
 		box.Append(addGameButton);
 	}
@@ -113,7 +122,8 @@ public partial class MainWindow {
 		
 		gamesListBox.RemoveAll();
 		gamesListBox.SetPlaceholder(noGamesAddedLabel);
-		
+
+		gamesList.Clear();
 		foreach (Game game in games) {
 			AddToGamesList(game, selectedGame == game);
 		}
@@ -126,18 +136,28 @@ public partial class MainWindow {
 		spacer.SetHexpand(true);
 		
 		Button selectGameButton = Button.NewWithLabel("Select");
-		
 		selectGameButton.OnClicked += (button, _) => {
 			SelectGame(game, button);
 		};
 		selectGameButton.SetSensitive(!selected);
 		selectGameButtons.Add(selectGameButton);
 
+		Button manageGameButton = Button.NewWithLabel("Manage");
+		manageGameButton.OnClicked += (button, _) => {
+			if (game.FormatVersion == 1) {
+				GameUpgraderWindow upgraderWindow = new GameUpgraderWindow(this, game);
+				upgraderWindow.Dialog(this);
+				return;
+			}
+			ManageGameWindow window = new ManageGameWindow(game, this);
+			window.Dialog();
+		};
 
 		
-		Box box = Box.New(Orientation.Horizontal, 0);
+		Box box = Box.New(Orientation.Horizontal, 10);
 		box.Append(gameNameLabel);
 		box.Append(spacer);
+		box.Append(manageGameButton);
 		box.Append(selectGameButton);
 	
 	
@@ -151,9 +171,15 @@ public partial class MainWindow {
 		row.SetMargin(10);
 		
 		gamesListBox.Append(row);
+		gamesList.Add(game);
 	}
 	
 	private void SelectGame(Game game, Button buttonPressed) {
+		if (game.FormatVersion == 1) {
+			GameUpgraderWindow window = new GameUpgraderWindow(this, game);
+			window.Dialog(this);
+			return;
+		}
 		foreach (Button button in selectGameButtons) {
 			button.SetSensitive(true);
 		}

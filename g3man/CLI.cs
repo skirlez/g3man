@@ -1,6 +1,7 @@
 using System.CommandLine;
 using g3man.Models;
 using g3man.Patching;
+using g3man.Util;
 using UndertaleModLib;
 
 namespace g3man;

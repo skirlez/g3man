@@ -1,4 +1,6 @@
 
+using g3man.Models;
+
 namespace g3man.Util;
 
 public static class ProgramPaths {
@@ -43,12 +45,43 @@ public static class ProgramPaths {
 	}
 	
 	public static (string, string)? GetDatafileFromDirectory(string directory) {
-		// all technically valid gamemaker data filenames
 		foreach (string name in IO.DatafileNames) {
 			string combined = Path.Combine(directory, name);
 			if (File.Exists(combined))
 				return (name, combined);
 		}
 		return null;
+	}
+	
+	private static string GuessSteamCommonPath() {
+		#if LINUX
+			return GetEnvironmentVariableDirectory("XDG_DATA_HOME", [".local", "share"], ["Steam", "steamapps", "common"]);
+		#endif
+	}
+
+	public static List<string> GuessPossibleGamePaths() {
+		try {
+			return Directory.GetDirectories(GuessSteamCommonPath()).ToList();
+		}
+		catch (Exception e) {
+			Program.Logger.Error($"Game autodetection error: {e}");
+			return [];
+		}
+	}
+	
+	public static string GuessExecutablePath(string gameDirectory) {
+		try {
+			string[] files = Directory.GetFiles(gameDirectory);
+			foreach (string file in files) {
+				if (Path.GetExtension(file) == ".exe") {
+					return Path.GetFileName(file);
+				}
+			}
+
+			return "";
+		}
+		catch {
+			return "";
+		}
 	}
 }

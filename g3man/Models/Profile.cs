@@ -112,9 +112,9 @@ public class Profile {
 		};
 	}
 	
-	public void Write(string directory) {
-		Debug.Assert(ID != "");
-		string profileFolder = Path.Combine(directory, "g3man", ID);
+	
+	public void Write(Game game) {
+		string profileFolder = game.GetProfileFolderPath(this);
 		Directory.CreateDirectory(profileFolder);
 
 		string jsonText = ToJson().ToJsonString(new JsonSerializerOptions() {
@@ -123,9 +123,8 @@ public class Profile {
 		File.WriteAllText(Path.Combine(profileFolder, "profile.json"), jsonText);
 	}
 
-	public void Delete(string directory) {
-		Debug.Assert(ID != "");
-		string profileFolder = Path.Combine(directory, "g3man", ID);
+	public void Delete(Game game) {
+		string profileFolder = game.GetProfileFolderPath(this);
 		Directory.Delete(profileFolder, true);
 	}
 

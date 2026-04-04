@@ -100,15 +100,6 @@ public partial class MainWindow {
 		};
 		checkForUpdatesCheck.SetTooltipText("Check the g3man GitHub to see if there's a new release when you open the program. If there is, you'll see a (!) on the \"About\" page.");
 		
-		CheckButton useMoreMemoryCheck = CheckButton.NewWithLabel("Use more memory");
-		useMoreMemoryCheck.SetActive(Program.Config.UseMoreMemory);
-		useMoreMemoryCheck.OnToggled += (sender, _) => {
-			Program.Config.UseMoreMemory = sender.GetActive();
-			Program.DataLoader.ReevaluateMemoryStrategy();
-			MarkDirty();
-		};
-		useMoreMemoryCheck.SetTooltipText("g3man utilizes some techniques that involve using a bit more memory to speed things up, and to reduce file reads. You can turn those off with this option.");
-
 
 		saveSettingsButton.SetHalign(Align.End);
 		saveSettingsButton.SetValign(Align.End);
@@ -123,7 +114,6 @@ public partial class MainWindow {
 		
 		page.Append(allowModScriptsBox);
 		page.Append(checkForUpdatesCheck);
-		page.Append(useMoreMemoryCheck);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);
 		page.SetSpacing(10);

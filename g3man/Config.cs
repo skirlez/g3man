@@ -8,26 +8,40 @@ namespace g3man;
 
 public class Config {
 	private static readonly Logger logger = Logger.Make("CONFIG");
-	public List<string> GameDirectories;
 	public Program.ColorScheme ColorScheme;
 	public Program.Initializer Initializer;
+	public List<GameEntry> GameEntries;
 	public bool AllowModScripting;
 	public bool CheckForUpdates;
-	public bool UseMoreMemory;
 
+	private const int LatestVersion = 2;
 	
 	public Config() {
-		GameDirectories = [];
+		GameEntries = new List<GameEntry>();
 		Initializer = Program.Initializer.Gtk4;
 		ColorScheme = Program.ColorScheme.SystemDefault;
 		AllowModScripting = false;
 		CheckForUpdates = true;
-		UseMoreMemory = true;
 	}
 	
 	public Config(JsonElement root) {
-		GameDirectories = JsonUtil.GetOrDefaultClass(root, "game_directories", Array.Empty<string>()).ToList();
-
+		int formatVersion = JsonUtil.GetOrDefault(root, "format_version", LatestVersion);
+		if (formatVersion == 1) {
+			List<string> gameDirectories = JsonUtil.GetOrDefaultClass(root, "game_directories", Array.Empty<string>()).ToList();
+			GameEntries = gameDirectories.Select(s => new GameEntry(s, "default")).ToList();
+		}
+		else {
+			JsonElement[] gameEntries = JsonUtil.GetOrDefaultClass<JsonElement[]>(root, "game_entries", null!);
+			GameEntries = new List<GameEntry>();
+			foreach (JsonElement gameEntry in gameEntries) {
+				try {
+					GameEntries.Add(new GameEntry(gameEntry));
+				}
+				catch (Exception e) {
+					logger.Error($"Bad game entry, skipping: {e}");
+				}
+			}
+		}
 		int initializer = JsonUtil.GetOrDefault(root, "initializer", 0);
 		if (initializer < 0 || initializer > 1)
 			initializer = 0;
@@ -43,20 +57,18 @@ public class Config {
 			allowModScripting = 0;
 		AllowModScripting = allowModScripting == 1;
 		
-		UseMoreMemory = JsonUtil.GetOrDefault(root, "use_more_memory", true);
 		CheckForUpdates = JsonUtil.GetOrDefault(root, "check_for_updates", true);
 
 	}
 
 	public JsonObject ToJson() {
 		return new JsonObject() {
-			["format_version"] = 1,
-			["game_directories"] = new JsonArray(GameDirectories.Select(directory => (JsonNode)directory).ToArray()),
+			["format_version"] = 2,
+			["game_entries"] = new JsonArray(GameEntries.Select(entry => entry.ToJson()).ToArray()),
 			["initializer"] = (int)Initializer,
 			["color_scheme"] = (int)ColorScheme,
 			["check_for_updates"] = CheckForUpdates,
 			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0,
-			["use_more_memory"] = UseMoreMemory,
 		};
 	}
 	
@@ -90,8 +102,27 @@ public class Config {
 			return null;
 		}
 	}
+	
+}
 
-	public void UpdateGameDirectories(List<Game> games) {
-		GameDirectories = games.Select(game => game.Directory).ToList();
+public class GameEntry {
+	public string Path;
+	public string ProfileFolderName;
+
+	public GameEntry(string path, string profileFolderName) {
+		Path = path;
+		ProfileFolderName = profileFolderName;
+	}
+	
+	public GameEntry(JsonElement root) {
+		Path = JsonUtil.GetStringOrThrow(root, "path");
+		ProfileFolderName = JsonUtil.GetStringOrThrow(root, "last_selected_profile");
+	}
+	
+	public JsonObject ToJson() {
+		return new JsonObject() {
+			["path"] = Path,
+			["last_selected_profile"] = ProfileFolderName,
+		};
 	}
 }

@@ -22,7 +22,7 @@ public class UpdateChecker(Action OnStarted, Action<int> OnCompletion) {
                 int version = int.Parse(tagName);
                 OnCompletion.Invoke(version);
             }
-            catch (Exception e) {
+            catch {
                 OnCompletion.Invoke(0);
             }
             Ready = 1;

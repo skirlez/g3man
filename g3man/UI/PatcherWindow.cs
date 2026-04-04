@@ -42,7 +42,7 @@ public class PatcherWindow : G3manWindow {
 		box.Append(statusLabel);
 		box.Append(closeButton);
 
-		OnCloseRequest += (sender, args) => !canClose;
+		OnCloseRequest += (_, _) => !canClose;
 		SetChild(box);
 	}
 
@@ -75,7 +75,7 @@ public class PatcherWindow : G3manWindow {
 			using FileStream stream = new FileStream(Program.GetGame()!.GetOutputDatafilePath(), FileMode.Open, FileAccess.Read);
 			hash = IO.HashToString(MD5.HashData(stream));
 		}
-		catch (Exception _) {
+		catch {
 			hash = "";
 		}
 		
@@ -130,12 +130,13 @@ public class PatcherWindow : G3manWindow {
 					
 					File.Copy(Program.GetGame()!.GetOutputDatafilePath(),
 						Program.GetGame()!.GetCleanDatafilePath(), true);
-					Program.GetGame()!.Hash = hash;
+					// TODO: handle hash
+					//Program.GetGame()!.Hash = hash;
 					Program.GetGame()!.Write();
 					IO.RemoveLastOutputHash(Program.GetGame()!);
 				}
 				catch (Exception e) {
-					Program.Logger.Error(e);
+					Program.Logger.Error($"Failed to update clean datafile: {e}");
 					setStatus("Failed to update clean datafile! Please report this as a bug.");
 					return;
 				}
@@ -162,12 +163,12 @@ public class PatcherWindow : G3manWindow {
 
 				setStatus("Restored clean datafile!");
 			}
-			catch (FileNotFoundException _) {
+			catch (FileNotFoundException) {
 				setStatus("The game's clean datafile couldn't be found.\n"
 				          + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
 			}
 			catch (Exception e) {
-				Program.Logger.Error(e);
+				Program.Logger.Error($"Failed to restore clean datafile: {e}");
 				setStatus("Failed to restore clean datafile. Please report this as an error!");
 			}
 
@@ -212,7 +213,7 @@ public class PatcherWindow : G3manWindow {
 
 		List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
 		DatafilePatcher datafilePatcher = new DatafilePatcher();
-		string profileDirectory = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
+		string profileDirectory = Program.CurrentProfileFolderPath();
 		UndertaleData? output = datafilePatcher.Patch(noXdeltas, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;

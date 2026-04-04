@@ -208,6 +208,7 @@ public class DatafilePatcher {
 		});
 		
 		MergeLists(data.Code, modData.Code);
+		
 		foreach (UndertaleFunction function in modData.Functions) {
 			data.Functions.Add(function);
 			function.NameStringID += stringListLength;

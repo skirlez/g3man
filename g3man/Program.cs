@@ -40,8 +40,8 @@ public static class Program {
 		return profile;
 	}
 
-	public static void AddGame(Game newGame) {
-		Config.GameDirectories.Add(newGame.Directory);
+	public static void AddGameEntry(GameEntry entry) {
+		Config.GameEntries.Add(entry);
 		Config.Write();
 	}
 	public static void SetGame(Game newGame) {

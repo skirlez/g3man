@@ -62,14 +62,14 @@ public partial class MainWindow {
 
 		Button openModsFolderButton = Button.NewWithLabel("Open mods folder");
 		openModsFolderButton.OnClicked += (_, _) => {
-			IO.OpenFileExplorer(Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID));
+			IO.OpenFileExplorer(Program.CurrentProfileFolderPath());
 		};
 		
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			try {
-				Program.GetProfile()!.Write(Program.GetGame()!.Directory);
+				Program.GetProfile()!.Write(Program.GetGame()!);
 			}
 			catch (Exception e) {
 				Program.Logger.Error(e);
@@ -124,7 +124,7 @@ public partial class MainWindow {
 			FileFilter xdeltaFilter = FileFilter.New();
 			xdeltaFilter.SetName("Xdelta patches");
 			xdeltaFilter.AddPattern("*.xdelta");
-			DoFileDialog("Select a mod's file", [zipFilter, xdeltaFilter], (file) => {
+			FileDialogWindow window = new FileDialogWindow("Select a mod's file", [zipFilter, xdeltaFilter], (file) => {
 				string? path = file.GetPath();
 				if (path is null)
 					return;
@@ -135,6 +135,7 @@ public partial class MainWindow {
 					TryExtractingZip(file, ZipType.Mod);
 				ParseModsAndUpdateMenu();
 			});
+			window.Dialog(this);
 		};
 		
 		Button deleteModButton = Button.NewWithLabel("Delete selected");
@@ -181,17 +182,39 @@ public partial class MainWindow {
 		applyButton.SetMarginBottom(20);
 		applyButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			Program.GetProfile()!.Write(Program.GetGame()!.Directory);
+			Program.GetProfile()!.Write(Program.GetGame()!);
 			PatcherWindow window = new PatcherWindow(this);
 			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
 			window.Dialog(enabledModsList);
 		};
-
-
+		Button launchButton = Button.NewWithLabel("Apply and Launch!");
+		launchButton.SetHalign(Align.Center);
+		launchButton.SetValign(Align.End);
+		launchButton.SetVexpand(true);
+		launchButton.SetMarginBottom(20);
+		launchButton.OnClicked += (_, _) => {
+			Game game = Program.GetGame()!;
+			if (game.HasExecutable()) {
+				PopupWindow popup = new PopupWindow(this, "Error!",
+					"This game's executable does not exist.\nPlease specify which file is the executable\nby pressing \"Manage\" on this game in the Games tab.",
+					"OK");
+				popup.Dialog();
+				return;
+			}
+			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
+			Program.GetProfile()!.Write(Program.GetGame()!);
+			PatcherWindow window = new PatcherWindow(this);
+			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
+			window.Dialog(enabledModsList);
+		};
+		Box actionBox = Box.New(Orientation.Horizontal, 10);
+		actionBox.Append(applyButton);
+		actionBox.Append(launchButton);
+		actionBox.SetHalign(Align.Center);
 		
 		page.Append(modsListWindow);
 		page.Append(manageModsBox);
-		page.Append(applyButton);
+		page.Append(actionBox);
 		page.Append(Separator.New(Orientation.Horizontal));
 		page.Append(modNameLabel);
 		page.Append(modInfoWindow);
@@ -207,8 +230,8 @@ public partial class MainWindow {
 		Debug.Assert(profile is not null);
 
 		modsList = new List<IMod>();
-		modsList.AddRange(Mod.ParseAll(Path.Combine(game.Directory, "g3man", profile.ID)));
-		List<XdeltaMod> xdeltaMods = XdeltaMod.ParseAll(Path.Combine(game.Directory, "g3man", profile.ID));
+		modsList.AddRange(Mod.ParseAll(game.GetProfileFolderPath(profile)));
+		List<XdeltaMod> xdeltaMods = XdeltaMod.ParseAll(game.GetProfileFolderPath(profile));
 		modsList.AddRange(xdeltaMods);
 		
 		modsListBox.RemoveAll();

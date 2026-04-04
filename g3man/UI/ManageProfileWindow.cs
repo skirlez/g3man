@@ -1,22 +1,15 @@
 using g3man.Models;
 using g3man.UI.Main;
 using g3man.Util;
-using Gdk;
-using Gio;
-using GObject;
 using Gtk;
 
 namespace g3man.UI;
 
 public class ManageProfileWindow : G3manWindow {
-	private Profile? profile;
-	
-	public ManageProfileWindow(Profile? profile, Action<Profile, bool> saveCallback, System.Action? deleteCallback = null) {
+	public ManageProfileWindow(Profile? profile, Action<Profile, bool> saveCallback, Action? deleteCallback = null) {
 		SetSizeRequest(400, 300);
 		SetTitle(profile is null ? "Create Profile" : "Manage Profile");
-		this.profile = profile;
-		Box box = Box.New(Orientation.Vertical, 10);
-		box.SetMargin(10);
+
 		
 			
 		Label nameLabel = Label.New("Name");
@@ -45,7 +38,7 @@ public class ManageProfileWindow : G3manWindow {
 		Button IDLock = Button.New();
 		IDLock.SetTooltipText("If locked, the profile's ID is set automatically.");
 		IDLock.SetIconName("changes-prevent");
-		IDLock.OnClicked += (sender, _) => {
+		IDLock.OnClicked += (_, _) => {
 			bool enabled = IDEntry.GetSensitive();
 			IDEntry.SetSensitive(!enabled);
 			IDLock.SetIconName(enabled ? "changes-prevent" : "changes-allow");
@@ -96,8 +89,8 @@ public class ManageProfileWindow : G3manWindow {
 		descriptionBox.Append(descriptionEntry);
 		*/
 		
-		Button editMetadataButton = Button.NewWithLabel("Not Implemented Yet");
-		editMetadataButton.SetHalign(Align.Start);
+		//Button editMetadataButton = Button.NewWithLabel("Not Implemented Yet");
+		//editMetadataButton.SetHalign(Align.Start);
 		
 		Button doneButton = Button.New();
 		doneButton.SetLabel(profile is null ? "Create" : "Save");
@@ -164,7 +157,7 @@ public class ManageProfileWindow : G3manWindow {
 					return;
 				}
 				
-				newProfile.Write(Program.GetGame()!.Directory);
+				newProfile.Write(Program.GetGame()!);
 			}
 			catch (Exception e) {
 				Program.Logger.Error(e);
@@ -173,7 +166,7 @@ public class ManageProfileWindow : G3manWindow {
 				try {
 					Directory.Delete(Path.Combine(profilesFolder, newProfile.ID), true);
 				}
-				catch (Exception _) {
+				catch {
 					// ignored
 				}
 				popup.Dialog();
@@ -182,7 +175,7 @@ public class ManageProfileWindow : G3manWindow {
 
 			if (oldProfileExistsAndIDChanged && !asNew) {
 				try {
-					profile!.Delete(Program.GetGame()!.Directory);
+					profile!.Delete(Program.GetGame()!);
 				}
 				catch (Exception e) {
 					Program.Logger.Error(e);
@@ -199,7 +192,7 @@ public class ManageProfileWindow : G3manWindow {
 			Button deleteButton = Button.NewWithLabel("Delete");
 			deleteButton.OnClicked += (_, _) => {
 				try {
-					profile.Delete(Program.GetGame()!.Directory);
+					profile.Delete(Program.GetGame()!);
 				}
 				catch (Exception e) {
 					Program.Logger.Error(e);
@@ -218,11 +211,13 @@ public class ManageProfileWindow : G3manWindow {
 		
 		doneButton.OnClicked += (_, _) => SaveProfile(asNew: false);
 		
+		Box box = Box.New(Orientation.Vertical, 10);
+		box.SetMargin(10);
 		box.Append(nameBox);
 		box.Append(IDBox);
 		box.Append(moddedSaveCheck);
 		box.Append(saveNameBox);
-		box.Append(editMetadataButton);
+		//box.Append(editMetadataButton);
 		//box.Append(Separator.New(Orientation.Horizontal));
 		//box.Append(Label.New("Distribution Metadata"));
 		//box.Append(descriptionBox);

@@ -12,10 +12,10 @@ public static class JsonUtil {
 		try {
 			return element.GetProperty(field);
 		}
-		catch (KeyNotFoundException e) {
+		catch (KeyNotFoundException) {
 			throw new InvalidDataException($"Required field \"{field}\" not found");
 		}
-		catch (InvalidOperationException e) {
+		catch (InvalidOperationException) {
 			throw new InvalidDataException($"Tried to find field \"{field}\" inside something that wasn't an object");
 		}
 	}
@@ -53,8 +53,10 @@ public static class JsonUtil {
 		try {
 			return inner.GetInt32();
 		}
-		catch (FormatException e) {
-			throw new InvalidDataException($"Field {field} should be a number, but is not an integer/is too big/is too small/is weird");
+		catch (Exception e) {
+			if (e is FormatException)
+				throw new InvalidDataException($"Field {field} should be a number, but is not an integer/is too big/is too small/is weird");
+			throw;
 		}
 	}
 
@@ -94,14 +96,15 @@ public static class JsonUtil {
 
 	public static T GetOrDefaultClass<T>(JsonElement root, string field, T fallback) where T : class {
 		try {
-			return (fallback switch {
-				string => GetStringOrThrow(root, field) as T,
-				string[] => GetStringArrayOrThrow(root, field) as T,
-				JsonElement[] => GetObjectArrayOrThrow(root, field) as T,
-				_ => throw new ArgumentException($"Unsupported type ({typeof(T).Name})"),
-			})!;
+			if (typeof(T) == typeof(string))
+				return (GetStringOrThrow(root, field) as T)!;
+			if (typeof(T) == typeof(string[]))
+				return (GetStringArrayOrThrow(root, field) as T)!;
+			if (typeof(T) == typeof(JsonElement[]))
+				return (GetObjectArrayOrThrow(root, field) as T)!;
+			throw new ArgumentException($"Unsupported type ({typeof(T).FullName})");
 		}
-		catch (Exception _) {
+		catch {
 			return fallback;
 		}
 	}
