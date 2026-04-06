@@ -7,7 +7,7 @@ namespace g3man.UI;
 public class ManageGameWindow : G3manWindow {
 	private MainWindow mainWindow;
 	
-	public ManageGameWindow(Game game, MainWindow mainWindow) {
+	public ManageGameWindow(Game game, MainWindow mainWindow, Func<Game, bool> saveCallback, Func<bool> removeCallback) {
 		this.mainWindow = mainWindow;
 		SetSizeRequest(400, 300);
 		SetTitle("Manage Game");
@@ -29,7 +29,7 @@ public class ManageGameWindow : G3manWindow {
 		launchMethod.AppendText("Launch Through Steam");
 		launchMethod.SetActive(game.ExecutableType);
 		launchMethod.SetHalign(Align.Start);
-		launchMethod.SetTooltipText("How g3man should launch the game.\nLaunch directly - g3man will run the file in the field below.\nLaunch through Steam - g3man will tell steam which game to run");
+		launchMethod.SetTooltipText("How g3man should launch the game.\nLaunch directly - g3man will run the file in the field below.\nLaunch through Steam - g3man will tell Steam which game to run");
 		
 		Stack launchMethodStack = Stack.New();
 		
@@ -90,17 +90,50 @@ public class ManageGameWindow : G3manWindow {
 		OnUpdateExecutableType(game.ExecutableType);
 		launchMethod.OnChanged += (sender, _) => OnUpdateExecutableType(sender.GetActive());
 		
-		Label datafileLabel = Label.New("Datafile Path");
+		Label datafileLabel = Label.New("Input Datafile");
 		datafileLabel.SetHalign(Align.Start);
 		
 		Entry datafileEntry = Entry.New();
 		datafileEntry.SetText(game.DatafileName);
+		datafileEntry.SetTooltipText("Which datafile g3man should g3man track and copy to use as the \"clean datafile\".");
 		
-		Label outputDatafileLabel =  Label.New("Output Datafile Path");
+		Label outputDatafileLabel =  Label.New("Output Datafile");
 		outputDatafileLabel.SetHalign(Align.Start);
 		
 		Entry outputDatafileEntry = Entry.New();
 		outputDatafileEntry.SetText(game.OutputDatafileName);
+		outputDatafileEntry.SetTooltipText("The filename of the datafile g3man should output when applying. This is allowed to be the same as the input datafile.");
+
+		Button saveButton = Button.NewWithLabel("Save");
+		saveButton.OnClicked += (_, _) => {
+			int newAppId;
+			try {
+				newAppId = int.Parse(steamAppIdEntry.GetText());
+			}
+			catch {
+				newAppId = -1;
+			}
+
+			Game newGame = new Game(game.Entry, nameEntry.GetText(), game.InternalName, datafileEntry.GetText(),
+					launchMethod.Active, fileExeEntry.GetText(), newAppId, outputDatafileEntry.GetText());
+			if (saveCallback(newGame)) {
+				Close();
+			}
+		};
+		Button removeButton = Button.NewWithLabel("Remove Entry");
+		removeButton.OnClicked += (_, _) => {
+			if (removeCallback()) {
+				Close();
+			}
+		};
+		
+		Box fateBox = Box.New(Orientation.Horizontal, 5);
+		fateBox.SetHalign(Align.Center);
+		fateBox.SetValign(Align.End);
+		fateBox.Append(saveButton);
+		fateBox.Append(removeButton);
+		fateBox.SetVexpand(true);
+
 		
 		Box box = Box.New(Orientation.Vertical, 10);
 		box.SetMargin(10);
@@ -111,6 +144,7 @@ public class ManageGameWindow : G3manWindow {
 		box.Append(datafileEntry);
 		box.Append(outputDatafileLabel);
 		box.Append(outputDatafileEntry);
+		box.Append(fateBox);
 		
 		SetChild(box);
 	}

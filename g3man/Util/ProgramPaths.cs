@@ -52,16 +52,45 @@ public static class ProgramPaths {
 		}
 		return null;
 	}
+
+	/*
+	 * Attempt to guess the path of the Steam folder.
+	 * If a guess is a folder that actually exists, it is returned. Otherwise an empty string is returned.
+	 */
+	private static string GuessSteamPath() {
+		#if LINUX
+			string[] possiblePaths = [GetEnvironmentVariableDirectory("XDG_DATA_HOME", [".local", "share"], ["Steam"]),
+							Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "", ".steam", "steam")];
+		#elif WINDOWS
+			// does Steam have a 64 bit version now? I don't know
+			string[] possiblePaths = [Path.Combine("C:", "Program Files (x86)", "Steam"), Path.Combine("C:", "Program Files", "Steam")];
+		#else
+			string[] possiblePaths = [];
+		#endif
+		
+		foreach (string path in possiblePaths) {
+			if (Directory.Exists(path))
+				return path;
+		}
+		return "";
+	}
 	
 	private static string GuessSteamCommonPath() {
-		#if LINUX
-			return GetEnvironmentVariableDirectory("XDG_DATA_HOME", [".local", "share"], ["Steam", "steamapps", "common"]);
-		#endif
+		string path = GuessSteamPath();
+		if (path == "")
+			return "";
+		path = Path.Combine(path, "steamapps", "common");
+		if (!Directory.Exists(path))
+			return "";
+		return path;
 	}
 
 	public static List<string> GuessPossibleGamePaths() {
 		try {
-			return Directory.GetDirectories(GuessSteamCommonPath()).ToList();
+			string path = GuessSteamCommonPath();
+			if (path == "")
+				return [];
+			return Directory.GetDirectories(path).ToList();
 		}
 		catch (Exception e) {
 			Program.Logger.Error($"Game autodetection error: {e}");

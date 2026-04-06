@@ -44,6 +44,12 @@ public static class Program {
 		Config.GameEntries.Add(entry);
 		Config.Write();
 	}
+	
+	public static void RemoveGameEntry(GameEntry entry) {
+		Config.GameEntries.Remove(entry);
+		Config.Write();
+	}
+	
 	public static void SetGame(Game newGame) {
 		game = newGame;
 	}
@@ -208,6 +214,5 @@ public static class Program {
 			});
 		}
 	}
-
-
+	
 }

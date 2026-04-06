@@ -500,7 +500,7 @@ public class DatafilePatcher {
 				data.Strings.Add(g3manAPIScript.Name);
 			}
 
-			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModsDisabled, profile.ID));
+			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID));
 		}
 
 		setStatusAndInfo("Compiling...");

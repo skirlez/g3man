@@ -182,7 +182,7 @@ public class PatcherWindow : G3manWindow {
 			if (patches.Count == 0)
 				continue;
 
-			string xdeltaFolder = Path.Combine(Program.GetGame()!.Directory, "g3man-live", "xdelta", mod.ModId);
+			string xdeltaFolder = Path.Combine(Program.GetGame()!.Directory, "g3man", "live", "xdelta", mod.ModId);
 			Directory.CreateDirectory(xdeltaFolder);
 			foreach (XdeltaSourcePair patch in patches) {
 				setStatus($"Applying: {patch.Filename}");

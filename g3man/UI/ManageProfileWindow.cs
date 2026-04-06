@@ -205,8 +205,8 @@ public class ManageProfileWindow : G3manWindow {
 			};
 			Button saveAsNew = Button.NewWithLabel("Save as New");
 			saveAsNew.OnClicked += (_, _) => SaveProfile(asNew: true);
-			fateBox.Append(deleteButton);
 			fateBox.Append(saveAsNew);
+			fateBox.Append(deleteButton);
 		}
 		
 		doneButton.OnClicked += (_, _) => SaveProfile(asNew: false);

@@ -128,8 +128,8 @@ public partial class MainWindow {
 			AddToGamesList(game, selectedGame == game);
 		}
 	}
-	
-	public void AddToGamesList(Game game, bool selected) {
+
+	private ListBoxRow MakeGameRow(Game game, bool selected) {
 		Label gameNameLabel = Label.New(game.DisplayName);
 		
 		Box spacer = Box.New(Orientation.Horizontal, 0);
@@ -149,7 +149,31 @@ public partial class MainWindow {
 				upgraderWindow.Dialog(this);
 				return;
 			}
-			ManageGameWindow window = new ManageGameWindow(game, this);
+			ManageGameWindow window = new ManageGameWindow(game, this, 
+				saveCallback: (Game newGame) => {
+					newGame.Write();
+					int index = gamesList.IndexOf(game);
+					ListBoxRow oldRow = gamesListBox.GetRowAtIndex(index)!;
+					ListBoxRow newRow = MakeGameRow(newGame, (Program.GetGame() == game));
+					gamesListBox.Remove(oldRow);
+					gamesList.RemoveAt(index);
+					gamesListBox.Insert(newRow, index);
+					gamesList.Insert(index, newGame);
+					return true;
+				}, 
+				removeCallback: () => {
+					int index = gamesList.IndexOf(game);
+					if (game == Program.GetGame())
+						EnableExtraCategories(ExtraCategories.None);
+					Program.RemoveGameEntry(game.Entry);
+					
+					
+					ListBoxRow row = gamesListBox.GetRowAtIndex(index)!;
+					gamesListBox.Remove(row);
+					gamesList.RemoveAt(index);
+
+					return true;
+				});
 			window.Dialog();
 		};
 
@@ -160,7 +184,6 @@ public partial class MainWindow {
 		box.Append(manageGameButton);
 		box.Append(selectGameButton);
 	
-	
 		box.SetValign(Align.Center);
 		
 		
@@ -169,7 +192,11 @@ public partial class MainWindow {
 		row.SetChild(box);
 		row.SetActivatable(false);
 		row.SetMargin(10);
-		
+		return row;
+	}
+	
+	public void AddToGamesList(Game game, bool selected) {
+		ListBoxRow row = MakeGameRow(game, selected);
 		gamesListBox.Append(row);
 		gamesList.Add(game);
 	}
