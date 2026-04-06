@@ -1,7 +1,8 @@
 # g3man
 **G**ame**M**aker **M**od **Man**ager
 
-<img alt="image" src="https://github.com/user-attachments/assets/b01774bc-eb69-4ec3-9336-2c6579cda8b2" />
+<img alt="image" src="https://github.com/user-attachments/assets/b0581803-f844-4ce0-8b32-a00507c9c26a" />
+
 
 A mod manager and mod patcher for GameMaker games. 
 
