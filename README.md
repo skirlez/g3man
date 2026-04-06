@@ -17,7 +17,7 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 	- A custom patch language/format called GMLP
   - Dependency checking
 - A profile system to easily switch between sets of mods
-- (Togglable) Profile save separation
+- Profile save separation (opt-in)
 - Support for both Linux and Windows
 - (limited) CLI support
 - Efficient pre-loading of the game's datafile
@@ -79,6 +79,8 @@ If you're thinking of contributing, here's a list of things that g3man should ha
 - Use an actual testing library for gmlp tests
 
 - Git diff support as a patching format
+
+- App icon
 
 - Code Documentation
 

@@ -136,8 +136,7 @@ public class Mod : IMod {
 		try {
 			modFolders = Directory.GetDirectories(directory);
 		}
-		catch (Exception e) {
-			// ignored
+		catch {
 			return [];
 		}
 		Parallel.ForEach(modFolders, modFolder => {

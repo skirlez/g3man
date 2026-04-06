@@ -116,7 +116,7 @@ public static class JsonUtil {
 				_ => throw new ArgumentException(),
 			})!;
 		}
-		catch (Exception _) {
+		catch {
 			return fallback;
 		}
 	}

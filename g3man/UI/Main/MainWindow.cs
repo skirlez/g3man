@@ -27,7 +27,6 @@ public partial class MainWindow : G3manWindow {
 	
 	private Label noModsLabel;
 	
-	private Label nothingAutoDetectedLabel;
 	private Label noGamesAddedLabel;
 	
 	private Label currentGameLabel;

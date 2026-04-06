@@ -58,8 +58,7 @@ public class Profile {
 		try {
 			profileFolders = Directory.GetDirectories(directory);
 		}
-		catch (Exception e) {
-			// ignored
+		catch {
 			return [];
 		}
 
