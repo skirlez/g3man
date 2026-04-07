@@ -76,23 +76,23 @@
   },
   {
     "pname": "Magick.NET-Q8-AnyCPU",
-    "version": "14.11.0",
-    "hash": "sha256-Cvp8SYP47orGqXjsZu8XnVQxYQo2R5e/eA+tKBEnXhc="
+    "version": "14.11.1",
+    "hash": "sha256-yRecBHZiMcJHR3dkvfGqthvMo9qlvvcxF6hIdXs/wAM="
   },
   {
     "pname": "Magick.NET.Core",
-    "version": "14.11.0",
-    "hash": "sha256-lxbpgqtVsSKCbnX0MO6o6/2eLeswnNZkQO+ie6e6GAY="
+    "version": "14.11.1",
+    "hash": "sha256-984jXKS/y2602DgaXsfDh9TFOhpyAF/gHZG8BGQXljA="
   },
   {
     "pname": "Microsoft.AspNetCore.App.Runtime.win-x64",
-    "version": "10.0.3",
-    "hash": "sha256-TdG6JxQubP3r//TSv9qdovn9AZjSaiWgwxs/y2pX6EA="
+    "version": "10.0.5",
+    "hash": "sha256-iAwrxanErf0nX08bStBmzIBZlDvvJhCZo1xmrxi8c7g="
   },
   {
     "pname": "Microsoft.AspNetCore.App.Runtime.win-x86",
-    "version": "10.0.3",
-    "hash": "sha256-5pc6nbfeh5+sPSiIdrVaDKYL8eQtldNQjCAKCekUNVQ="
+    "version": "10.0.5",
+    "hash": "sha256-btF2X7tUGUFzmyQ88u3VVG+lYARc70M1abhB0EbNWeI="
   },
   {
     "pname": "Microsoft.Bcl.AsyncInterfaces",
@@ -126,23 +126,23 @@
   },
   {
     "pname": "Microsoft.NETCore.App.Host.win-x64",
-    "version": "10.0.3",
-    "hash": "sha256-GRqXvPHcMYzDAn88CpbVQk4QUrDrdSuy//AplqM+X5A="
+    "version": "10.0.5",
+    "hash": "sha256-Rstfo3XefLjeoW5qfVcHsCviFxWvZS+F8McWRUW7WdQ="
   },
   {
     "pname": "Microsoft.NETCore.App.Host.win-x86",
-    "version": "10.0.3",
-    "hash": "sha256-ymqJufP+PscKB0aFP1xFmpPtYWGVVyeQG8rqzTmxIvg="
+    "version": "10.0.5",
+    "hash": "sha256-wxN4WZySZssGF374a3CfjY6Xxwer5WvSvuF3hjq95Wc="
   },
   {
     "pname": "Microsoft.NETCore.App.Runtime.win-x64",
-    "version": "10.0.3",
-    "hash": "sha256-q4YeyFMJgqBNTtbhZ1wfzxylYD0ENRWbcfvqrLnEVe8="
+    "version": "10.0.5",
+    "hash": "sha256-XtyAw8OB4ffgSoJftFKPNj/kYR/9+1f2x5y6oTaG1is="
   },
   {
     "pname": "Microsoft.NETCore.App.Runtime.win-x86",
-    "version": "10.0.3",
-    "hash": "sha256-zi48tSYxMTDigh/oXSpVdiF3Y1vCMTC7VSuKf0+MOGI="
+    "version": "10.0.5",
+    "hash": "sha256-DaWLNK3aoVX3pn+yFAjLSVbKFikZmcKgbhqoFr/Fggg="
   },
   {
     "pname": "NETStandard.Library.Ref",
