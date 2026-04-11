@@ -3,6 +3,8 @@ using g3man.Models;
 namespace g3man.Patching;
 
 public static class GameAPI {
+	public const string ScriptName = "g3man_api";
+
 	public static string GetCode(string[] modOrder, string[] disabledMods, string profileID) {
 		return 
 $$"""
@@ -13,7 +15,7 @@ global.g3man_6 = {
 global.g3man_7 = {
 	disabled_mods : [{{string.Join(",", disabledMods.Select(s => $"\"{s}\""))}}],
 	profile_id : "{{profileID}}",
-	mod_order : [{{string.Join(",", modOrder.Select(s => $"\"{s}\""))}}],
+	mod_order : [{{string.Join(",", modOrder.Except(disabledMods).Select(s => $"\"{s}\""))}}],
 }
 """;
 	}

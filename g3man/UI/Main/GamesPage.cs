@@ -159,6 +159,7 @@ public partial class MainWindow {
 					gamesList.RemoveAt(index);
 					gamesListBox.Insert(newRow, index);
 					gamesList.Insert(index, newGame);
+					Program.SetGame(newGame);
 					return true;
 				}, 
 				removeCallback: () => {
@@ -166,12 +167,10 @@ public partial class MainWindow {
 					if (game == Program.GetGame())
 						EnableExtraCategories(ExtraCategories.None);
 					Program.RemoveGameEntry(game.Entry);
-					
-					
 					ListBoxRow row = gamesListBox.GetRowAtIndex(index)!;
 					gamesListBox.Remove(row);
 					gamesList.RemoveAt(index);
-
+					Program.SetGame(null);
 					return true;
 				});
 			window.Dialog();
@@ -216,7 +215,10 @@ public partial class MainWindow {
 		currentGameLabel.SetText(game.DisplayName);
 		ParseProfilesAndUpdateMenu();
 		if (Program.GetProfile() is not null) {
-			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(modsList.Where(m => enabledMods.ContainsKey(m)), Program.CurrentProfileFolderPath());
+			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(
+				modsList.Where(m => enabledMods.ContainsKey(m)), 
+				Program.CurrentProfileFolderPath(), 
+				game.DatafileName);
 			Program.DataLoader.LoadAsync(game, xdeltas);
 		}
 	}

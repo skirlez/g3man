@@ -483,12 +483,12 @@ public class DatafilePatcher {
 		}
 
 		if (mods.Any(mod => mod.Imports.Any(GameAPI.IsImportAskingForMe))) {
-			UndertaleScript? g3manAPIScript = data.Scripts.ByName("g3man_api");
+			UndertaleScript? g3manAPIScript = data.Scripts.ByName(GameAPI.ScriptName);
 			if (g3manAPIScript is null) {
 				g3manAPIScript = new UndertaleScript();
-				g3manAPIScript.Name = new UndertaleString("g3man_api");
+				g3manAPIScript.Name = new UndertaleString(GameAPI.ScriptName);
 				g3manAPIScript.Code = new UndertaleCode();
-				g3manAPIScript.Code.Name = new UndertaleString("gml_GlobalScript_g3man_api");
+				g3manAPIScript.Code.Name = new UndertaleString($"gml_GlobalScript_{GameAPI.ScriptName}");
 				
 				data.Code.Add(g3manAPIScript.Code);
 				data.Scripts.Add(g3manAPIScript);
@@ -580,7 +580,7 @@ public class DatafilePatcher {
 	}
 
 	public static bool IsDataPatched(UndertaleData data) {
-		return false;
+		return data.Scripts.ByName(GameAPI.ScriptName) is not null;
 	}
 	
 	private List<string> CheckModApplicationIssues(List<Mod> mods) {

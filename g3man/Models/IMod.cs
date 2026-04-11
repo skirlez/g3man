@@ -12,7 +12,7 @@ public interface IMod {
 	public bool CreateOldProfileSymlink { get;  }
 	
 	public List<XdeltaSourcePair> GetXdeltaTargetPairs(string gameFolder, string profileFolder);
-	public List<Xdelta>  GetDatafileXdeltaPatches(string profileFolder);
+	public List<Xdelta>  GetDatafileXdeltaPatches(string profileFolder, string datafileName);
 	
 	public void Delete(string profileFolder);
 }

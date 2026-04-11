@@ -27,8 +27,13 @@ public class Mod : IMod {
 	
 	public string DatafilePath;
 	
-	private Dictionary<string, string> XdeltaPatches;
-	private List<string> DatafileXdeltaPatches;
+	// right now, this only supports one patch per file. TODO: support consecutive patches, and TODO: support hashes alongside filenames.
+	// the extremely contrived scenario where I imagine that's helpful is a case where a mod wants to use g3man
+	// to apply xdelta patches to a game distributed across several platforms
+	// (steam/itch.io, or windows/linux, where the datafile could be different for each configuration)
+	// So they'd target one of these, and create small "conversion" patches that target the other datafiles
+	// so that the main patch can be applied ontop. This is super low priority and would be very annoying though.
+	private Dictionary<string, List<string>> XdeltaPatches;
 	
 	public string PreMergeScriptPath;
 	public string PostMergeScriptPath;
@@ -99,10 +104,9 @@ public class Mod : IMod {
 		DatafilePath = JsonUtil.GetOrDefaultClass(root, "datafile_path", "");
 
 		if (root.TryGetProperty("xdelta_patches", out JsonElement xdeltaPatches))
-			(XdeltaPatches, DatafileXdeltaPatches) = DeserializeXdeltaPatches(xdeltaPatches);
+			XdeltaPatches = DeserializeXdeltaPatches(xdeltaPatches);
 		else {
-			XdeltaPatches = new Dictionary<string, string>();
-			DatafileXdeltaPatches = [];
+			XdeltaPatches = new Dictionary<string, List<string>>();
 		}
 
 
@@ -175,11 +179,17 @@ public class Mod : IMod {
 	}
 
 	public List<XdeltaSourcePair> GetXdeltaTargetPairs(string gameFolder, string profileFolder) {
-		return XdeltaPatches.Select(kvp => new XdeltaSourcePair(gameFolder, kvp.Key, Path.Combine(profileFolder, ModId), kvp.Value)).ToList();
+		return XdeltaPatches.SelectMany(
+			kvp => kvp.Value.Select(
+				path => new XdeltaSourcePair(gameFolder, kvp.Key, Path.Combine(profileFolder, ModId), path)
+			)
+		).ToList();
 	}
 
-	public List<Xdelta> GetDatafileXdeltaPatches(string profileFolder) {
-		return DatafileXdeltaPatches.Select(p => new Xdelta(Path.Combine(profileFolder, ModId), p)).ToList();
+	public List<Xdelta> GetDatafileXdeltaPatches(string profileFolder, string datafileName) {
+		if (!XdeltaPatches.ContainsKey(datafileName))
+			return [];
+		return XdeltaPatches[datafileName].Select(path => new Xdelta(profileFolder, path)).ToList();
 	}
 
 	public void Delete(string profileFolder) {
@@ -188,20 +198,16 @@ public class Mod : IMod {
 		Directory.Delete(modFolder, true);
 	}
 	
-	private (Dictionary<string, string>, List<string>) DeserializeXdeltaPatches(JsonElement element) {
-		Dictionary<string, string> dict = new Dictionary<string, string>();
-		List<string> datafilePatches = [];
+	private Dictionary<string, List<string>> DeserializeXdeltaPatches(JsonElement element) {
+		Dictionary<string, List<string>> dict = new Dictionary<string, List<string>>();
 		foreach (JsonProperty property in element.EnumerateObject()) {
 			if (property.Value.ValueKind != JsonValueKind.String) {
 				throw new InvalidDataException(
 					$"In field xdelta_patches: Expected a map of strings to strings but found a {property.Value.ValueKind}");
 			}
-			if (IO.DatafileNames.Contains(property.Name))
-				datafilePatches.Add(property.Value.GetString()!);
-			else
-				dict[property.Name] = property.Value.GetString()!;
+			dict[property.Name] = [property.Value.GetString()!];
 		}
-		return (dict, datafilePatches);
+		return dict;
 	}
 }
 public class InvalidModException(string message) : Exception(message);

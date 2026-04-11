@@ -6,15 +6,26 @@ using Gtk;
 namespace g3man.UI.Main;
 
 public partial class MainWindow {
+	private Label modNameLabel;
+	private Label modDescriptionLabel;
+
+	private void ResetModInfo() {
+		modNameLabel.SetText("Mod info");
+		modDescriptionLabel.SetText("Click on a mod to view information about it!");
+	}
 	private void SetupModsPage(Box page) {
 		noModsLabel = Label.New("No mods found.");
 		noModsLabel.SetMargin(30);
-
-		Label modNameLabel = Label.New("");
+		
+		
+		
+		modNameLabel = Label.New("");
 		modNameLabel.SetMarginTop(10);
-		Label modDescriptionLabel = Label.New("");
+		modDescriptionLabel = Label.New("");
 		modDescriptionLabel.SetWrap(true);
 		modDescriptionLabel.SetWrapMode(Pango.WrapMode.WordChar);
+		
+		
 
 		ScrolledWindow modInfoWindow = ScrolledWindow.New();
 		modInfoWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
@@ -282,5 +293,7 @@ public partial class MainWindow {
 			row.SetChild(modBox);
 			modsListBox.Append(row);
 		}
+
+		ResetModInfo();
 	}
 }

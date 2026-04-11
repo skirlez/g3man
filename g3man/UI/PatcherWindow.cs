@@ -66,7 +66,7 @@ public class PatcherWindow : G3manWindow {
 		});
 	}
 	private void DoThing(List<IMod> mods) {
-		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, Program.CurrentProfileFolderPath());
+		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, Program.CurrentProfileFolderPath(), Program.GetGame()!.DatafileName);
 		
 		setStatus("Hashing current datafile...");
 		string hash;

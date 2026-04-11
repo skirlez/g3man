@@ -12,8 +12,8 @@ public readonly struct Xdelta(string containingFolder, string relativePath) {
 	private readonly string inputPath = Path.Combine(containingFolder, relativePath);
 	public string Filename => Path.GetFileName(inputPath);
 	
-	public static List<Xdelta> GetDatafileXdeltaPatches(IEnumerable<IMod> mods, string profileFolder) {
-		return mods.SelectMany(x => x.GetDatafileXdeltaPatches(profileFolder)).ToList();
+	public static List<Xdelta> GetDatafileXdeltaPatches(IEnumerable<IMod> mods, string profileFolder, string datafileName) {
+		return mods.SelectMany(x => x.GetDatafileXdeltaPatches(profileFolder, datafileName)).ToList();
 	}
 	
 	// libg3man acts as a middle man of sorts between libxdelta and g3man.

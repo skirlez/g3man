@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using g3man.Models;
 using g3man.Patching;
 using g3man.UI.Main;
@@ -12,12 +13,6 @@ namespace g3man.UI;
 public class GameAdderWindow : G3manWindow {
 	private static readonly Logger logger = Logger.Make("GAMEADDER");
 	
-	public class AdderLock {
-		public LaunchParadigm? Choice = null;
-		public bool ThreadReady = false;
-	}
-	private AdderLock Lock = new AdderLock();
-	
 	private Label label = null!;
 	private readonly string directory;
 	private MainWindow mainWindow;
@@ -25,7 +20,6 @@ public class GameAdderWindow : G3manWindow {
 		SetDefaultSize(600, 400);
 		this.mainWindow = mainWindow;
 		this.directory = directory;
-
 		
 		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (LaunchParadigm? choice) => {
 			if (choice is null) {
@@ -66,49 +60,54 @@ public class GameAdderWindow : G3manWindow {
 		catch (Exception e) {
 			return new Result<Success, Error>(new Error("An error occurred while reading the game's datafile", e));
 		}
-		
-		if (DatafilePatcher.IsDataPatched(data)) {
-			// TODO: Write something to check if the clean datafile still exists so we can cleanly readd the game
-			return new Result<Success, Error>(new Error("This game is already patched by g3man. Please make sure the game's datafile is not modified so g3man can copy it.", null));
-		}
+
+
 
 		string defaultProfileID = "default";
 
 		GameEntry entry = new GameEntry(directory, defaultProfileID);
-		
+
 		Game game = new Game(entry,
 			data.GeneralInfo.DisplayName.Content,
-			data.GeneralInfo.FileName.Content, 
-			datafileName, 
+			data.GeneralInfo.FileName.Content,
+			datafileName,
 			0,
 			ProgramPaths.GuessExecutablePath(directory),
 			-1, outputDatafileName);
 
-		Profile profile = new Profile("Default", defaultProfileID, false, "", []);
-		try {
-			profile.Write(game);
-		}
-		catch (Exception e) {
-			return new Result<Success, Error>(new Error("Failed to create default profile folders", e));
-		}
-		
+		bool cleanDataExists = Path.Exists(game.GetCleanDatafilePath());
+		if (!cleanDataExists && DatafilePatcher.IsDataPatched(data))
+			return new Result<Success, Error>(new Error($"This game is already patched by g3man.\nPlease make sure the game's \"{datafileName}\" file is not modified so g3man can copy it.", null));
 
-		
-		
+
+
+		if (!cleanDataExists) {
+			Profile profile = new Profile("Default", defaultProfileID, false, "", []);
+			try {
+				profile.Write(game);
+			}
+			catch (Exception e) {
+				return new Result<Success, Error>(new Error("Failed to create default profile folders", e));
+			}
+		}
+
 		try {
 			game.Write();
 		}
 		catch (Exception e) {
 			return new Result<Success, Error>(new Error("Failed to create game.json", e));
 		}
-		
-		try {
-			File.Copy(datafilePath, game.GetCleanDatafilePath(), true);
+
+		if (!cleanDataExists) {
+			try {
+				File.Copy(datafilePath, game.GetCleanDatafilePath(), true);
+			}
+			catch (Exception e) {
+				return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));
+			}
 		}
-		catch (Exception e) {
-			return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));
-		}
-		
+
+
 		return new Result<Success, Error>(new Success(game));
 
 	}

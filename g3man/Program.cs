@@ -49,7 +49,7 @@ public static class Program {
 		Config.Write();
 	}
 	
-	public static void SetGame(Game newGame) {
+	public static void SetGame(Game? newGame) {
 		game = newGame;
 	}
 	public static Game? GetGame() {

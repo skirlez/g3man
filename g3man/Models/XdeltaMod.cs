@@ -40,7 +40,7 @@ public class XdeltaMod : IMod {
 		return [];
 	}
 
-	public List<Xdelta> GetDatafileXdeltaPatches(string profileFolder)
+	public List<Xdelta> GetDatafileXdeltaPatches(string profileFolder, string _)
 	{
 		return [new Xdelta(profileFolder, Filename)];
 	}
