@@ -18,13 +18,14 @@ public class GameAdderWindow : G3manWindow {
 	}
 	private AdderLock Lock = new AdderLock();
 	
-	private Label label;
+	private Label label = null!;
 	private readonly string directory;
 	private MainWindow mainWindow;
 	public GameAdderWindow(string directory, MainWindow mainWindow) {
 		SetDefaultSize(600, 400);
 		this.mainWindow = mainWindow;
 		this.directory = directory;
+
 		
 		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (LaunchParadigm? choice) => {
 			if (choice is null) {

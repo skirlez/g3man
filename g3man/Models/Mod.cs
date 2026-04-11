@@ -306,7 +306,7 @@ public readonly struct SemVer() {
 }
 public class InvalidSemVerException(string message) : InvalidModException(message);
 
-public readonly struct SemVerRequirements() {
+public readonly struct SemVerRequirements {
 	private readonly (SemVer, SemVerComparison)[] Conditions;
 
 	private (SemVerComparison, int) GetComparison(string requirementString) {
@@ -328,7 +328,7 @@ public readonly struct SemVerRequirements() {
 		}
 		return (SemVerComparison.RoughlyEquals, 0);
 	}
-	public SemVerRequirements(string[] requirementStrings) : this() {
+	public SemVerRequirements(string[] requirementStrings) {
 		Conditions = new (SemVer, SemVerComparison)[requirementStrings.Length];
 		for (int i = 0; i < requirementStrings.Length; i++) {
 			string requirementString = requirementStrings[i];

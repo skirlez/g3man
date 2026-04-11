@@ -7,6 +7,7 @@ using DateTime = System.DateTime;
 using MainWindow = g3man.UI.Main.MainWindow;
 
 #if WINDOWS
+	using System.Runtime.InteropServices;
 	using GdkWin32;
 	using Win32;
 #endif

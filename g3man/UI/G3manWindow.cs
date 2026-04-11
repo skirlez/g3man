@@ -1,11 +1,14 @@
 ﻿using Gtk;
-#if WINDOWS
-    using GdkWin32;
-    using Win32;
+#if THEMABLE_TITLEBAR
+    #if WINDOWS
+        using System.Runtime.InteropServices;
+        using System.Diagnostics;
+        using GdkWin32;
+        using Win32;
+        using Gdk;
+    #endif
 #endif
-
 namespace g3man.UI;
-
 public class G3manWindow : Window {
     protected G3manWindow() {
         #if THEMABLE_TITLEBAR
