@@ -1,4 +1,3 @@
-using g3man.Util;
 using Gtk;
 
 namespace g3man.UI.Main;

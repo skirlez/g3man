@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using g3man.Models;
 using g3man.Util;
-using Gdk;
 using Gtk;
 
 namespace g3man.UI.Main;
@@ -10,18 +9,18 @@ public partial class MainWindow {
 	private void SetupModsPage(Box page) {
 		noModsLabel = Label.New("No mods found.");
 		noModsLabel.SetMargin(30);
-		
+
 		Label modNameLabel = Label.New("");
 		modNameLabel.SetMarginTop(10);
 		Label modDescriptionLabel = Label.New("");
 		modDescriptionLabel.SetWrap(true);
 		modDescriptionLabel.SetWrapMode(Pango.WrapMode.WordChar);
-		
+
 		ScrolledWindow modInfoWindow = ScrolledWindow.New();
 		modInfoWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
 		modInfoWindow.SetMargin(10);
 		modInfoWindow.SetChild(modDescriptionLabel);
-		
+
 		modsListBox = ListBox.New();
 		modsListBox.SetHexpand(true);
 		modsListBox.SetPlaceholder(noModsLabel);
@@ -32,12 +31,12 @@ public partial class MainWindow {
 
 			int index = args.Row.GetIndex();
 			IMod mod = modsList[index];
-			
+
 			if (mod.MaybeVersion is null)
 				modNameLabel.SetText($"{mod.DisplayName}");
 			else
 				modNameLabel.SetText($"{mod.DisplayName} ({mod.MaybeVersion})");
-			
+
 			string credits;
 			if (mod.Credits.Length == 0)
 				credits = "";
@@ -46,10 +45,10 @@ public partial class MainWindow {
 				for (int i = 1; i < mod.Credits.Length; i++)
 					credits += $", {mod.Credits[i].Name}";
 			}
-			
+
 			modDescriptionLabel.SetText(mod.Description + "\n" + credits);
 		};
-		
+
 		modsListWindow = ScrolledWindow.New();
 		modsListWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
 		modsListWindow.SetChild(modsListBox);
@@ -61,10 +60,8 @@ public partial class MainWindow {
 
 
 		Button openModsFolderButton = Button.NewWithLabel("Open mods folder");
-		openModsFolderButton.OnClicked += (_, _) => {
-			IO.OpenFileExplorer(Program.CurrentProfileFolderPath());
-		};
-		
+		openModsFolderButton.OnClicked += (_, _) => { IO.OpenFileExplorer(Program.CurrentProfileFolderPath()); };
+
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
@@ -74,9 +71,10 @@ public partial class MainWindow {
 			catch (Exception e) {
 				Program.Logger.Error(e);
 			}
+
 			ParseModsAndUpdateMenu();
 		};
-		
+
 		Button moveModsUp = Button.New();
 		moveModsUp.Label = "↑";
 		Button moveModsDown = Button.New();
@@ -106,21 +104,19 @@ public partial class MainWindow {
 
 			modsList.RemoveAt(index);
 			modsList.Insert(index + direction, mod);
-			
+
 			modsListBox.UnselectAll();
 			modsListBox.Remove(selected);
 			modsListBox.Insert(selected, index + direction);
 			modsListBox.SelectRow(selected);
-
-
 		}
-		
+
 		Button importFromZipButton = Button.NewWithLabel("Import");
 		importFromZipButton.OnClicked += (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
-			
+
 			FileFilter xdeltaFilter = FileFilter.New();
 			xdeltaFilter.SetName("Xdelta patches");
 			xdeltaFilter.AddPattern("*.xdelta");
@@ -133,11 +129,12 @@ public partial class MainWindow {
 				}
 				else
 					TryExtractingZip(file, ZipType.Mod);
+
 				ParseModsAndUpdateMenu();
 			});
 			window.Dialog(this);
 		};
-		
+
 		Button deleteModButton = Button.NewWithLabel("Delete selected");
 		deleteModButton.OnClicked += (_, _) => {
 			ListBoxRow? selected = modsListBox.GetSelectedRow();
@@ -151,7 +148,8 @@ public partial class MainWindow {
 			}
 			catch (Exception e) {
 				Program.Logger.Error(e);
-				PopupWindow popup = new PopupWindow(this, "Error!", "Failed to delete this mod. Please report this as a bug!", "Damn");
+				PopupWindow popup = new PopupWindow(this, "Error!",
+					"Failed to delete this mod. Please report this as a bug!", "Damn");
 				popup.Dialog();
 				return;
 			}
@@ -164,7 +162,7 @@ public partial class MainWindow {
 			modsListBox.Remove(selected);
 			modsList.RemoveAt(index);
 		};
-		
+
 		manageModsBox.Append(openModsFolderButton);
 		manageModsBox.Append(refreshButton);
 		manageModsBox.Append(moveModsUp);
@@ -176,7 +174,8 @@ public partial class MainWindow {
 
 		void ApplyModsDialog() {
 			PatcherWindow window = new PatcherWindow(this);
-			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
+			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
+			;
 			window.Dialog(enabledModsList);
 		}
 
@@ -190,7 +189,7 @@ public partial class MainWindow {
 				return;
 			}
 		}
-		
+
 		Button applyButton = Button.NewWithLabel("Apply");
 		applyButton.SetHalign(Align.Center);
 		applyButton.SetVexpand(true);
@@ -200,16 +199,14 @@ public partial class MainWindow {
 			Program.GetProfile()!.Write(Program.GetGame()!);
 			ApplyModsDialog();
 		};
-		
-		
+
+
 		Button launchButton = Button.NewWithLabel("Launch");
 		launchButton.SetHalign(Align.Center);
 		launchButton.SetVexpand(true);
 		launchButton.SetMarginBottom(20);
-		launchButton.OnClicked += (_, _) => {
-			LaunchDialog();
-		};
-		
+		launchButton.OnClicked += (_, _) => { LaunchDialog(); };
+
 		Button applyAndLaunchButton = Button.NewWithLabel("Apply and Launch!");
 		applyAndLaunchButton.SetHalign(Align.Center);
 		applyAndLaunchButton.SetVexpand(true);
@@ -220,28 +217,27 @@ public partial class MainWindow {
 			ApplyModsDialog();
 		};
 		Box actionBox = Box.New(Orientation.Horizontal, 10);
-		
-		
+
+
 		actionBox.Append(applyButton);
 		actionBox.Append(launchButton);
 		actionBox.Append(applyAndLaunchButton);
 		actionBox.SetHalign(Align.Center);
 		actionBox.SetValign(Align.End);
-		
+
 		page.Append(modsListWindow);
 		page.Append(manageModsBox);
 		page.Append(actionBox);
 		page.Append(Separator.New(Orientation.Horizontal));
 		page.Append(modNameLabel);
 		page.Append(modInfoWindow);
-
 	}
-	
-	
+
+
 	private void ParseModsAndUpdateMenu() {
 		Game? game = Program.GetGame();
 		Profile? profile = Program.GetProfile();
-		
+
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
 
@@ -249,22 +245,22 @@ public partial class MainWindow {
 		modsList.AddRange(Mod.ParseAll(game.GetProfileFolderPath(profile)));
 		List<XdeltaMod> xdeltaMods = XdeltaMod.ParseAll(game.GetProfileFolderPath(profile));
 		modsList.AddRange(xdeltaMods);
-		
+
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);
-		
+
 		List<string> modOrder = profile.ModOrder.ToList();
 		List<string> missingXdeltas = xdeltaMods.Select(m => m.ModId).Where(id => !modOrder.Contains(id)).ToList();
 		modOrder.InsertRange(0, missingXdeltas);
 		modsList.Sort((mod1, mod2) => int.Sign(modOrder.IndexOf(mod1.ModId) - modOrder.IndexOf(mod2.ModId)));
-	
+
 		enabledMods = new Dictionary<IMod, bool>();
 		List<string> disabledIds = profile.ModsDisabled.ToList();
 
 		foreach (IMod mod in modsList) {
 			ListBoxRow row = ListBoxRow.New();
 			CheckButton modEnabled = CheckButton.New();
-			
+
 			if (!disabledIds.Contains(mod.ModId)) {
 				modEnabled.SetActive(true);
 				enabledMods.Add(mod, true);
@@ -272,6 +268,7 @@ public partial class MainWindow {
 			else {
 				enabledMods.Add(mod, false);
 			}
+
 			modEnabled.OnToggled += (sender, _) => {
 				enabledMods.Remove(mod);
 				enabledMods.Add(mod, sender.Active);

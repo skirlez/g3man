@@ -1,7 +1,5 @@
-using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using g3man.Models;
 using g3man.Util;
 
 namespace g3man;

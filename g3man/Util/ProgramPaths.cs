@@ -1,6 +1,4 @@
 
-using g3man.Models;
-
 namespace g3man.Util;
 
 public static class ProgramPaths {

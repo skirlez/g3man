@@ -1,8 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
-using Gdk;
-using Gtk;
-
+﻿using Gtk;
 #if WINDOWS
     using GdkWin32;
     using Win32;

@@ -297,8 +297,8 @@ public readonly struct SemVer() {
 		catch (Exception e) {
 			if (e is FormatException || e is OverflowException)
 				throw new InvalidSemVerException($"Field \"version\" does not have valid numbers. {help}");
-            throw;
-        }
+			throw;
+		}
 	}
 	public override string ToString() {
 		return $"{Major}.{Minor}.{Patch}";
@@ -352,8 +352,8 @@ public readonly struct SemVerRequirements() {
 
 	private static bool isCompatibleWith(SemVer requirement, SemVerComparison comparison, SemVer other) {
 		bool exactEqual = requirement.Major == other.Major 
-		                  && requirement.Minor == other.Minor 
-		                  && requirement.Patch == other.Patch;
+						  && requirement.Minor == other.Minor 
+						  && requirement.Patch == other.Patch;
 		bool greater = semVerGreaterCompatible(other, requirement);
 		bool lesser = semVerGreaterCompatible(requirement, other);
 		switch (comparison) {

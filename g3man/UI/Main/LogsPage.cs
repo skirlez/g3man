@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using g3man.Util;
-using GObject;
 using Gtk;
 
 namespace g3man.UI.Main;

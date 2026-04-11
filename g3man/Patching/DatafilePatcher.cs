@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Text;
 using g3man.Models;
 using g3man.Util;
-using GLib;
 using gmlp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
@@ -12,6 +11,7 @@ using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
 using UndertaleModLib.Models;
 using UndertaleModLib.Util;
+
 namespace g3man.Patching;
 
 using PatchBlame = Dictionary<string, List<string>>;
@@ -72,7 +72,7 @@ public class DatafilePatcher {
 		}
 
 		Debug.Assert(overlapBehavior == OverlapBehavior.ExplicitlyFakeImplicitlyOverride 
-		             || overlapBehavior == OverlapBehavior.AllExplicit);
+					|| overlapBehavior == OverlapBehavior.AllExplicit);
 		if (!name.StartsWith(FAKE_PREFIX))
 			return default(T);
 
@@ -88,8 +88,8 @@ public class DatafilePatcher {
 	 */
 	private T? GetResourceToOverride<T>(IList<T?> list, T resource) where T : UndertaleNamedResource {
 		string name = resource.Name.Content;
-		if (overlapBehavior == OverlapBehavior.ImplicitlyFakeExplicitlyOverride ||
-		    overlapBehavior == OverlapBehavior.AllExplicit) {
+		if (overlapBehavior == OverlapBehavior.ImplicitlyFakeExplicitlyOverride 
+				|| overlapBehavior == OverlapBehavior.AllExplicit) {
 			if (!name.StartsWith(OVERRIDE_PREFIX))
 				return default(T);
 			return list.ByName(name.Substring(OVERRIDE_PREFIX.Length));

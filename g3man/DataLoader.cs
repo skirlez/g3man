@@ -1,9 +1,7 @@
 using System.Diagnostics;
-using System.Security.Cryptography;
 using g3man.Models;
 using g3man.Util;
 using UndertaleModLib;
-using UndertaleModLib.Decompiler;
 using Xdelta = g3man.Util.Xdelta;
 
 namespace g3man;

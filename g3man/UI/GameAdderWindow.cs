@@ -6,7 +6,6 @@ using g3man.Util;
 using Gtk;
 using UndertaleModLib;
 using Thread = System.Threading.Thread;
-using WrapMode = Pango.WrapMode;
 
 namespace g3man.UI;
 

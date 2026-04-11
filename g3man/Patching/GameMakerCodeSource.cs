@@ -2,7 +2,6 @@ using gmlp;
 using Underanalyzer.Decompiler;
 using UndertaleModLib;
 using UndertaleModLib.Compiler;
-using UndertaleModLib.Decompiler;
 using UndertaleModLib.Models;
 
 namespace g3man.Patching;

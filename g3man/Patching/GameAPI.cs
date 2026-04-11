@@ -1,6 +1,4 @@
 using g3man.Models;
-using UndertaleModLib;
-using UndertaleModLib.Models;
 
 namespace g3man.Patching;
 

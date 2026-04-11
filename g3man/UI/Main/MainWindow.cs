@@ -1,11 +1,8 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using g3man.Models;
-using g3man.Util;
-using Gdk;
 using Gtk;
 using Pango;
-using Window = Gtk.Window;
 
 namespace g3man.UI.Main;
 
@@ -197,7 +194,7 @@ public partial class MainWindow : G3manWindow {
 			
 			ZipArchiveEntry[] filterSubentries(ZipArchiveEntry[] entries) {
 				return entries.Where(entry => entries.Count(entry2 => entry2 != entry 
-				    && entry.FullName.StartsWith(Path.GetDirectoryName(entry2.FullName) ?? "")) == 0).ToArray();
+					&& entry.FullName.StartsWith(Path.GetDirectoryName(entry2.FullName) ?? "")) == 0).ToArray();
 					
 			}
 			// filter out mod/profile.jsons who are contained inside folders of other ones

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using g3man.Models;
 
@@ -7,7 +6,7 @@ namespace g3man.Util;
 
 
 public readonly struct Xdelta(string containingFolder, string relativePath) {
-	/*
+	/**
 	 * Filename of the .xdelta file.
 	 */
 	private readonly string inputPath = Path.Combine(containingFolder, relativePath);
@@ -17,6 +16,10 @@ public readonly struct Xdelta(string containingFolder, string relativePath) {
 		return mods.SelectMany(x => x.GetDatafileXdeltaPatches(profileFolder)).ToList();
 	}
 	
+	// libg3man acts as a middle man of sorts between libxdelta and g3man.
+	// It would have been very difficult to interface with libxdelta directly,
+	// so libg3man provides us with a minimal interface while it does the heavy lifting with libxdelta.
+	// The source code for it is available in the `c` folder.
 	private const string libg3man =
 		#if LINUX
 			"libg3man.so"

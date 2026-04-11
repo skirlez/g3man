@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using g3man.Models;
 using g3man.Util;
-using Gdk;
 using Gtk;
 using DateTime = System.DateTime;
 using MainWindow = g3man.UI.Main.MainWindow;

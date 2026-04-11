@@ -1,4 +1,3 @@
-
 using System.Security.Cryptography;
 using g3man.Models;
 using g3man.Patching;
@@ -165,7 +164,7 @@ public class PatcherWindow : G3manWindow {
 			}
 			catch (FileNotFoundException) {
 				setStatus("The game's clean datafile couldn't be found.\n"
-				          + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
+						  + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
 			}
 			catch (Exception e) {
 				Program.Logger.Error($"Failed to restore clean datafile: {e}");
@@ -202,7 +201,7 @@ public class PatcherWindow : G3manWindow {
 			while (!Program.DataLoader.CanSnatch()) {
 				if (Program.DataLoader.HasErrored()) {
 					setStatus("Failed to load the game's clean datafile.\nThis can happen for a number of reasons.\n"
-					          + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
+							  + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
 					return;
 				}
 				Monitor.Wait(Program.DataLoader.Lock);
