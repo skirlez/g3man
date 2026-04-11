@@ -129,7 +129,7 @@ public partial class MainWindow {
 				if (path is null)
 					return;
 				if (Path.GetExtension(path) == ".xdelta") {
-					File.Copy(path, Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID, Path.GetFileName(path)), true);
+					File.Copy(path, Path.Combine(Program.CurrentProfileFolderPath(), Path.GetFileName(path)), true);
 				}
 				else
 					TryExtractingZip(file, ZipType.Mod);
@@ -145,7 +145,7 @@ public partial class MainWindow {
 				return;
 			int index = selected.GetIndex();
 			IMod mod = modsList[index];
-			string profileFolder = Path.Combine(Program.GetGame()!.Directory, "g3man", Program.GetProfile()!.ID);
+			string profileFolder = Program.CurrentProfileFolderPath();
 			try {
 				mod.Delete(profileFolder);
 			}
@@ -172,27 +172,15 @@ public partial class MainWindow {
 		manageModsBox.Append(importFromZipButton);
 		manageModsBox.Append(deleteModButton);
 		manageModsBox.SetMargin(10);
-		
-		
-		
-		Button applyButton = Button.NewWithLabel("Apply!");
-		applyButton.SetHalign(Align.Center);
-		applyButton.SetValign(Align.End);
-		applyButton.SetVexpand(true);
-		applyButton.SetMarginBottom(20);
-		applyButton.OnClicked += (_, _) => {
-			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			Program.GetProfile()!.Write(Program.GetGame()!);
+
+
+		void ApplyModsDialog() {
 			PatcherWindow window = new PatcherWindow(this);
 			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
 			window.Dialog(enabledModsList);
-		};
-		Button launchButton = Button.NewWithLabel("Apply and Launch!");
-		launchButton.SetHalign(Align.Center);
-		launchButton.SetValign(Align.End);
-		launchButton.SetVexpand(true);
-		launchButton.SetMarginBottom(20);
-		launchButton.OnClicked += (_, _) => {
+		}
+
+		void LaunchDialog() {
 			Game game = Program.GetGame()!;
 			if (game.HasExecutable()) {
 				PopupWindow popup = new PopupWindow(this, "Error!",
@@ -201,16 +189,44 @@ public partial class MainWindow {
 				popup.Dialog();
 				return;
 			}
+		}
+		
+		Button applyButton = Button.NewWithLabel("Apply");
+		applyButton.SetHalign(Align.Center);
+		applyButton.SetVexpand(true);
+		applyButton.SetMarginBottom(20);
+		applyButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!);
-			PatcherWindow window = new PatcherWindow(this);
-			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList(); ;
-			window.Dialog(enabledModsList);
+			ApplyModsDialog();
+		};
+		
+		
+		Button launchButton = Button.NewWithLabel("Launch");
+		launchButton.SetHalign(Align.Center);
+		launchButton.SetVexpand(true);
+		launchButton.SetMarginBottom(20);
+		launchButton.OnClicked += (_, _) => {
+			LaunchDialog();
+		};
+		
+		Button applyAndLaunchButton = Button.NewWithLabel("Apply and Launch!");
+		applyAndLaunchButton.SetHalign(Align.Center);
+		applyAndLaunchButton.SetVexpand(true);
+		applyAndLaunchButton.SetMarginBottom(20);
+		applyAndLaunchButton.OnClicked += (_, _) => {
+			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
+			Program.GetProfile()!.Write(Program.GetGame()!);
+			ApplyModsDialog();
 		};
 		Box actionBox = Box.New(Orientation.Horizontal, 10);
+		
+		
 		actionBox.Append(applyButton);
 		actionBox.Append(launchButton);
+		actionBox.Append(applyAndLaunchButton);
 		actionBox.SetHalign(Align.Center);
+		actionBox.SetValign(Align.End);
 		
 		page.Append(modsListWindow);
 		page.Append(manageModsBox);

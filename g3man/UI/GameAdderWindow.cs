@@ -6,32 +6,49 @@ using g3man.Util;
 using Gtk;
 using UndertaleModLib;
 using Thread = System.Threading.Thread;
+using WrapMode = Pango.WrapMode;
 
 namespace g3man.UI;
 
 public class GameAdderWindow : G3manWindow {
-	public static Logger logger = Logger.Make("GAMEADDER");
+	private static readonly Logger logger = Logger.Make("GAMEADDER");
 	
-	private readonly Label label;
+	public class AdderLock {
+		public LaunchParadigm? Choice = null;
+		public bool ThreadReady = false;
+	}
+	private AdderLock Lock = new AdderLock();
+	
+	private Label label;
 	private readonly string directory;
 	private MainWindow mainWindow;
 	public GameAdderWindow(string directory, MainWindow mainWindow) {
-		SetSizeRequest(350, 150);
-		SetResizable(false);
-		this.directory = directory;
+		SetDefaultSize(600, 400);
 		this.mainWindow = mainWindow;
+		this.directory = directory;
 		
-		label = Label.New("Adding game...");
-		label.SetHalign(Align.Center);
-		label.SetValign(Align.Center);
-		label.SetJustify(Justification.Center);
-
-		
-		SetChild(label);
+		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (LaunchParadigm? choice) => {
+			if (choice is null) {
+				Close();
+				return;
+			}
+			
+			label = Label.New("Adding game...");
+			label.SetHalign(Align.Center);
+			label.SetValign(Align.Center);
+			label.SetJustify(Justification.Center);
+			SetChild(label);
+			
+			Thread thread = new Thread(() => ThreadRoutine(choice.Value));
+			thread.Start();
+		});
+		SetChild(widget);
 	}
 	private record Success(Game Game);
 	private record Error(string Reason, Exception? Exception);
-	private Result<Success, Error> LoadAndSetupGame() {
+
+
+	private Result<Success, Error> LoadAndSetupGame(LaunchParadigm paradigm) {
 		(string, string)? datafileInfo = ProgramPaths.GetDatafileFromDirectory(directory);
 		if (datafileInfo is null)
 			return new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile", null));
@@ -95,38 +112,30 @@ public class GameAdderWindow : G3manWindow {
 		return new Result<Success, Error>(new Success(game));
 
 	}
+
+	private void ThreadRoutine(LaunchParadigm paradigm) {
+		Result<Success, Error> result = LoadAndSetupGame(paradigm);
+		Program.RunOnMainThreadEventually(() => {
+			if (result.IsOk()) {
+				Success s = result.GetValue();
+				Program.AddGameEntry(s.Game.Entry);
+				mainWindow.AddToGamesList(s.Game, false);	
+				Close();
+			}
+			else
+			{
+				Error err = result.GetError();
+				logger.Error(err.Reason);
+				if (err.Exception is not null)
+					logger.Error(err.Exception.ToString());
+				label.SetText("Game couldn't be added:\n" + err.Reason);
+			}
+		});
+	}
 	
 	public void Dialog(Window window) {
 		SetTransientFor(window);
 		SetModal(true);
 		Present();
-		Thread thread = new Thread(() => {
-			
-			Result<Success, Error> result;
-			/*
-			if (Program.Config.GameEntries.Any(entry => entry.Path == directory))
-				result = new Result<Success, Error>(new Error("You already have a game with this directory added.", null));
-			else 
-			*/
-			result = LoadAndSetupGame();
-
-			Program.RunOnMainThreadEventually(() => {
-				if (result.IsOk()) {
-					Success s = result.GetValue();
-					Program.AddGameEntry(s.Game.Entry);
-					mainWindow.AddToGamesList(s.Game, false);	
-					Close();
-				}
-				else
-				{
-					Error err = result.GetError();
-					logger.Error(err.Reason);
-					if (err.Exception is not null)
-						logger.Error(err.Exception.ToString());
-					label.SetText("Game couldn't be added:\n" + err.Reason);
-				}
-			});
-		});
-		thread.Start();
 	}
 }

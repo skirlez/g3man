@@ -46,7 +46,7 @@
       projectFile = "g3man";
   
       # generated via
-      # nix-shell -p nuget-to-json --command 'dotnet restore --packages=packageDir ./g3man/g3man.csproj && nuget-to-json packageDir > g3man-deps.json && rm -r packageDir'
+      # dotnet restore --packages=packageDir ./g3man/g3man.csproj && nix-shell -p nuget-to-json --command 'nuget-to-json packageDir > g3man-deps.json' && rm -r packageDir
       # (from https://wiki.nixos.org/wiki/DotNET)
       nugetDeps = ./g3man-deps.json;
   

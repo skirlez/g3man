@@ -7,9 +7,9 @@ using Pango;
 
 namespace g3man.UI;
 
-public class AutoDetectWindow : G3manWindow {
+public class GameAutoDetectWindow : G3manWindow {
 	private MainWindow owner;
-	public AutoDetectWindow(MainWindow owner, List<Game> existingGames) {
+	public GameAutoDetectWindow(MainWindow owner, List<Game> existingGames) {
 		SetSizeRequest(350, 300);
 		this.owner = owner;
 		
@@ -46,6 +46,7 @@ public class AutoDetectWindow : G3manWindow {
 			button.OnClicked += (_, _) => {
 				GameAdderWindow adderWindow = new GameAdderWindow(path, owner);
 				adderWindow.Dialog(this);
+				autoDetectedListBox.Remove(row);
 			};
 			button.SetMargin(5);
 			button.SetMarginEnd(20);

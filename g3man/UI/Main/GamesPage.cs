@@ -39,7 +39,7 @@ public partial class MainWindow {
 		
 		Button autoDetectButton = Button.NewWithLabel("Auto-detect games");
 		autoDetectButton.OnClicked += (_, _) => {
-			AutoDetectWindow window = new AutoDetectWindow(this, gamesList);
+			GameAutoDetectWindow window = new GameAutoDetectWindow(this, gamesList);
 			window.Dialog();
 		};
 		autoDetectButton.SetHalign(Align.Center);

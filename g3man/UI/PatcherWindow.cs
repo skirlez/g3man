@@ -228,6 +228,12 @@ public class PatcherWindow : G3manWindow {
 			setStatus("Failed to write output datafile! Check the log.");
 			return;
 		}
-		setStatus("Done!");
+
+		bool modified = (Program.GetGame()!.DatafileName == Program.GetGame()!.OutputDatafileName);
+		string launchInstructions =
+			modified ? "You can launch the game by any means to play!" :
+						"You must launch the game through g3man\nto see the changes.";
+		
+		setStatus($"Done!\n{launchInstructions}");
 	}
 }

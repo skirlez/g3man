@@ -29,7 +29,9 @@ public class G3manWindow : Window {
         private const uint DWMWA_CAPTION_COLOR = 35;
         private const uint DWMWA_COLOR_DEFAULT = 0xFFFFFFFF;
 
-        
+        // We can't predict the user theme ahead of time - GtkDark just lines up with Breeze -
+        // but I think if you're using libadwaita colors are OK to assume, so AdwaitaDark lines up with Adwaita.
+        // It's a bit silly to support both for windows...
         private enum WindowTitlebarColor : uint {
             Default = DWMWA_COLOR_DEFAULT,
             GtkDark = 0x002D2D2D,
