@@ -51,7 +51,8 @@ public class Profile {
 		Links = JsonUtil.GetOrDefaultClass(root, "links", Array.Empty<string>());
 	}
 	
-	public static List<Profile> ParseAll(string directory) {
+	
+	public static List<Profile> ParseAll(string directory, Action<Exception, string>? errorHandler = null) {
 		ConcurrentBag<Profile> profiles = new ConcurrentBag<Profile>();
 		string[] profileFolders;
 		try {
@@ -61,37 +62,32 @@ public class Profile {
 			return [];
 		}
 
+		Action<Exception, string> onError = (errorHandler) ?? ((e, path) => {
+			logger.Error($"Profile at {path} failed to parse:\n{e.Message}");
+		});
 		Parallel.ForEach(profileFolders, profileFolder => {
-			Profile? profile = Parse(profileFolder);
-			if (profile is not null)
+
+			try {
+				Profile profile = Parse(profileFolder);
 				profiles.Add(profile);
+			}
+			catch (Exception e) {
+				onError(e, profileFolder);
+			}
 		});
 
 		return profiles.ToList();
 	}
 	
-	public static Profile? Parse(string profileFolder, bool doFolderCheck = true) {
+	public static Profile Parse(string profileFolder, bool doFolderCheck = true) {
 		string fullPath = Path.Combine(profileFolder, "profile.json");
-		JsonDocument jsonDoc;
-		try {
-			string text = File.ReadAllText(fullPath); 
-			jsonDoc = JsonDocument.Parse(text);
-		}
-		catch (Exception e) {
-			logger.Error("Couldn't find or load profile.json at " + fullPath + ":\n" + e.Message);
-			return null;
-		}
-		try {
-			string folderName = Path.GetFileName(profileFolder);
-			Profile profile = new Profile(jsonDoc.RootElement, folderName);
-			if (doFolderCheck && folderName != profile.ID)
-				throw new InvalidDataException($"Profile's ID does not match with its folder name. ID is \"{profile.ID}\", but found it in folder \"{folderName}\"");
-			return profile;
-		}
-		catch (InvalidDataException e) {
-			logger.Error("Invalid profile.json at " + fullPath + ":\n" + e.Message);
-		}
-		return null;
+		string text = File.ReadAllText(fullPath); 
+		JsonDocument jsonDoc = JsonDocument.Parse(text);
+		string folderName = Path.GetFileName(profileFolder);
+		Profile profile = new Profile(jsonDoc.RootElement, folderName);
+		if (doFolderCheck && folderName != profile.ID)
+			throw new InvalidDataException($"Profile's ID does not match with its folder name. ID is \"{profile.ID}\", but found it in folder \"{folderName}\"");
+		return profile;
 	}
 
 	public JsonObject ToJson() {

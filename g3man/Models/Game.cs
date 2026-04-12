@@ -14,7 +14,13 @@ public class Game {
 	public string InternalName;
 	public string DatafileName;
 
-	public int ExecutableType;
+	public enum ExecutableType {
+		File,
+		Steam,
+		Size
+	}
+	
+	public ExecutableType ChosenExecutableType;
 	public string ExecutablePath;
 	public int ExecutableSteamAppId;
 	
@@ -32,7 +38,7 @@ public class Game {
 		DisplayName = displayName;
 		InternalName = internalName;
 		DatafileName = datafileName;
-		ExecutableType = executableType;
+		ChosenExecutableType = (ExecutableType)executableType;
 		ExecutablePath = executablePath;
 		ExecutableSteamAppId = executableSteamAppId;
 		OutputDatafileName = outputDatafileName;
@@ -47,11 +53,14 @@ public class Game {
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		InternalName = JsonUtil.GetStringOrThrow(root, "internal_name");
 		DatafileName = JsonUtil.GetStringOrThrow(root, "datafile_name");
-
-		ExecutableType = JsonUtil.GetOrDefault(root, "executable_type", 0);
+		
+		int executableType = JsonUtil.GetOrDefault(root, "executable_type", 0);
+		if (executableType >= (int)ExecutableType.Size || executableType < 0)
+			executableType = 0;
+		ChosenExecutableType = (ExecutableType)executableType;
 		ExecutablePath = JsonUtil.GetOrDefaultClass(root, "executable_path", "");
 		ExecutableSteamAppId = JsonUtil.GetOrDefault(root, "executable_steam_app_id", -1);
-		OutputDatafileName = JsonUtil.GetStringOrThrow(root, "output_datafile_name", "g3man_" + DatafileName);
+		OutputDatafileName = JsonUtil.GetStringOrThrow(root, "output_datafile_name", $"g3man_{DatafileName}");
 	}
 
 	public string GetCleanDatafilePath() {
@@ -68,10 +77,10 @@ public class Game {
 		return Path.Combine(Directory, DatafileName);
 	}
 	public bool HasExecutable() {
-		switch (ExecutableType) {
-			case 0:
+		switch (ChosenExecutableType) {
+			case ExecutableType.File:
 				return ExecutablePath != "";
-			case 1:
+			case ExecutableType.Steam:
 				return ExecutableSteamAppId != -1;
 		}
 		return false;
@@ -84,33 +93,31 @@ public class Game {
 			["display_name"] = DisplayName,
 			["internal_name"] = InternalName,
 			["datafile_name"] = DatafileName,
-			["executable_type"] = ExecutableType,
+			["executable_type"] = (int)ChosenExecutableType,
 			["executable_path"] = ExecutablePath,
 			["executable_steam_app_id"] = ExecutableSteamAppId,
 			["output_datafile_name"] = OutputDatafileName
 		};
 	}
 
-	public static List<Game> Parse(List<GameEntry> gameEntries) {
+
+	public static List<Game> ParseAll(List<GameEntry> gameEntries, Action<Exception, GameEntry>? errorHandler = null) {
 		ConcurrentBag<Game> games = new ConcurrentBag<Game>();
+		
+		Action<Exception, GameEntry> onError = (errorHandler) ?? ((e, entry) => {
+			logger.Error($"Error reading game at {entry.Path}:\n{e.Message}");
+		});
 		Parallel.ForEach(gameEntries, gameEntry =>
 		{
-			string fullPath = Path.Combine(gameEntry.Path, "g3man", "game.json");
-			JsonDocument jsonDoc;
 			try {
+				string fullPath = Path.Combine(gameEntry.Path, "g3man", "game.json");
 				string text = File.ReadAllText(fullPath); 
-				jsonDoc = JsonDocument.Parse(text);
-			}
-			catch (Exception e) {
-				logger.Error("Couldn't find or load game.json at " + fullPath + ":\n" + e.Message);
-				return;
-			}
-			try {
+				JsonDocument jsonDoc = JsonDocument.Parse(text);
 				Game game = new Game(jsonDoc.RootElement, gameEntry);
 				games.Add(game);
 			}
-			catch (InvalidDataException e) {
-				logger.Error("Invalid game.json at " + fullPath + ":\n" + e.Message);
+			catch (Exception e) {
+				onError(e, gameEntry);
 			}
 		});
 		return games.ToList();
@@ -123,21 +130,4 @@ public class Game {
 		File.WriteAllText(Path.Combine(folder, "game.json"), jsonText);
 	}
 	
-}
-
-public interface Executable {
-	public void Start();
-}
-
-public class FileExecutable(string path) : Executable {
-	public string Path = path;
-	public void Start() {
-		throw new NotImplementedException();
-	}
-}
-public class SteamExecutable(int appId) : Executable {
-	public int AppId = appId;
-	public void Start() {
-		throw new NotImplementedException();
-	}
 }

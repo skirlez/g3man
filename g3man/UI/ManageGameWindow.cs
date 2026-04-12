@@ -27,7 +27,7 @@ public class ManageGameWindow : G3manWindow {
 		ComboBoxText launchMethod = ComboBoxText.New();
 		launchMethod.AppendText("Launch game directly");
 		launchMethod.AppendText("Launch through Steam");
-		launchMethod.SetActive(game.ExecutableType);
+		launchMethod.SetActive((int)game.ChosenExecutableType);
 		launchMethod.SetHalign(Align.Start);
 		launchMethod.SetValign(Align.End);
 		launchMethod.SetTooltipText("How g3man should launch the game.\nLaunch directly - g3man will run the file in the field below.\nLaunch through Steam - g3man will tell Steam which game to run");
@@ -90,7 +90,7 @@ public class ManageGameWindow : G3manWindow {
 		void OnUpdateExecutableType(int type) {
 			launchMethodStack.SetVisibleChild(methodBoxes[type]);
 		}
-		OnUpdateExecutableType(game.ExecutableType);
+		OnUpdateExecutableType((int)game.ChosenExecutableType);
 		launchMethod.OnChanged += (sender, _) => OnUpdateExecutableType(sender.GetActive());
 
 		Label launchParadigm = Label.New("Patching paradigm");

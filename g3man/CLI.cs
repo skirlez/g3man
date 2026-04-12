@@ -45,15 +45,29 @@ public class CLI {
 			applyCommand.SetAction(parseResult => {
 				DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
 				Program.Logger.Info("Parsing profile and mods...");
-				Profile? profile = Profile.Parse(profileDirectoryInfo.FullName, doFolderCheck: false);
-				if (profile == null) {
+
+				Profile profile;
+				try {
+					profile = Profile.Parse(profileDirectoryInfo.FullName, doFolderCheck: false);
+				}
+				catch (Exception e) {
+					Program.Logger.Error($"Failed to parse profile:\n{e.Message}");
 					return 1;
 				}
 
-				List<Mod> mods = Mod.ParseAll(Path.Combine(profileDirectoryInfo.FullName))
-					.Where(mod => !profile.ModsDisabled.Contains(mod.ModId))
-					.ToList();
+
+
+				bool anyFailed = false;
+				List<Mod> mods = Mod.ParseAll(profileDirectoryInfo.FullName, (e, path) => {
+					Program.Logger.Info($"Mod at {path} failed to parse: {e.Message}");
+					Interlocked.Exchange(ref anyFailed, true);
+				}).Where(mod => !profile.ModsDisabled.Contains(mod.ModId)).ToList();
+
+				if (anyFailed)
+					return 1;
+				
 				if (mods.Count == 0) {
+					Program.Logger.Info("No mods found");
 					return 1;
 				}
 
@@ -74,11 +88,10 @@ public class CLI {
 					Program.Logger.Error(e);
 					return 1;
 				}
-			   
 				
 				DirectoryInfo outLocationInfo = parseResult.GetRequiredValue(outLocation);
 
-				string datafileName = parseResult.GetValue(outName) ?? "data.win";
+				string outputDatafileName = parseResult.GetValue(outName) ?? "data.win";
 				
 				DatafilePatcher datafilePatcher = new DatafilePatcher();
 				UndertaleData? output = datafilePatcher.Patch(mods, profile, profileDirectoryInfo.FullName, data, Program.Logger, status => {});
@@ -86,8 +99,11 @@ public class CLI {
 					return 1;
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 				Program.Logger.Info("Writing...");
+
+				bool writeHash = (IO.DatafileNames.Contains(outputDatafileName));
 				try {
-					IO.Apply(data,  outLocationInfo.FullName, profileDirectoryInfo.FullName, datafileName, createOldSymlink);
+					IO.Apply(data, outLocationInfo.FullName, profileDirectoryInfo.FullName, outputDatafileName, writeHash,
+						createOldSymlink);
 				}
 				catch (Exception e) {
 					Program.Logger.Error("Failed to save output data.win");

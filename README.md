@@ -27,6 +27,7 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 Coming in Version 7:
 - Xdelta mod support: g3man allows, alongside its own mod format, the loading of .xdelta mod(s)*
 - General Xdelta support: g3man mods themselves can employ xdelta files to patch other game files
+- Launching games through g3man's UI
 
 *(You can have several, but every consecutive patch has to be made for the output of the prior patches)
 

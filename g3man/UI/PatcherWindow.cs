@@ -217,20 +217,23 @@ public class PatcherWindow : G3manWindow {
 		if (output is null)
 			return;
 		
+		
+		bool overwritingInput = (Program.GetGame()!.DatafileName == Program.GetGame()!.OutputDatafileName);
 		bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 		setStatus("Writing...");
 		try {
-			IO.Apply(output, Program.GetGame()!.Directory, profileDirectory, Program.GetGame()!.DatafileName, createOldSymlink);
+			IO.Apply(output, Program.GetGame()!.Directory,
+				profileDirectory, Program.GetGame()!.OutputDatafileName, 
+				writeHash: overwritingInput, createOldSymlink);
 		}
 		catch (Exception e) {
 			Program.Logger.Error(e);
 			setStatus("Failed to write output datafile! Check the log.");
 			return;
 		}
-
-		bool modified = (Program.GetGame()!.DatafileName == Program.GetGame()!.OutputDatafileName);
+		
 		string launchInstructions =
-			modified ? "You can launch the game by any means to play!" :
+			overwritingInput ? "You can launch the game by any means to play!" :
 						"You must launch the game through g3man\nto see the changes.";
 		
 		setStatus($"Done!\n{launchInstructions}");

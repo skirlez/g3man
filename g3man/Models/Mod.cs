@@ -134,7 +134,8 @@ public class Mod : IMod {
 		return PreMergeScriptPath != "" || PostMergeScriptPath != "" || PrePatchScriptPath != "" || PostPatchScriptPath != "";
 	}
 	
-	public static List<Mod> ParseAll(string directory) {
+	
+	public static List<Mod> ParseAll(string directory, Action<Exception, string>? errorHandler = null) {
 		ConcurrentBag<Mod> mods = new ConcurrentBag<Mod>();
 		string[] modFolders;
 		try {
@@ -143,34 +144,25 @@ public class Mod : IMod {
 		catch {
 			return [];
 		}
+		
+		Action<Exception, string> onError = (errorHandler) ?? ((e, path) => {
+			logger.Error($"Error reading mod at {path}:\n{e.Message}");
+		});
 		Parallel.ForEach(modFolders, modFolder => {
 			string fullPath = Path.Combine(modFolder, "mod.json");
-			JsonDocument jsonDoc;
+
+			
 			try {
 				string text = File.ReadAllText(fullPath);
-				jsonDoc = JsonDocument.Parse(text);
-			}
-			catch (Exception e) {
-				logger.Error("Couldn't find or load mod.json at " + fullPath + ":\n" + e.Message);
-				return;
-			}
-
-			void onError(Exception e) {
-				logger.Error("Invalid mod.json at " + fullPath + ":\n" + e.Message);
-			}
-
-			try {
+				JsonDocument jsonDoc = JsonDocument.Parse(text);
 				string folderName = Path.GetFileName(modFolder);
 				Mod mod = new Mod(jsonDoc.RootElement, folderName);
 				if (folderName != mod.ModId)
 					throw new InvalidDataException($"Mod's ID does not match with its folder name. ID is \"{mod.ModId}\", but found it in folder \"{folderName}\"");
 				mods.Add(mod);
 			}
-			catch (InvalidDataException e) {
-				onError(e);
-			}
-			catch (InvalidModException e) {
-				onError(e);
+			catch (Exception e) {
+				onError(e, fullPath);
 			}
 		});
 

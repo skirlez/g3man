@@ -17,8 +17,6 @@ public partial class MainWindow {
 		noModsLabel = Label.New("No mods found.");
 		noModsLabel.SetMargin(30);
 		
-		
-		
 		modNameLabel = Label.New("");
 		modNameLabel.SetMarginTop(10);
 		modDescriptionLabel = Label.New("");

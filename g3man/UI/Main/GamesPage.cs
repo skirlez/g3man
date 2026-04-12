@@ -24,7 +24,7 @@ public partial class MainWindow {
 		gamesList = new List<Game>();
 		
 		
-		List<Game> games = Game.Parse(Program.Config.GameEntries);
+		List<Game> games = Game.ParseAll(Program.Config.GameEntries);
 		games.Sort((game1, game2) => string.Compare(game1.DisplayName, game2.DisplayName, StringComparison.Ordinal));
 		PopulateGamesList(games);
 		
