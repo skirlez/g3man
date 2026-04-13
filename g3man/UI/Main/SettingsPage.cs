@@ -1,3 +1,4 @@
+using g3man.Util;
 using Gtk;
 
 namespace g3man.UI.Main;
@@ -91,6 +92,36 @@ public partial class MainWindow {
 		allowModScriptsBox.Append(scriptInfoDialog);
 		
 		
+		Label steamExecutableLabel = Label.New("Steam Executable");
+		steamExecutableLabel.SetHalign(Align.Start);
+		Entry steamExecutableEntry = Entry.New();
+		steamExecutableEntry.SetText(Program.Config.SteamExecutable);
+		steamExecutableEntry.OnChanged += (editable, _) => {
+			Program.Config.SteamExecutable = editable.GetText();
+			MarkDirty();
+		};
+		steamExecutableEntry.SetTooltipText("The path to Steam's executable, for launching games with Steam.");
+		
+		Button steamBrowseButton = Button.NewWithLabel("Browse");
+		steamBrowseButton.OnClicked += (_, _) => {
+			FileDialogWindow window = new FileDialogWindow("Choose an executable", [], file => {
+				string? path = file.GetPath();
+				if (path is null)
+					return;
+				steamExecutableEntry.SetText(path);
+			});
+			window.Dialog(this);
+		};
+
+		Box steamBox = Box.New(Orientation.Vertical, 10)
+			.With(
+				steamExecutableLabel,
+				Box.New(Orientation.Horizontal, 5)
+					.With(
+						steamBrowseButton, steamExecutableEntry
+					)
+				);
+		
 
 		CheckButton checkForUpdatesCheck = CheckButton.NewWithLabel("Check for updates on startup");
 		checkForUpdatesCheck.SetActive(Program.Config.CheckForUpdates);
@@ -111,8 +142,8 @@ public partial class MainWindow {
 		
 		page.Append(initializerBox);
 		page.Append(themeBox);
-		
 		page.Append(allowModScriptsBox);
+		page.Append(steamBox);
 		page.Append(checkForUpdatesCheck);
 		page.Append(saveSettingsButton);
 		page.SetMargin(20);

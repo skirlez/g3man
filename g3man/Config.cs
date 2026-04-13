@@ -11,6 +11,7 @@ public class Config {
 	public List<GameEntry> GameEntries;
 	public bool AllowModScripting;
 	public bool CheckForUpdates;
+	public string SteamExecutable;
 
 	private const int LatestVersion = 2;
 	
@@ -56,6 +57,8 @@ public class Config {
 		AllowModScripting = allowModScripting == 1;
 		
 		CheckForUpdates = JsonUtil.GetOrDefault(root, "check_for_updates", true);
+		
+		SteamExecutable = JsonUtil.GetOrDefaultClass(root, "steam_executable", "");
 
 	}
 
@@ -66,6 +69,7 @@ public class Config {
 			["initializer"] = (int)Initializer,
 			["color_scheme"] = (int)ColorScheme,
 			["check_for_updates"] = CheckForUpdates,
+			["steam_executable"] = SteamExecutable,
 			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0,
 		};
 	}

@@ -6,7 +6,7 @@ namespace g3man.UI;
 public class FileDialogWindow {
 	private FileDialog dialog;
 	private Action<Gio.File> callback;
-	public FileDialogWindow(string title, List<FileFilter> filters, Action<Gio.File> callback,  string? initialFolder = null) {
+	public FileDialogWindow(string title, List<FileFilter> filters, Action<Gio.File> callback, string? initialFolder = null) {
 		dialog = FileDialog.New();
 		dialog.Title = title;
 		if (initialFolder is not null)

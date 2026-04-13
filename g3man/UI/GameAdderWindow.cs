@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 using g3man.Models;
@@ -16,21 +17,29 @@ public class GameAdderWindow : G3manWindow {
 	private Label label = null!;
 	private readonly string directory;
 	private MainWindow mainWindow;
+	private (string, string)? datafileInfo;
 	public GameAdderWindow(string directory, MainWindow mainWindow) {
 		SetDefaultSize(600, 400);
 		this.mainWindow = mainWindow;
 		this.directory = directory;
+		label = Label.New(null);
+		label.SetHalign(Align.Center);
+		label.SetValign(Align.Center);
+		label.SetJustify(Justification.Center);
+		
+		datafileInfo = ProgramPaths.GetDatafileFromDirectory(directory);
+		if (datafileInfo is null) {
+			label.SetText($"This folder does not have a datafile.\n(One of: {IO.DatafileNames})");
+			SetChild(label);
+			return;
+		}
 		
 		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (LaunchParadigm? choice) => {
 			if (choice is null) {
 				Close();
 				return;
 			}
-			
-			label = Label.New("Adding game...");
-			label.SetHalign(Align.Center);
-			label.SetValign(Align.Center);
-			label.SetJustify(Justification.Center);
+			label.SetText("Adding game...");
 			SetChild(label);
 			
 			Thread thread = new Thread(() => ThreadRoutine(choice.Value));
@@ -43,18 +52,14 @@ public class GameAdderWindow : G3manWindow {
 
 
 	private Result<Success, Error> LoadAndSetupGame(LaunchParadigm paradigm) {
-		(string, string)? datafileInfo = ProgramPaths.GetDatafileFromDirectory(directory);
-		if (datafileInfo is null)
-			return new Result<Success, Error>(new Error("Could not find the game's GameMaker datafile", null));
+		Debug.Assert(datafileInfo is not null);
 		(string datafileName, string datafilePath) = datafileInfo.Value;
 		string outputDatafileName = "g3man_" + datafileName;
 		
 		
-		byte[] hash;
 		UndertaleData data;
 		try {
 			using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
-			hash = MD5.HashData(stream);
 			data = UndertaleIO.Read(stream);
 		}
 		catch (Exception e) {

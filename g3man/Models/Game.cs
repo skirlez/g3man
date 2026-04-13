@@ -76,16 +76,40 @@ public class Game {
 	public string GetOutputDatafilePath() {
 		return Path.Combine(Directory, DatafileName);
 	}
-	public bool HasExecutable() {
+	public Status ExecutableStatus(Config config) {
 		switch (ChosenExecutableType) {
 			case ExecutableType.File:
-				return ExecutablePath != "";
+				if (ExecutablePath == "")
+					return new Status(false, "Game has no executable file set");
+				return Status.OK;
 			case ExecutableType.Steam:
-				return ExecutableSteamAppId != -1;
+				if (ExecutableSteamAppId == -1)
+					return new Status(false, "Game has no Steam App ID set");
+				if (config.SteamExecutable == "")
+					return new Status(false, "To launch games via Steam, supply the path to the Steam executable in Settings.");
+				return Status.OK;
 		}
-		return false;
+		throw new UnreachableException();
 	}
+	
 
+	public void Launch(Config config) {
+		Debug.Assert(ExecutableStatus(config).ok);
+		switch (ChosenExecutableType) {
+			case ExecutableType.File:
+				
+				break;
+			case ExecutableType.Steam:
+				Process.Start(new ProcessStartInfo {
+					FileName =  config.SteamExecutable,
+					ArgumentList = { "-applaunch", ExecutableSteamAppId.ToString(), "--", "-game", OutputDatafileName },
+					RedirectStandardOutput = true,
+					UseShellExecute = false,
+					CreateNoWindow = true
+				});
+				break;
+		}
+	}
 	
 	public JsonObject ToJson() {
 		return new JsonObject() {

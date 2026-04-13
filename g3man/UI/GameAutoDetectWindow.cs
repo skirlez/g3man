@@ -31,7 +31,7 @@ public class GameAutoDetectWindow : G3manWindow {
 		Parallel.ForEach(paths, path => {
 			if (existingPaths.Any(x => Path.GetRelativePath(x, path) == "."))
 				return;
-			PathStatus status = ProgramPaths.GameMakerDirectoryStatus(path);
+			Status status = ProgramPaths.GameMakerDirectoryStatus(path);
 			if (status.ok) {
 				gamePaths.Add(path);
 			}

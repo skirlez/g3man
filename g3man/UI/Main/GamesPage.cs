@@ -83,7 +83,7 @@ public partial class MainWindow {
 			if (text == "")
 				statusLabel.SetText("");
 			else {
-				PathStatus status = ProgramPaths.GameMakerDirectoryStatus(text);
+				Status status = ProgramPaths.GameMakerDirectoryStatus(text);
 				statusLabel.SetText(status.message);
 			}
 		}

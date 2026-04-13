@@ -36,10 +36,10 @@ public static class ProgramPaths {
 		throw new Exception($"\"HOME\" and \"{environmentVariable}\" are unset. Please set any one of them.");
 	}
 	
-	public static PathStatus GameMakerDirectoryStatus(string directory) {
+	public static Status GameMakerDirectoryStatus(string directory) {
 		if (GetDatafileFromDirectory(directory) is null)
-			return new PathStatus(false, "No data.win or game.unx found at directory");
-		return new PathStatus(true, "Directory contains GameMaker game");
+			return new Status(false, "No data.win or game.unx found at directory");
+		return new Status(true, "Directory contains GameMaker game");
 	}
 	
 	public static (string, string)? GetDatafileFromDirectory(string directory) {
@@ -55,7 +55,7 @@ public static class ProgramPaths {
 	 * Attempt to guess the path of the Steam folder.
 	 * If a guess is a folder that actually exists, it is returned. Otherwise an empty string is returned.
 	 */
-	private static string GuessSteamPath() {
+	public static string GuessSteamPath() {
 		#if LINUX
 			string[] possiblePaths = [GetEnvironmentVariableDirectory("XDG_DATA_HOME", [".local", "share"], ["Steam"]),
 							Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "", ".steam", "steam")];

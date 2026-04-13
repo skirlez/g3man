@@ -102,22 +102,22 @@ public static class JsonUtil {
 				return (GetStringArrayOrThrow(root, field) as T)!;
 			if (typeof(T) == typeof(JsonElement[]))
 				return (GetObjectArrayOrThrow(root, field) as T)!;
-			throw new ArgumentException($"Unsupported type ({typeof(T).FullName})");
 		}
 		catch {
 			return fallback;
 		}
+		throw new ArgumentException($"Unsupported type ({typeof(T).FullName})");
 	}
 	public static T GetOrDefault<T>(JsonElement root, string field, T fallback) where T : struct {
 		try {
-			return (fallback switch {
-				bool => Unsafe.BitCast<bool, T>(GetBooleanOrThrow(root, field)),
-				int => Unsafe.BitCast<int, T>(GetNumberOrThrow(root, field)),
-				_ => throw new ArgumentException(),
-			})!;
+			if (typeof(T) == typeof(bool))
+				return Unsafe.BitCast<bool, T>(GetBooleanOrThrow(root, field));
+			if (typeof(T) == typeof(int))
+				return Unsafe.BitCast<int, T>(GetNumberOrThrow(root, field));
 		}
 		catch {
 			return fallback;
 		}
+		throw new ArgumentException($"Unsupported type ({typeof(T).FullName})");
 	}
 }

@@ -45,10 +45,6 @@ public class ManageGameWindow : G3manWindow {
 		
 		Button fileExeBrowse = Button.NewWithLabel("Browse");
 		fileExeBrowse.OnClicked += (_, _) => {
-			FileFilter allFilter = FileFilter.New();
-			allFilter.SetName("Executable");
-			allFilter.AddPattern("*");
-
 			FileDialogWindow window = new FileDialogWindow("Choose an executable", [],file => {
 				string? path = file.GetPath();
 				if (path is null)

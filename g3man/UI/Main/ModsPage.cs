@@ -190,13 +190,15 @@ public partial class MainWindow {
 
 		void LaunchDialog() {
 			Game game = Program.GetGame()!;
-			if (game.HasExecutable()) {
+			Status executableStatus = game.ExecutableStatus(Program.Config);
+			if (!executableStatus.ok) {
 				PopupWindow popup = new PopupWindow(this, "Error!",
-					"This game's executable does not exist.\nPlease specify which file is the executable\nby pressing \"Manage\" on this game in the Games tab.",
+					$"{executableStatus.message}",
 					"OK");
 				popup.Dialog();
 				return;
 			}
+			game.Launch(Program.Config);
 		}
 
 		Button applyButton = Button.NewWithLabel("Apply");
