@@ -30,7 +30,7 @@ public class ManageGameWindow : G3manWindow {
 		launchMethod.SetActive((int)game.ChosenExecutableType);
 		launchMethod.SetHalign(Align.Start);
 		launchMethod.SetValign(Align.End);
-		launchMethod.SetTooltipText("How g3man should launch the game.\nLaunch directly - g3man will run the file in the field below.\nLaunch through Steam - g3man will tell Steam which game to run");
+		launchMethod.SetTooltipText("How g3man should launch the game.\nLaunch directly - g3man will run the file provided.\nLaunch through Steam - g3man will tell Steam which App ID to run");
 		
 		Stack launchMethodStack = Stack.New();
 		Box launchMethodBox = Box.New(Orientation.Horizontal, 10)
@@ -83,46 +83,61 @@ public class ManageGameWindow : G3manWindow {
 		foreach (Widget methodBox in methodBoxes) {
 			launchMethodStack.AddChild(methodBox);
 		}
-		void OnUpdateExecutableType(int type) {
+		void UpdateExecutableType(int type) {
 			launchMethodStack.SetVisibleChild(methodBoxes[type]);
 		}
-		OnUpdateExecutableType((int)game.ChosenExecutableType);
-		launchMethod.OnChanged += (sender, _) => OnUpdateExecutableType(sender.GetActive());
+		UpdateExecutableType((int)game.ChosenExecutableType);
+		launchMethod.OnChanged += (sender, _) => UpdateExecutableType(sender.GetActive());
 
-		Label launchParadigm = Label.New("Patching paradigm");
-		launchParadigm.SetHalign(Align.Start);
+		Label launchParadigmLabel = Label.New("Current patching paradigm:");
+		launchParadigmLabel.SetHalign(Align.Start);
+		Label paradigmDisplayLabel = Label.New("");
+		paradigmDisplayLabel.SetHalign(Align.Start);
+		
+		Game.LaunchParadigm currentParadigm = game.GetLaunchParadigm();
+		void UpdateParadigmChoice(Game.LaunchParadigm launchParadigm) {
+			string[] paradigms = {
+				"Do not modify game; launch via g3man/arguments",
+				"Modify game; launch in any way"
+			};
+			currentParadigm = launchParadigm;
+			paradigmDisplayLabel.SetText($"\"{paradigms[(int)(launchParadigm)]}\"");
+		}
+		
+		UpdateParadigmChoice(currentParadigm);
 		
 		Button changeLaunchParadigm = Button.NewWithLabel("Change patching paradigm");
+		changeLaunchParadigm.SetValign(Align.Center);
+		changeLaunchParadigm.SetHalign(Align.End);
 
+		Box paradigmSpacer = Box.New(Orientation.Horizontal, 0);
+		paradigmSpacer.SetHexpand(true);
 		
-		Box paradigmBox = Box.New(Orientation.Horizontal, 10);
-		paradigmBox.Append(changeLaunchParadigm);
-		
+		Box paradigmBox = 
+			Box.New(Orientation.Horizontal, 10)
+			.With(
+				Box.New(Orientation.Vertical, 6)
+					.With(
+						launchParadigmLabel,
+						paradigmDisplayLabel
+					),
+				paradigmSpacer,
+				changeLaunchParadigm
+			);
+		paradigmBox.SetMargin(5);
 		paradigmBox.SetHalign(Align.Start);
-
 		
-		
-		
-		Label outputDatafileLabel =  Label.New("Output datafile");
-		outputDatafileLabel.SetHalign(Align.Start);
-		
-		Entry outputDatafileEntry = Entry.New();
-		outputDatafileEntry.SetText(game.OutputDatafileName);
-		outputDatafileEntry.SetTooltipText("The filename of the datafile g3man should output when applying.");
 		
 		changeLaunchParadigm.OnClicked += (_, _) => {
 			LaunchParadigmWindow paradigmWindow = new LaunchParadigmWindow(showRegretLabel: false, (choice) => {
 				if (choice is null)
 					return;
-				if (choice.Value == LaunchParadigm.Launch) {
-					outputDatafileEntry.SetText("g3man_data.win");
-				}
-				else if (choice.Value == LaunchParadigm.Modify) {
-					outputDatafileEntry.SetText(game.DatafileName);
-				}
+				UpdateParadigmChoice(choice.Value);
 			});
 			paradigmWindow.Dialog(this);
 		};
+		
+		
 		
 		Button saveButton = Button.NewWithLabel("Save");
 		saveButton.OnClicked += (_, _) => {
@@ -134,8 +149,16 @@ public class ManageGameWindow : G3manWindow {
 				newAppId = -1;
 			}
 
-			Game newGame = new Game(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafileName,
-					launchMethod.Active, fileExeEntry.GetText(), newAppId, outputDatafileEntry.GetText());
+
+			string outputDatafileName;
+			if (currentParadigm == Game.LaunchParadigm.Launch) {
+				outputDatafileName = Game.GetDefaultOutputDatafilePath(game.DatafilePath);
+			}
+			else {
+				outputDatafileName = game.DatafilePath;
+			}
+			Game newGame = new Game(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafilePath,
+					launchMethod.Active, fileExeEntry.GetText(), newAppId, outputDatafileName);
 			if (saveCallback(newGame)) {
 				Close();
 			}
@@ -159,10 +182,7 @@ public class ManageGameWindow : G3manWindow {
 		box.SetMargin(10);
 		box.Append(nameBox);
 		box.Append(launchMethodBox);
-		box.Append(launchParadigm);
 		box.Append(paradigmBox);
-		box.Append(outputDatafileLabel);
-		box.Append(outputDatafileEntry);
 		box.Append(fateBox);
 		
 		SetChild(box);
@@ -176,7 +196,3 @@ public class ManageGameWindow : G3manWindow {
 	
 }
 
-public enum LaunchParadigm {
-	Launch,
-	Modify
-}

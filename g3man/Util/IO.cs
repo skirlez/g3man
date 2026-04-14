@@ -10,11 +10,15 @@ public static class IO {
 	public const string TempDataName = "g3man_temp_data.win";
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
 	public const string OutputHashTextFileName = "last_hash.txt";
-	public static readonly string[] DatafileNames = ["data.win", "game.unx", "game.ios", "game.droid"];
+	public static readonly string[] DatafileRelativePaths = ["data.win", "assets/game.unx"];
 
+	public static string CommaSeparatedDatafilePaths() {
+		return string.Join(", ", DatafileRelativePaths);
+	}
+	
 	public static void Apply(UndertaleData data, 
 							string gameDirectory, 
-							string appliedProfileDirectory, 
+							string appliedProfileID, 
 							string outputDatafileName,
 							bool writeHash,
 							bool createOldSymlink) 
@@ -47,13 +51,8 @@ public static class IO {
 		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
 		DeleteSymlink(appliedProfileSymlink);
 		if (createOldSymlink) {
-			SymlinkFolder(appliedProfileDirectory, appliedProfileSymlink);
+			SymlinkFolder(Path.Combine("g3man", "profiles", appliedProfileID), appliedProfileSymlink);
 		}
-		
-		Directory.CreateDirectory(Path.Combine(gameDirectory, "g3man", "live"));
-		string liveProfileSymlink = Path.Combine(gameDirectory, "g3man", "live", "profile");
-		DeleteSymlink(liveProfileSymlink);
-		SymlinkFolder(appliedProfileDirectory, liveProfileSymlink);
 	}
 	
 	/* On normal operating systems, this makes a symlink.

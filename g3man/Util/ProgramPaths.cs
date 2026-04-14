@@ -43,10 +43,10 @@ public static class ProgramPaths {
 	}
 	
 	public static (string, string)? GetDatafileFromDirectory(string directory) {
-		foreach (string name in IO.DatafileNames) {
-			string combined = Path.Combine(directory, name);
+		foreach (string relativePath in IO.DatafileRelativePaths) {
+			string combined = Path.Combine(directory, relativePath);
 			if (File.Exists(combined))
-				return (name, combined);
+				return (relativePath, combined);
 		}
 		return null;
 	}

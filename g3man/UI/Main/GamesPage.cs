@@ -218,7 +218,7 @@ public partial class MainWindow {
 			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(
 				modsList.Where(m => enabledMods.ContainsKey(m)), 
 				Program.CurrentProfileFolderPath(), 
-				game.DatafileName);
+				game.DatafilePath);
 			Program.DataLoader.LoadAsync(game, xdeltas);
 		}
 	}

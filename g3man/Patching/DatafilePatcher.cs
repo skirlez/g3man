@@ -158,7 +158,7 @@ public class DatafilePatcher {
 	 * 
 	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
 	 */
-	private void merge(UndertaleData data, UndertaleData modData, string modFolderName) {
+	private void merge(UndertaleData data, UndertaleData modData, string modFolderPath) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
 		data.GeneralInfo.LastObj += modData.GeneralInfo.LastObj - 100000;
@@ -201,7 +201,7 @@ public class DatafilePatcher {
 			else {
 				// streamed audio has to go in the default audiogroup
 				sound.AudioGroup = data.AudioGroups[0];
-				sound.File.Content = $"g3man_applied_profile/{modFolderName}/{sound.File.Content}";
+				sound.File.Content = $"{modFolderPath}/{sound.File.Content}";
 			}
 
 			return true;
@@ -387,7 +387,7 @@ public class DatafilePatcher {
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
-				merge(data, modData, mod.FolderName);
+				merge(data, modData, Path.Combine(profileLocation, mod.FolderName));
 				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 			}
@@ -399,7 +399,7 @@ public class DatafilePatcher {
 			if (!runModScript(mod, m => m.PrePatchScriptPath, new ScriptGlobals(data)))
 				return null;
 		}
-
+		
 		GlobalDecompileContext context = new GlobalDecompileContext(data);
 		PatchesRecord record = new PatchesRecord();
 		CompileGroup group = new CompileGroup(data, context);
@@ -729,7 +729,7 @@ public class DatafilePatcher {
 			if (exporters.Count == 0) {
 				RecommendContingency contingency = (RecommendContingency)import.Contingency;
 				lock (issues) {
- 					issues.Add($"Mod {identifyMod(mod)} depends on the import \"{import.Name}\" but it is not provided by anyone.\nMod's suggestion: Download {contingency.Name} at {contingency.Link}");
+ 					issues.Add($"Mod {identifyMod(mod)} depends on the import \"{import.Name}\" but it is not provided by anyone.\nMod's suggestion: Download {contingency.Name} at <a href=\"{contingency.Link}\">{contingency.Link}</a>");
 				}
 				return;
 			}

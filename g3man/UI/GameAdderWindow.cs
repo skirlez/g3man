@@ -29,12 +29,12 @@ public class GameAdderWindow : G3manWindow {
 		
 		datafileInfo = ProgramPaths.GetDatafileFromDirectory(directory);
 		if (datafileInfo is null) {
-			label.SetText($"This folder does not have a datafile.\n(One of: {IO.DatafileNames})");
+			label.SetText($"This folder does not have a datafile.\n(One of: {IO.CommaSeparatedDatafilePaths()})");
 			SetChild(label);
 			return;
 		}
 		
-		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (LaunchParadigm? choice) => {
+		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (Game.LaunchParadigm? choice) => {
 			if (choice is null) {
 				Close();
 				return;
@@ -51,10 +51,10 @@ public class GameAdderWindow : G3manWindow {
 	private record Error(string Reason, Exception? Exception);
 
 
-	private Result<Success, Error> LoadAndSetupGame(LaunchParadigm paradigm) {
+	private Result<Success, Error> LoadAndSetupGame(Game.LaunchParadigm paradigm) {
 		Debug.Assert(datafileInfo is not null);
-		(string datafileName, string datafilePath) = datafileInfo.Value;
-		string outputDatafileName = "g3man_" + datafileName;
+		(string datafileRelativePath, string datafilePath) = datafileInfo.Value;
+		string outputDatafileName = Game.GetDefaultOutputDatafilePath(datafileRelativePath);
 		
 		
 		UndertaleData data;
@@ -75,14 +75,14 @@ public class GameAdderWindow : G3manWindow {
 		Game game = new Game(entry,
 			data.GeneralInfo.DisplayName.Content,
 			data.GeneralInfo.FileName.Content,
-			datafileName,
+			datafileRelativePath,
 			0,
 			ProgramPaths.GuessExecutablePath(directory),
 			-1, outputDatafileName);
 
 		bool cleanDataExists = Path.Exists(game.GetCleanDatafilePath());
 		if (!cleanDataExists && DatafilePatcher.IsDataPatched(data))
-			return new Result<Success, Error>(new Error($"This game is already patched by g3man.\nPlease make sure the game's \"{datafileName}\" file is not modified so g3man can copy it.", null));
+			return new Result<Success, Error>(new Error($"This game is already patched by g3man.\nPlease make sure the game's \"{datafileRelativePath}\" file is not modified so g3man can copy it.", null));
 
 
 
@@ -117,7 +117,7 @@ public class GameAdderWindow : G3manWindow {
 
 	}
 
-	private void ThreadRoutine(LaunchParadigm paradigm) {
+	private void ThreadRoutine(Game.LaunchParadigm paradigm) {
 		Result<Success, Error> result = LoadAndSetupGame(paradigm);
 		Program.RunOnMainThreadEventually(() => {
 			if (result.IsOk()) {

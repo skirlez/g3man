@@ -82,6 +82,9 @@ If you're thinking of contributing, here's a list of things that g3man should ha
 
 - Git diff support as a patching format
 
+- YYC
+  Data merging should still at least partially work for YYC games, for sprite replacements - but it crashes right now.
+
 - App icon
 
 - Code Documentation

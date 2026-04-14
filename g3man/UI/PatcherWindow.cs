@@ -45,7 +45,7 @@ public class PatcherWindow : G3manWindow {
 		SetChild(box);
 	}
 
-	public void Dialog(List<IMod> mods) {
+	public void Dialog(List<IMod> mods, Action onSuccess) {
 		SetTransientFor(owner);
 		SetModal(true);
 		
@@ -54,6 +54,7 @@ public class PatcherWindow : G3manWindow {
 			Program.RunOnMainThreadEventually(() => {
 				canClose = true;
 				closeButton.SetSensitive(true);
+				onSuccess();
 			});
 		}).Start();
 
@@ -66,7 +67,7 @@ public class PatcherWindow : G3manWindow {
 		});
 	}
 	private void DoThing(List<IMod> mods) {
-		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, Program.CurrentProfileFolderPath(), Program.GetGame()!.DatafileName);
+		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, Program.CurrentProfileFolderPath(), Program.GetGame()!.DatafilePath);
 		
 		setStatus("Hashing current datafile...");
 		string hash;
@@ -218,12 +219,12 @@ public class PatcherWindow : G3manWindow {
 			return;
 		
 		
-		bool overwritingInput = (Program.GetGame()!.DatafileName == Program.GetGame()!.OutputDatafileName);
+		bool overwritingInput = (Program.GetGame()!.DatafilePath == Program.GetGame()!.OutputDatafilePath);
 		bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 		setStatus("Writing...");
 		try {
 			IO.Apply(output, Program.GetGame()!.Directory,
-				profileDirectory, Program.GetGame()!.OutputDatafileName, 
+				profileDirectory, Program.GetGame()!.OutputDatafilePath, 
 				writeHash: overwritingInput, createOldSymlink);
 		}
 		catch (Exception e) {

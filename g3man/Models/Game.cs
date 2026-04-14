@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using g3man.Patching;
+using g3man.UI;
 using g3man.Util;
 
 namespace g3man.Models;
@@ -12,7 +13,15 @@ public class Game {
 	
 	public string DisplayName;
 	public string InternalName;
-	public string DatafileName;
+	public string DatafilePath;
+
+	public string GetDatafileName() {
+		return Path.GetFileName(DatafilePath);
+	}
+	
+	public static string GetDefaultOutputDatafilePath(string inputDatafilePath) {
+		return $"{Path.GetDirectoryName(inputDatafilePath)}/g3man_{Path.GetFileName(inputDatafilePath)}";
+	}
 
 	public enum ExecutableType {
 		File,
@@ -24,7 +33,7 @@ public class Game {
 	public string ExecutablePath;
 	public int ExecutableSteamAppId;
 	
-	public string OutputDatafileName;
+	public string OutputDatafilePath;
 	
 	private const int LatestVersion = 2;
 	public int FormatVersion;
@@ -32,16 +41,16 @@ public class Game {
 	public string Directory => Entry.Path;
 	public GameEntry Entry;
 	
-	public Game(GameEntry entry, string displayName, string internalName, string datafileName, int executableType, string executablePath, int executableSteamAppId,
-		string outputDatafileName) {
+	public Game(GameEntry entry, string displayName, string internalName, string datafilePath, int executableType, string executablePath, int executableSteamAppId,
+		string outputDatafilePath) {
 		Entry = entry;
 		DisplayName = displayName;
 		InternalName = internalName;
-		DatafileName = datafileName;
+		DatafilePath = datafilePath;
 		ChosenExecutableType = (ExecutableType)executableType;
 		ExecutablePath = executablePath;
 		ExecutableSteamAppId = executableSteamAppId;
-		OutputDatafileName = outputDatafileName;
+		OutputDatafilePath = outputDatafilePath;
 		FormatVersion = LatestVersion;
 	}
 	public Game(JsonElement root, GameEntry entry) {
@@ -52,7 +61,7 @@ public class Game {
 		
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		InternalName = JsonUtil.GetStringOrThrow(root, "internal_name");
-		DatafileName = JsonUtil.GetStringOrThrow(root, "datafile_name");
+		DatafilePath = JsonUtil.GetStringOrThrow(root, "datafile_name");
 		
 		int executableType = JsonUtil.GetOrDefault(root, "executable_type", 0);
 		if (executableType >= (int)ExecutableType.Size || executableType < 0)
@@ -60,7 +69,7 @@ public class Game {
 		ChosenExecutableType = (ExecutableType)executableType;
 		ExecutablePath = JsonUtil.GetOrDefaultClass(root, "executable_path", "");
 		ExecutableSteamAppId = JsonUtil.GetOrDefault(root, "executable_steam_app_id", -1);
-		OutputDatafileName = JsonUtil.GetStringOrThrow(root, "output_datafile_name", $"g3man_{DatafileName}");
+		OutputDatafilePath = JsonUtil.GetStringOrThrow(root, "output_datafile_name", GetDefaultOutputDatafilePath(DatafilePath));
 	}
 
 	public string GetCleanDatafilePath() {
@@ -74,7 +83,7 @@ public class Game {
 		return Path.Combine(Directory, "g3man", "profiles", profile.ID);
 	}
 	public string GetOutputDatafilePath() {
-		return Path.Combine(Directory, DatafileName);
+		return Path.Combine(Directory, DatafilePath);
 	}
 	public Status ExecutableStatus(Config config) {
 		switch (ChosenExecutableType) {
@@ -95,15 +104,20 @@ public class Game {
 
 	public void Launch(Config config) {
 		Debug.Assert(ExecutableStatus(config).ok);
+		
 		switch (ChosenExecutableType) {
-			case ExecutableType.File:
-				
+			case ExecutableType.File: 
+				Process.Start(new ProcessStartInfo {
+					FileName = Path.Combine(Directory, ExecutablePath),
+					ArgumentList = { "-game", OutputDatafilePath },
+					UseShellExecute = false,
+					CreateNoWindow = true
+				});
 				break;
 			case ExecutableType.Steam:
 				Process.Start(new ProcessStartInfo {
-					FileName =  config.SteamExecutable,
-					ArgumentList = { "-applaunch", ExecutableSteamAppId.ToString(), "--", "-game", OutputDatafileName },
-					RedirectStandardOutput = true,
+					FileName = config.SteamExecutable,
+					ArgumentList = { "-applaunch", ExecutableSteamAppId.ToString(), "--", "-game", OutputDatafilePath },
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});
@@ -116,11 +130,11 @@ public class Game {
 			["format_version"] = 2,
 			["display_name"] = DisplayName,
 			["internal_name"] = InternalName,
-			["datafile_name"] = DatafileName,
+			["datafile_name"] = DatafilePath,
 			["executable_type"] = (int)ChosenExecutableType,
 			["executable_path"] = ExecutablePath,
 			["executable_steam_app_id"] = ExecutableSteamAppId,
-			["output_datafile_name"] = OutputDatafileName
+			["output_datafile_name"] = OutputDatafilePath
 		};
 	}
 
@@ -153,5 +167,13 @@ public class Game {
 		string jsonText = ToJson().ToJsonString();
 		File.WriteAllText(Path.Combine(folder, "game.json"), jsonText);
 	}
+
+	public LaunchParadigm GetLaunchParadigm() {
+		return (OutputDatafilePath == DatafilePath) ? LaunchParadigm.Modify : LaunchParadigm.Launch;
+	}
 	
+	public enum LaunchParadigm {
+		Launch,
+		Modify
+	}
 }

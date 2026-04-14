@@ -181,12 +181,17 @@ public partial class MainWindow {
 		manageModsBox.SetMargin(10);
 
 
-		void ApplyModsDialog() {
+		void ApplyModsDialog(bool launch) {
 			PatcherWindow window = new PatcherWindow(this);
 			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
-			;
-			window.Dialog(enabledModsList);
+			window.Dialog(enabledModsList, () => {
+				if (launch) {
+					window.Close();
+					LaunchDialog();
+				}
+			});
 		}
+		
 
 		void LaunchDialog() {
 			Game game = Program.GetGame()!;
@@ -198,7 +203,23 @@ public partial class MainWindow {
 				popup.Dialog();
 				return;
 			}
-			game.Launch(Program.Config);
+
+			try {
+				game.Launch(Program.Config);
+			}
+			catch (Exception e) {
+				Program.Logger.Error($"Failed to launch game: {e}");
+				PopupWindow popup = new PopupWindow(this, "Error!",
+					$"Failed to launch game: {e.Message}",
+					"Damn");
+				popup.Dialog();
+				return;
+			}
+			
+			PopupWindow successPopup = new PopupWindow(this, "Game launched!",
+				$"Game launch should be successful.\ng3man does not have to stay open past this point.",
+				"OK");
+			successPopup.Dialog();
 		}
 
 		Button applyButton = Button.NewWithLabel("Apply");
@@ -208,7 +229,7 @@ public partial class MainWindow {
 		applyButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!);
-			ApplyModsDialog();
+			ApplyModsDialog(launch: false);
 		};
 
 
@@ -225,14 +246,15 @@ public partial class MainWindow {
 		applyAndLaunchButton.OnClicked += (_, _) => {
 			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			Program.GetProfile()!.Write(Program.GetGame()!);
-			ApplyModsDialog();
+			ApplyModsDialog(launch: true);
 		};
 		Box actionBox = Box.New(Orientation.Horizontal, 10);
 
 
+		actionBox.Append(applyAndLaunchButton);
 		actionBox.Append(applyButton);
 		actionBox.Append(launchButton);
-		actionBox.Append(applyAndLaunchButton);
+		
 		actionBox.SetHalign(Align.Center);
 		actionBox.SetValign(Align.End);
 

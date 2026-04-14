@@ -100,7 +100,7 @@ public class CLI {
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 				Program.Logger.Info("Writing...");
 
-				bool writeHash = (IO.DatafileNames.Contains(outputDatafileName));
+				bool writeHash = (IO.DatafileRelativePaths.Contains(outputDatafileName));
 				try {
 					IO.Apply(data, outLocationInfo.FullName, profileDirectoryInfo.FullName, outputDatafileName, writeHash,
 						createOldSymlink);

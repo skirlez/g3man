@@ -1,10 +1,11 @@
+using g3man.Models;
 using Gtk;
 
 namespace g3man.UI;
 
 public class LaunchParadigmWindow : G3manWindow {
 
-	public static Widget CreateLaunchParadigmWidgets(bool showRegretLabel, Action<LaunchParadigm?> callback) { 
+	public static Widget CreateLaunchParadigmWidgets(bool showRegretLabel, Action<Game.LaunchParadigm?> callback) { 
 		Label questionLabel = Label.New("Choose your paradigm:");
 		questionLabel.SetJustify(Justification.Center);
 		questionLabel.SetMargin(10);
@@ -16,7 +17,7 @@ public class LaunchParadigmWindow : G3manWindow {
 		modifyParadigmLabel.SetJustify(Justification.Center);
 		Button modifyParadigmButton = Button.NewWithLabel("Select");
 		modifyParadigmButton.OnClicked += (_, _) => {
-			callback(LaunchParadigm.Modify);
+			callback(Game.LaunchParadigm.Modify);
 		};
 		
 		Label launchParadigmLabel =
@@ -25,7 +26,7 @@ public class LaunchParadigmWindow : G3manWindow {
 		launchParadigmLabel.SetJustify(Justification.Center);
 		Button launchParadigmButton = Button.NewWithLabel("Select");
 		launchParadigmButton.OnClicked += (_, _) => {
-			callback(LaunchParadigm.Launch);
+			callback(Game.LaunchParadigm.Launch);
 		};
 		
 		launchParadigmLabel.SetAlign(Align.Center);
@@ -77,7 +78,7 @@ public class LaunchParadigmWindow : G3manWindow {
 		return box;
 	}
 	
-	public LaunchParadigmWindow(bool showRegretLabel, Action<LaunchParadigm?> callback) { 
+	public LaunchParadigmWindow(bool showRegretLabel, Action<Game.LaunchParadigm?> callback) { 
 		SetDefaultSize(600, 400);
 		Widget widget = CreateLaunchParadigmWidgets(showRegretLabel, choice => {
 			callback(choice);
