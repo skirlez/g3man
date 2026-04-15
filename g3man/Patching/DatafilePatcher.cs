@@ -315,7 +315,9 @@ public class DatafilePatcher {
 	private string identifyMod(Mod mod) {
 		return $"{mod.DisplayName} (ID \"{mod.ModId}\")";
 	}
-	public UndertaleData? Patch(List<Mod> mods, Profile profile, string profileLocation, UndertaleData data, Logger logger, Action<string> statusCallback) {
+	public UndertaleData? Patch(List<Mod> mods, Profile profile, 
+			string profileLocation, string profileRelativeLocation,
+			UndertaleData data, Logger logger, Action<string> statusCallback) {
 		void setStatusAndInfo(string message) {
 			logger.Info(message);
 			statusCallback(message);
@@ -500,7 +502,7 @@ public class DatafilePatcher {
 				data.Strings.Add(g3manAPIScript.Name);
 			}
 
-			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID));
+			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID, profileRelativeLocation));
 		}
 
 		setStatusAndInfo("Compiling...");

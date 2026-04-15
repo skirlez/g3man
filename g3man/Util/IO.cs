@@ -18,10 +18,11 @@ public static class IO {
 	
 	public static void Apply(UndertaleData data, 
 							string gameDirectory, 
-							string appliedProfileID, 
+							string appliedProfilePath, 
 							string outputDatafileName,
 							bool writeHash,
-							bool createOldSymlink) 
+							bool createOldSymlink,
+							string? symlinkName) 
 	{
 		
 		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
@@ -51,12 +52,26 @@ public static class IO {
 		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
 		DeleteSymlink(appliedProfileSymlink);
 		if (createOldSymlink) {
-			SymlinkFolder(Path.Combine("g3man", "profiles", appliedProfileID), appliedProfileSymlink);
+			SymlinkFolder(appliedProfilePath, appliedProfileSymlink);
+		}
+
+		if (symlinkName is not null) {
+			string linksFolder = Path.Combine(g3manFolder, "symlinks");
+			Directory.CreateDirectory(linksFolder);
+			
+			// redundant since we use ULID but whatever
+			string link = Path.Combine(linksFolder, symlinkName);
+			DeleteSymlink(link);
+			
+			SymlinkFolder(appliedProfilePath, Path.Combine(linksFolder, symlinkName));
+			
 		}
 	}
 	
 	/* On normal operating systems, this makes a symlink.
 	 * On Windows, this makes a "Junction". */
+	
+	
 	private static void SymlinkFolder(string targetDirectory, string path) {
 		#if LINUX || OSX
 			File.CreateSymbolicLink(path, targetDirectory);

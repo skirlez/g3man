@@ -91,19 +91,22 @@ public class ManageGameWindow : G3manWindow {
 
 		Label launchParadigmLabel = Label.New("Current patching paradigm:");
 		launchParadigmLabel.SetHalign(Align.Start);
-		Label paradigmDisplayLabel = Label.New("");
-		paradigmDisplayLabel.SetHalign(Align.Start);
+		Stack paradigmDisplayStack = Stack.New();
+		paradigmDisplayStack.SetHalign(Align.Start);
 		
+		Label[] paradigms = [
+			Label.New("\"Do not modify game; launch via g3man/arguments ONLY\""),
+			Label.New("\"Modify game; launch in any way\"")
+		];
+		foreach (Label p in paradigms) {
+			paradigmDisplayStack.AddChild(p);
+			p.SetHalign(Align.Start);
+		}
+
 		Game.LaunchParadigm currentParadigm = game.GetLaunchParadigm();
 		void UpdateParadigmChoice(Game.LaunchParadigm launchParadigm) {
-			string[] paradigms = {
-				"Do not modify game; launch via g3man/arguments",
-				"Modify game; launch in any way"
-			};
-			currentParadigm = launchParadigm;
-			paradigmDisplayLabel.SetText($"\"{paradigms[(int)(launchParadigm)]}\"");
+			paradigmDisplayStack.SetVisibleChild(paradigms[(int)launchParadigm]);
 		}
-		
 		UpdateParadigmChoice(currentParadigm);
 		
 		Button changeLaunchParadigm = Button.NewWithLabel("Change patching paradigm");
@@ -119,13 +122,15 @@ public class ManageGameWindow : G3manWindow {
 				Box.New(Orientation.Vertical, 6)
 					.With(
 						launchParadigmLabel,
-						paradigmDisplayLabel
+						paradigmDisplayStack
 					),
 				paradigmSpacer,
 				changeLaunchParadigm
 			);
-		paradigmBox.SetMargin(5);
-		paradigmBox.SetHalign(Align.Start);
+		paradigmBox.SetMarginTop(5);
+;
+		paradigmBox.SetHexpand(true);
+		
 		
 		
 		changeLaunchParadigm.OnClicked += (_, _) => {

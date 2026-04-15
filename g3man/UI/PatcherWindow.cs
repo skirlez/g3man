@@ -214,7 +214,11 @@ public class PatcherWindow : G3manWindow {
 		List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
 		DatafilePatcher datafilePatcher = new DatafilePatcher();
 		string profileDirectory = Program.CurrentProfileFolderPath();
-		UndertaleData? output = datafilePatcher.Patch(noXdeltas, Program.GetProfile()!, profileDirectory, data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
+		string relativeProfileDirectory = Path.GetRelativePath(Program.GetGame()!.Directory, profileDirectory);
+		
+		UndertaleData? output = datafilePatcher.Patch(noXdeltas, Program.GetProfile()!, profileDirectory, 
+			relativeProfileDirectory,
+			data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;
 		
@@ -225,7 +229,7 @@ public class PatcherWindow : G3manWindow {
 		try {
 			IO.Apply(output, Program.GetGame()!.Directory,
 				profileDirectory, Program.GetGame()!.OutputDatafilePath, 
-				writeHash: overwritingInput, createOldSymlink);
+				writeHash: overwritingInput, createOldSymlink, symlinkName: null);
 		}
 		catch (Exception e) {
 			Program.Logger.Error(e);
