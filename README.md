@@ -6,7 +6,7 @@
 
 A mod manager and mod patcher for GameMaker games. 
 
-Depends on [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer). These two projects are incredible, and I would not have been able to make this without them.
+Utilizes the incredible [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer) libraries.
 
 This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), an interactive website for creating gmlp patches used by g3man. You can try it out [here](https://skirlez.github.io/g3man/)!
 
@@ -19,17 +19,13 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
   - Dependency checking
 - A profile system to easily switch between sets of mods
 - Profile save separation (opt-in)
+- Xdelta mod support: g3man allows, alongside its own mod format, the loading of .xdelta mod(s)*
+- General Xdelta support: g3man mods themselves can employ .xdelta files to patch other game files
 - Support for both Linux and Windows
 - (limited) CLI support
 - Efficient pre-loading of the game's datafile
 
-
-Coming in Version 7:
-- Xdelta mod support: g3man allows, alongside its own mod format, the loading of .xdelta mod(s)*
-- General Xdelta support: g3man mods themselves can employ xdelta files to patch other game files
-- Launching games through g3man's UI
-
-*(You can have several, but every consecutive patch has to be made for the output of the prior patches)
+*(You can have several Xdelta patches, but every consecutive patch has to be made for the output of the prior patches)
 
 ## Installation
 
