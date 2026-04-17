@@ -155,6 +155,7 @@ public class PatcherWindow : G3manWindow {
 			}
 		}
 		
+		/*
 		if (mods.Count == 0) {
 			setStatus("Restoring clean datafile");
 			try
@@ -175,6 +176,7 @@ public class PatcherWindow : G3manWindow {
 
 			return;
 		}
+		*/
 		
 		if (!Program.DataLoader.IsAlreadyGiven(Program.GetGame()!, datafileXdeltaPatches))
 			Program.DataLoader.LoadAsync(Program.GetGame()!, datafileXdeltaPatches);

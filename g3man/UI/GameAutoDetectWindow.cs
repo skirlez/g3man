@@ -29,7 +29,7 @@ public class GameAutoDetectWindow : G3manWindow {
 		List<string> paths = ProgramPaths.GuessPossibleGamePaths();
 		ConcurrentBag<string> gamePaths = new ConcurrentBag<string>();
 		Parallel.ForEach(paths, path => {
-			if (existingPaths.Any(x => Path.GetRelativePath(x, path) == "."))
+			if (existingPaths.Any(x => ProgramPaths.FolderPathsEqual(x, path)))
 				return;
 			Status status = ProgramPaths.GameMakerDirectoryStatus(path);
 			if (status.ok) {

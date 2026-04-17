@@ -111,4 +111,13 @@ public static class ProgramPaths {
 			return "";
 		}
 	}
+
+	public static bool FolderPathsEqual(string path1, string path2) {
+		return Path.GetRelativePath(path1, path2) == ".";
+	}
+	
+	public static bool FilePathsEqual(string filePath1, string filePath2) {
+		return FolderPathsEqual(Path.GetDirectoryName(filePath1) ?? "/", Path.GetDirectoryName(filePath2) ?? "/")
+			&& Path.GetFileName(filePath1) == Path.GetFileName(filePath2);
+	}
 }

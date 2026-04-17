@@ -6,33 +6,31 @@ using g3man.Util;
 namespace g3man.Models;
 
 public class Profile {
-	public string Name;
-	public string ID;
+	public readonly string Name;
+	public readonly string ID;
 	
 	// this may seem like redundant state, however i did want users to be able to experiment with these variables on/off without it removing what was written in the fields
-	public bool SeparateModdedSave;
-	public string ModdedSaveName;
+	public readonly bool SeparateModdedSave;
+	public readonly string ModdedSaveName;
 
-	public bool EnableOutputOverride;
-	public string OutputDatafileOverride;
+	public readonly bool EnableOutputOverride;
+	public readonly string Description;
+	public readonly string Version;
+	public readonly string[] Credits;
+	public readonly string[] Links;
 	
 	public string[] ModOrder;
 	public string[] ModsDisabled;
-	public string Description;
-	public string Version;
-	public string[] Credits;
-	public string[] Links;
-
+	
 	private static readonly Logger logger = Logger.Make("PROFILE-PARSER");
 
-	public Profile(string name, string id, bool separateModdedSave, string moddedSaveName, bool enableOutputOverride, string outputDatafileOverride, string[] modOrder) {
+	public Profile(string name, string id, bool separateModdedSave, string moddedSaveName, bool enableOutputOverride, string[] modOrder) {
 		Name = name;
 		ID = id;
 		SeparateModdedSave = separateModdedSave;
 		ModdedSaveName = moddedSaveName;
 		ModOrder = modOrder;
 		EnableOutputOverride = enableOutputOverride;
-		OutputDatafileOverride = outputDatafileOverride;
 
 		ModsDisabled = [];
 		Description = "";
@@ -41,10 +39,12 @@ public class Profile {
 		Links = [];
 	}
 
-	public Profile(JsonElement root, string folderName) {
+	private Profile(JsonElement root, string folderName) {
 		int version = JsonUtil.GetNumberOrThrow(root, "format_version");
-		ID = version == 1 ? folderName : JsonUtil.GetStringOrThrow(root, "id");
 		Name = JsonUtil.GetStringOrThrow(root, "name");
+		ID = version == 1 ? folderName : JsonUtil.GetStringOrThrow(root, "id");
+		if (ID == "")
+			throw new InvalidDataException($"Profile \"{Name}\" has an empty ID");
 		
 		SeparateModdedSave = JsonUtil.GetBooleanOrThrow(root, "separate_modded_save");
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
@@ -52,10 +52,6 @@ public class Profile {
 			throw new InvalidDataException($"Profile \"{Name}\" (ID \"{ID}\" has \"separate_modded_save\" set to true, but \"modded_save_name\" is blank");
 
 		EnableOutputOverride = JsonUtil.GetOrDefault(root, "enable_output_override", false);
-		OutputDatafileOverride = JsonUtil.GetOrDefaultClass(root, "output_datafile_override", "");
-		if (EnableOutputOverride && OutputDatafileOverride == "")
-			throw new InvalidDataException($"Profile \"{Name}\" (ID \"{ID}\" has \"enable_output_override\" set to true, but \"output_datafile_override\" is blank");
-		
 		
 		ModOrder = JsonUtil.GetOrDefaultClass(root, "mod_order", Array.Empty<string>());
 		ModsDisabled = JsonUtil.GetOrDefaultClass(root, "mods_disabled", Array.Empty<string>());
@@ -118,7 +114,6 @@ public class Profile {
 			["credits"] = new JsonArray(Credits.Select(credit => JsonValue.Create(credit)).ToArray<JsonNode?>()),
 			["links"] = new JsonArray(Links.Select(link => JsonValue.Create(link)).ToArray<JsonNode?>()),
 			["enable_output_override"] = EnableOutputOverride,
-			["output_datafile_override"] = OutputDatafileOverride
 		};
 	}
 	
@@ -141,7 +136,18 @@ public class Profile {
 			Directory.Delete(profileLiveFolder, true);
 		}
 		catch {
-			// i don't even care
+			// don't care
+		}
+
+		if (EnableOutputOverride) {
+			try {
+				string datafile = game.GetOutputDatafileRelativePath(this);
+				if (!ProgramPaths.FilePathsEqual(datafile, game.GetInputDatafileRelativePath()))
+					File.Delete(datafile);
+			}
+			catch {
+				// don't care
+			}
 		}
 	}
 

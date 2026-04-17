@@ -10,6 +10,7 @@ public static class IO {
 	public const string TempDataName = "g3man_temp_data.win";
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
 	public const string OutputHashTextFileName = "last_hash.txt";
+	
 	public static readonly string[] DatafileNames = ["data.win", "game.unx"];
 	public static readonly string[] DatafileRelativePaths = ["data.win", "assets/game.unx"];
 
@@ -129,7 +130,7 @@ public static class IO {
 		string appliedProfileSymlink = Path.Combine(game.Directory, AppliedProfileSymlinkName);
 		if (Directory.Exists(appliedProfileSymlink))
 			Directory.Delete(appliedProfileSymlink, false);
-		File.Copy(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.DatafilePath, true);
+		File.Copy(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.GetInputDatafilePath(), true);
 	}
 
 	

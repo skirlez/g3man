@@ -106,6 +106,7 @@ public class ManageGameWindow : G3manWindow {
 		Game.LaunchParadigm currentParadigm = game.GetLaunchParadigm();
 		void UpdateParadigmChoice(Game.LaunchParadigm launchParadigm) {
 			paradigmDisplayStack.SetVisibleChild(paradigms[(int)launchParadigm]);
+			currentParadigm = launchParadigm;
 		}
 		UpdateParadigmChoice(currentParadigm);
 		

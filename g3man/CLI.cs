@@ -114,7 +114,10 @@ public class CLI {
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 				Program.Logger.Info("Writing...");
 
-				bool writeHash = (IO.DatafileNames.Contains(outputDatafileName));
+				// theoretically could parse the game.json in this location to figure out what the input datafile name is
+				// and that's probably more correct, the whole point of this is to not screw up existing g3man setups
+				bool writeHash = (IO.DatafileNames.Contains(Path.GetFileName(outputDatafileName)));
+				
 				try {
 					IO.Apply(data, outLocationInfo.FullName, outputDatafileName, writeHash);
 				}

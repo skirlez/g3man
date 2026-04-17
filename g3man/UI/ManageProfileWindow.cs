@@ -26,8 +26,8 @@ public class ManageProfileWindow : G3manWindow {
 
 		Entry IDEntry = Entry.New();
 		IDEntry.SetText(profile?.ID ?? "");
-		
 		IDEntry.SetSensitive(profile is not null && profile.ID != ToProfileFolderName(profile.Name));
+		
 		
 		nameEntry.OnChanged += (sender, _) => {
 			bool enabled = IDEntry.GetSensitive();
@@ -84,29 +84,50 @@ public class ManageProfileWindow : G3manWindow {
 		CheckButton outputOverrideCheck = CheckButton.New();
 		outputOverrideCheck.SetLabel("Save datafile with unique name for this profile");
 		outputOverrideCheck.SetTooltipText(
-			"This option makes it so you can define a unique name for the datafile this profile will save, rather than sharing the same name as all other profiles.");
+			"This option makes it so this profile uses a unique name for the datafile this profile will save, rather than sharing the same name as all other profiles. The name is based on the profile's ID.");
 
+		Label outputOverridePreviewLabel = Label.New("Output datafile");
+		outputOverridePreviewLabel.SetHalign(Align.Start);
 		
-		Label outputOverrideLabel = Label.New("Output datafile override");
-		outputOverrideLabel.SetHalign(Align.Start);
-		
-		Entry outputOverrideEntry = Entry.New();
-		outputOverrideEntry.SetText(profile?.OutputDatafileOverride ?? "");
+		Entry outputOverridePreviewEntry = Entry.New();
+		outputOverridePreviewEntry.SetEditable(false);
+		outputOverridePreviewEntry.SetHexpand(true);
+		Button clipboardButton = Button.New();
+		clipboardButton.SetIconName("edit-copy");
 
-		Box outputOverrideBox = Box.New(Orientation.Vertical, 5);
-		outputOverrideBox.Append(outputOverrideLabel);
-		outputOverrideBox.Append(outputOverrideEntry);
-		
-		outputOverrideCheck.OnToggled += (sender, _) => {
-			outputOverrideToggled(sender.GetActive());
-		};
-		void outputOverrideToggled(bool value) {
-			outputOverrideBox.SetSensitive(value);
+
+		outputOverrideCheck.OnToggled += (sender, _) => UpdateOutputOverrideEntry(sender.GetActive());
+		IDEntry.OnChanged += (_, _) => UpdateOutputOverrideEntry(outputOverrideCheck.GetActive());
+
+		string GetOutputDatafileName(bool active) {
+			if (active)
+				return Program.GetGame()!.GetOutputDatafileRelativePath(IDEntry.GetText());
+			return Program.GetGame()!.GetOutputDatafileRelativePath();
 		}
-		bool outputOverride = profile?.EnableOutputOverride ?? false;
-		outputOverrideCheck.SetActive(outputOverride);
-		outputOverrideToggled(outputOverride);
+		clipboardButton.OnClicked += (_, _) => {
+			GetClipboard().SetText(GetOutputDatafileName(outputOverrideCheck.GetActive()));
+		};
+		void UpdateOutputOverrideEntry(bool active) {
+			if (active) {
+				outputOverridePreviewEntry.SetText(GetOutputDatafileName(active));
+			}
+			else {
+				outputOverridePreviewEntry.SetText(GetOutputDatafileName(active) + " (default)");
+			}
+		}
 		
+
+		
+		Box outputOverrideBox = Box.New(Orientation.Vertical, 5)
+			.With(outputOverrideCheck,
+				outputOverridePreviewLabel,
+				Box.New(Orientation.Horizontal, 5).With(
+					clipboardButton, outputOverridePreviewEntry));
+		
+
+		bool outputOverrideActive = profile?.EnableOutputOverride ?? false;
+		UpdateOutputOverrideEntry(outputOverrideActive);
+		outputOverrideCheck.SetActive(outputOverrideActive);
 		/*
 		Label descriptionLabel = Label.New("Description");
 		descriptionLabel.SetHalign(Align.Start);
@@ -140,7 +161,7 @@ public class ManageProfileWindow : G3manWindow {
 			
 
 			Profile newProfile = new Profile(nameEntry.GetText(), IDEntry.GetText(), 
-							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), outputOverrideCheck.GetActive(), outputOverrideEntry.GetText(), []);
+							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), outputOverrideCheck.GetActive(), []);
 			if (newProfile.Name == "") {
 				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
 				popup.Dialog();
@@ -159,14 +180,7 @@ public class ManageProfileWindow : G3manWindow {
 				popup.Dialog();
 				return;
 			}
-			if (newProfile.EnableOutputOverride && newProfile.OutputDatafileOverride == "") {
-				PopupWindow popup = new PopupWindow(this, "Issue!",
-					"If overriding the output datafile is enabled,\n\"Output datafile override\" cannot be blank.",
-					"Okay");
-				popup.Dialog();
-				return;
-			}
-			
+
 			
 			bool oldProfileExistsAndIDChanged = profile is not null && newProfile.ID != profile.ID;
 			string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man", "profiles");
@@ -255,7 +269,6 @@ public class ManageProfileWindow : G3manWindow {
 		box.Append(IDBox);
 		box.Append(moddedSaveCheck);
 		box.Append(saveNameBox);
-		box.Append(outputOverrideCheck);
 		box.Append(outputOverrideBox);
 		//box.Append(editMetadataButton);
 		//box.Append(Separator.New(Orientation.Horizontal));
