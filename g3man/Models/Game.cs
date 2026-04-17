@@ -33,7 +33,7 @@ public class Game {
 	public string ExecutablePath;
 	public int ExecutableSteamAppId;
 	
-	public string OutputDatafilePath;
+	private string OutputDatafilePath;
 	
 	private const int LatestVersion = 2;
 	public int FormatVersion;
@@ -82,8 +82,17 @@ public class Game {
 		Debug.Assert(profile.ID != "");
 		return Path.Combine(Directory, "g3man", "profiles", profile.ID);
 	}
-	public string GetOutputDatafilePath() {
+	public string GetProfileLiveFolderPath(Profile profile) {
+		Debug.Assert(profile.ID != "");
+		return Path.Combine(Directory, "g3man", "live", profile.ID);
+	}
+	public string GetInputDatafilePath() {
 		return Path.Combine(Directory, DatafilePath);
+	}
+	public string GetOutputDatafileRelativePath(Profile profile) {
+		if (profile.EnableOutputOverride)
+			return profile.OutputDatafileOverride;
+		return OutputDatafilePath;
 	}
 	public Status ExecutableStatus(Config config) {
 		switch (ChosenExecutableType) {
@@ -102,14 +111,14 @@ public class Game {
 	}
 	
 
-	public void Launch(Config config) {
+	public void Launch(Config config, Profile profile) {
 		Debug.Assert(ExecutableStatus(config).ok);
 		
 		switch (ChosenExecutableType) {
 			case ExecutableType.File: 
 				Process.Start(new ProcessStartInfo {
 					FileName = Path.Combine(Directory, ExecutablePath),
-					ArgumentList = { "-game", OutputDatafilePath },
+					ArgumentList = { "-game", GetOutputDatafileRelativePath(profile) },
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});
@@ -117,7 +126,7 @@ public class Game {
 			case ExecutableType.Steam:
 				Process.Start(new ProcessStartInfo {
 					FileName = config.SteamExecutable,
-					ArgumentList = { "-applaunch", ExecutableSteamAppId.ToString(), "--", "-game", OutputDatafilePath },
+					ArgumentList = { "-applaunch", ExecutableSteamAppId.ToString(), "--", "-game", GetOutputDatafileRelativePath(profile) },
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});

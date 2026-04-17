@@ -8,8 +8,14 @@ namespace g3man.Models;
 public class Profile {
 	public string Name;
 	public string ID;
+	
+	// this may seem like redundant state, however i did want users to be able to experiment with these variables on/off without it removing what was written in the fields
 	public bool SeparateModdedSave;
 	public string ModdedSaveName;
+
+	public bool EnableOutputOverride;
+	public string OutputDatafileOverride;
+	
 	public string[] ModOrder;
 	public string[] ModsDisabled;
 	public string Description;
@@ -19,12 +25,14 @@ public class Profile {
 
 	private static readonly Logger logger = Logger.Make("PROFILE-PARSER");
 
-	public Profile(string name, string id, bool separateModdedSave, string moddedSaveName, string[] modOrder) {
+	public Profile(string name, string id, bool separateModdedSave, string moddedSaveName, bool enableOutputOverride, string outputDatafileOverride, string[] modOrder) {
 		Name = name;
 		ID = id;
 		SeparateModdedSave = separateModdedSave;
 		ModdedSaveName = moddedSaveName;
 		ModOrder = modOrder;
+		EnableOutputOverride = enableOutputOverride;
+		OutputDatafileOverride = outputDatafileOverride;
 
 		ModsDisabled = [];
 		Description = "";
@@ -42,6 +50,12 @@ public class Profile {
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
 		if (SeparateModdedSave && ModdedSaveName == "")
 			throw new InvalidDataException($"Profile \"{Name}\" (ID \"{ID}\" has \"separate_modded_save\" set to true, but \"modded_save_name\" is blank");
+
+		EnableOutputOverride = JsonUtil.GetOrDefault(root, "enable_output_override", false);
+		OutputDatafileOverride = JsonUtil.GetOrDefaultClass(root, "output_datafile_override", "");
+		if (EnableOutputOverride && OutputDatafileOverride == "")
+			throw new InvalidDataException($"Profile \"{Name}\" (ID \"{ID}\" has \"enable_output_override\" set to true, but \"output_datafile_override\" is blank");
+		
 		
 		ModOrder = JsonUtil.GetOrDefaultClass(root, "mod_order", Array.Empty<string>());
 		ModsDisabled = JsonUtil.GetOrDefaultClass(root, "mods_disabled", Array.Empty<string>());
@@ -102,7 +116,9 @@ public class Profile {
 			["description"] = Description,
 			["version"] = Version,
 			["credits"] = new JsonArray(Credits.Select(credit => JsonValue.Create(credit)).ToArray<JsonNode?>()),
-			["links"] = new JsonArray(Links.Select(link => JsonValue.Create(link)).ToArray<JsonNode?>())
+			["links"] = new JsonArray(Links.Select(link => JsonValue.Create(link)).ToArray<JsonNode?>()),
+			["enable_output_override"] = EnableOutputOverride,
+			["output_datafile_override"] = OutputDatafileOverride
 		};
 	}
 	
@@ -120,6 +136,13 @@ public class Profile {
 	public void Delete(Game game) {
 		string profileFolder = game.GetProfileFolderPath(this);
 		Directory.Delete(profileFolder, true);
+		try {
+			string profileLiveFolder = game.GetProfileLiveFolderPath(this);
+			Directory.Delete(profileLiveFolder, true);
+		}
+		catch {
+			// i don't even care
+		}
 	}
 
 	public void UpdateModsStatus(List<IMod> modsList, Dictionary<IMod, bool> enabledMods) {

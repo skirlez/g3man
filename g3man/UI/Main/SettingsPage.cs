@@ -92,7 +92,7 @@ public partial class MainWindow {
 		allowModScriptsBox.Append(scriptInfoDialog);
 		
 		
-		Label steamExecutableLabel = Label.New("Steam Executable");
+		Label steamExecutableLabel = Label.New("Steam executable/command");
 		steamExecutableLabel.SetHalign(Align.Start);
 		Entry steamExecutableEntry = Entry.New();
 		steamExecutableEntry.SetText(Program.Config.SteamExecutable);
@@ -100,7 +100,7 @@ public partial class MainWindow {
 			Program.Config.SteamExecutable = editable.GetText();
 			MarkDirty();
 		};
-		steamExecutableEntry.SetTooltipText("The path to Steam's executable, for launching games with Steam.");
+		steamExecutableEntry.SetTooltipText("The path to Steam's executable/command to launch Steam, for launching games with Steam.");
 		
 		Button steamBrowseButton = Button.NewWithLabel("Browse");
 		steamBrowseButton.OnClicked += (_, _) => {

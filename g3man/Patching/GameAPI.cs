@@ -5,7 +5,7 @@ namespace g3man.Patching;
 public static class GameAPI {
 	public const string ScriptName = "g3man_api";
 
-	public static string GetCode(string[] modOrder, string[] disabledMods, string profileID, string relativeProfilePath) {
+	public static string GetCode(string[] modOrder, string[] disabledMods, string profileID, string relativeProfilePath, string relativeProfileLivePath) {
 		return 
 $$"""
 global.g3man_6 = {
@@ -14,7 +14,8 @@ global.g3man_6 = {
 }
 global.g3man_7 = {
 	disabled_mods : [{{string.Join(",", disabledMods.Select(s => $"\"{s}\""))}}],
-	profile_path : {{relativeProfilePath}},
+	profile_path : "{{relativeProfilePath}}",
+	live_path : "{{relativeProfileLivePath}}",
 	mod_order : [{{string.Join(",", modOrder.Except(disabledMods).Select(s => $"\"{s}\""))}}],
 }
 """;

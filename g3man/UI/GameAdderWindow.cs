@@ -87,7 +87,7 @@ public class GameAdderWindow : G3manWindow {
 
 
 		if (!cleanDataExists) {
-			Profile profile = new Profile("Default", defaultProfileID, false, "", []);
+			Profile profile = new Profile("Default", defaultProfileID, false, "", false, "", []);
 			try {
 				profile.Write(game);
 			}

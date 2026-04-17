@@ -10,19 +10,40 @@ public static class IO {
 	public const string TempDataName = "g3man_temp_data.win";
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
 	public const string OutputHashTextFileName = "last_hash.txt";
+	public static readonly string[] DatafileNames = ["data.win", "game.unx"];
 	public static readonly string[] DatafileRelativePaths = ["data.win", "assets/game.unx"];
 
 	public static string CommaSeparatedDatafilePaths() {
 		return string.Join(", ", DatafileRelativePaths);
 	}
+
+
+	public static void CreateLiveFolder(string profilePath, string profileLivePath) {
+		string profileLink = Path.Combine(profileLivePath, "profile");
+		// TODO: don't delete folder itself, just contents
+		if (Directory.Exists(profileLivePath)) {
+			DeleteSymlink(profileLink);
+			Directory.Delete(profileLivePath, true);
+		}
+		Directory.CreateDirectory(profileLivePath);
+		SymlinkFolder(profilePath, profileLink);
+	}
+
+	private static void deleteLegacySymlink(string gameDirectory) {
+		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
+		DeleteSymlink(appliedProfileSymlink);
+	}
+	
+	public static void CreateLegacySymlink(string gameDirectory, string profilePath) {
+		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
+		deleteLegacySymlink(gameDirectory);
+		SymlinkFolder(profilePath, appliedProfileSymlink);
+	}
 	
 	public static void Apply(UndertaleData data, 
 							string gameDirectory, 
-							string appliedProfilePath, 
 							string outputDatafileName,
-							bool writeHash,
-							bool createOldSymlink,
-							string? symlinkName) 
+							bool writeHash) 
 	{
 		
 		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
@@ -40,6 +61,7 @@ public static class IO {
 		if (!Directory.Exists(g3manFolder))
 			Directory.CreateDirectory(g3manFolder);
 		
+		deleteLegacySymlink(gameDirectory);
 		if (writeHash) {
 			string hash = HashToString(hashBytes);
 			string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
@@ -48,24 +70,6 @@ public static class IO {
 
 		File.Move(tempFilePath, Path.Combine(gameDirectory, outputDatafileName), true);
 		File.Delete(tempFilePath);
-
-		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
-		DeleteSymlink(appliedProfileSymlink);
-		if (createOldSymlink) {
-			SymlinkFolder(appliedProfilePath, appliedProfileSymlink);
-		}
-
-		if (symlinkName is not null) {
-			string linksFolder = Path.Combine(g3manFolder, "symlinks");
-			Directory.CreateDirectory(linksFolder);
-			
-			// redundant since we use ULID but whatever
-			string link = Path.Combine(linksFolder, symlinkName);
-			DeleteSymlink(link);
-			
-			SymlinkFolder(appliedProfilePath, Path.Combine(linksFolder, symlinkName));
-			
-		}
 	}
 	
 	/* On normal operating systems, this makes a symlink.
@@ -125,7 +129,7 @@ public static class IO {
 		string appliedProfileSymlink = Path.Combine(game.Directory, AppliedProfileSymlinkName);
 		if (Directory.Exists(appliedProfileSymlink))
 			Directory.Delete(appliedProfileSymlink, false);
-		File.Copy(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.GetOutputDatafilePath(), true);
+		File.Copy(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.DatafilePath, true);
 	}
 
 	
@@ -185,5 +189,31 @@ public static class IO {
 				CopyDirectory(subDir.FullName, newDestinationDir, true);
 			}
 		}
+	}
+	
+	
+	public static (T Mod, XdeltaSourcePair FailedPatch)? CreateXdeltaFoldersAndApply<T>(string gameDirectory, string profilePath, string profileLivePath, List<T> mods) where T : IMod {
+		foreach (T mod in mods) {
+			List<XdeltaSourcePair> patches = mod.GetXdeltaTargetPairs(gameDirectory, profilePath);
+			if (patches.Count == 0)
+				continue;
+
+			string xdeltaFolder = Path.Combine(profileLivePath, "xdelta", mod.ModId);
+			Directory.CreateDirectory(xdeltaFolder);
+			foreach (XdeltaSourcePair patch in patches) {
+				if (DatafileNames.Contains(Path.GetFileName(patch.RelativeSourcePath)))
+					continue;
+				string? relativeSourcePathFolder = Path.GetDirectoryName(patch.RelativeSourcePath);
+				if (relativeSourcePathFolder is null)
+					return (mod, patch);
+				Directory.CreateDirectory(Path.Combine(xdeltaFolder, relativeSourcePathFolder));
+				using FileStream stream = new FileStream(Path.Combine(xdeltaFolder, patch.RelativeSourcePath), FileMode.Create);
+				int ret = patch.Decode(stream);
+				if (ret != 1) {
+					return (mod, patch);
+				}
+			}
+		}
+		return null;
 	}
 }

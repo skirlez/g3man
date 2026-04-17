@@ -14,7 +14,7 @@ public partial class MainWindow {
 		
 		Button openProfilesFolder = Button.NewWithLabel("Open profiles folder");
 		openProfilesFolder.OnClicked += (_, _) => {
-			IO.OpenFileExplorer(Program.CurrentProfileFolderPath());
+			IO.OpenFileExplorer(Path.Combine(Program.GetGame()!.Directory, "g3man", "profiles"));
 		};
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");

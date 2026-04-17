@@ -201,6 +201,10 @@ public class Mod : IMod {
 		}
 		return dict;
 	}
+	
+	public string Identify() {
+		return $"{DisplayName} (ID \"{ModId}\")";
+	} 
 }
 public class InvalidModException(string message) : Exception(message);
 

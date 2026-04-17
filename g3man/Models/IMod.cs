@@ -8,6 +8,10 @@ public interface IMod {
 	public string Description { get; }
 	public Credit[] Credits { get; }
 	public SemVer? MaybeVersion { get; }
+
+	public string Identify() {
+		return $"{DisplayName} (ID \"{ModId}\")";
+	} 
 	
 	public bool CreateOldProfileSymlink { get;  }
 	

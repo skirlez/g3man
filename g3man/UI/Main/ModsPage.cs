@@ -205,7 +205,7 @@ public partial class MainWindow {
 			}
 
 			try {
-				game.Launch(Program.Config);
+				game.Launch(Program.Config, Program.GetProfile()!);
 			}
 			catch (Exception e) {
 				Program.Logger.Error($"Failed to launch game: {e}");

@@ -311,12 +311,9 @@ public class DatafilePatcher {
 	}
 
 	private const string CHECK_LOG = "Check the log for more details.";
-
-	private string identifyMod(Mod mod) {
-		return $"{mod.DisplayName} (ID \"{mod.ModId}\")";
-	}
+	
 	public UndertaleData? Patch(List<Mod> mods, Profile profile, 
-			string profileLocation, string profileRelativeLocation,
+			string profileLocation, string relativeProfilePath, string relativeProfileLivePath,
 			UndertaleData data, Logger logger, Action<string> statusCallback) {
 		void setStatusAndInfo(string message) {
 			logger.Info(message);
@@ -345,7 +342,7 @@ public class DatafilePatcher {
 				code = File.ReadAllText(fullStringPath);
 			}
 			catch (Exception e) {
-				setStatusAndError($"Failed to read script belonging to {identifyMod(mod)}!", e.ToString());
+				setStatusAndError($"Failed to read script belonging to {mod.Identify()}!", e.ToString());
 				return false;
 			}
 			
@@ -355,7 +352,7 @@ public class DatafilePatcher {
 				CSharpScript.EvaluateAsync(code, scriptOptions, globals);
 			}
 			catch (CompilationErrorException e) {
-				setStatusAndError($"Script belonging to {identifyMod(mod)} threw an exception.", e.GetBaseException().Message);
+				setStatusAndError($"Script belonging to {mod.Identify()} threw an exception.", e.GetBaseException().Message);
 				return false;
 			}
 			return true;
@@ -384,7 +381,7 @@ public class DatafilePatcher {
 					modData = UndertaleIO.Read(stream);
 				}
 				catch (Exception e) {
-					setStatusAndError($"Failed to load the datafile of {identifyMod(mod)}.", e.ToString());
+					setStatusAndError($"Failed to load the datafile of {mod.Identify()}.", e.ToString());
 					return null;
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
@@ -436,7 +433,7 @@ public class DatafilePatcher {
 						return null;
 				}
 				else {
-					setStatusAndError($"Mod {identifyMod(mod)} specified an invalid patch or patch directory: \"{patchLocation.Path}\"");
+					setStatusAndError($"Mod {mod.Identify()} specified an invalid patch or patch directory: \"{patchLocation.Path}\"");
 					return null;
 				}
 				
@@ -449,7 +446,7 @@ public class DatafilePatcher {
 						patchText = File.ReadAllText(patchPath).ReplaceLineEndings("\n");
 					}
 					catch (Exception e) {
-						setStatusAndError($"An error occured while trying to read a patch file at {relativePath} from {identifyMod(mod)}!", e.ToString());
+						setStatusAndError($"An error occured while trying to read a patch file at {relativePath} from {mod.Identify()}!", e.ToString());
 						return false;
 					}
 					try {
@@ -463,10 +460,10 @@ public class DatafilePatcher {
 						return true;
 					}
 					catch (PatchExecutionException e) {
-						setStatusAndError($"An error occured while executing a patch from {identifyMod(mod)} at {relativePath}!", e.Message);
+						setStatusAndError($"An error occured while executing a patch from {mod.Identify()} at {relativePath}!", e.Message);
 					}
 					catch (InvalidPatchException e) {
-						setStatusAndError($"Invalid patch provided by {identifyMod(mod)} at {relativePath}!", e.Message);
+						setStatusAndError($"Invalid patch provided by {mod.Identify()} at {relativePath}!", e.Message);
 					}
 					return false;
 				}
@@ -501,8 +498,8 @@ public class DatafilePatcher {
 				data.Strings.Add(g3manAPIScript.Code.Name);
 				data.Strings.Add(g3manAPIScript.Name);
 			}
-
-			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID, profileRelativeLocation));
+		
+			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID, relativeProfilePath, relativeProfileLivePath));
 		}
 
 		setStatusAndInfo("Compiling...");
@@ -510,10 +507,17 @@ public class DatafilePatcher {
 		CompileResult result = group.Compile();
 		if (!result.Successful) {
 			(string error, List<Mod> modsResponsible) = generateCompileError(result, patchBlames, source);
-			string modsResponsibleString = identifyMod(modsResponsible[0]);
-			for (int i = 1; i < modsResponsible.Count; i++) {
-				modsResponsibleString += $", {identifyMod(modsResponsible[i])}";
+			string modsResponsibleString;
+			if (modsResponsible.Count == 0) {
+				modsResponsibleString = "g3man"; // g3man game API most likely
 			}
+			else {
+				modsResponsibleString = (modsResponsible[0]).Identify();
+				for (int i = 1; i < modsResponsible.Count; i++) {
+					modsResponsibleString += $", {modsResponsible[i].Identify()}";
+				}
+			}
+
 			statusCallback($"Compilation failed! {CHECK_LOG}\nOne or more of the following mods are at fault:\n{modsResponsibleString}");
 			logger.Error($"Compilation failed! Below will be a file-by-file analysis,"
 				+ " showing which files failed to compile, and which mods change that file."
@@ -551,7 +555,7 @@ public class DatafilePatcher {
 					continue;
 				if (!modsResponsible.Contains(kvp.Key))
 					modsResponsible.Add(kvp.Key);
-				sb.AppendLine($"Mod {identifyMod(kvp.Key)} contains the following patch files that change this code file:");
+				sb.AppendLine($"Mod {kvp.Key.Identify()} contains the following patch files that change this code file:");
 				foreach (string path in kvp.Value[fileName]) {
 					sb.AppendLine(path);
 				}
@@ -604,7 +608,7 @@ public class DatafilePatcher {
 		Dictionary<string, Mod> idMap = mods.ToDictionary(mod => mod.ModId);
 		foreach (Mod mod in mods) {
 			if (mod.TargetPatcherVersion > Program.Version) {
-				issues.Add($"Mod {identifyMod(mod)} is made for a version of g3man that is too high: {mod.TargetPatcherVersion} (you are on {Program.Version})");
+				issues.Add($"Mod {mod.Identify()} is made for a version of g3man that is too high: {mod.TargetPatcherVersion} (you are on {Program.Version})");
 			}
 			
 			CheckDepends(mods, mod, idMap, issues);
@@ -623,7 +627,7 @@ public class DatafilePatcher {
 	private void CheckModScripts(List<string> issues, Mod mod) {
 		if (mod.HasAnyScripts()) {
 			lock (issues) {
-				issues.Add($"Mod {identifyMod(mod)} wants to run scripts, but mod scripting is disabled! Go to settings to enable it.");
+				issues.Add($"Mod {mod.Identify()} wants to run scripts, but mod scripting is disabled! Go to settings to enable it.");
 			}
 		}
 	}
@@ -731,17 +735,17 @@ public class DatafilePatcher {
 			if (exporters.Count == 0) {
 				RecommendContingency contingency = (RecommendContingency)import.Contingency;
 				lock (issues) {
- 					issues.Add($"Mod {identifyMod(mod)} depends on the import \"{import.Name}\" but it is not provided by anyone.\nMod's suggestion: Download {contingency.Name} at <a href=\"{contingency.Link}\">{contingency.Link}</a>");
+ 					issues.Add($"Mod {mod.Identify()} depends on the import \"{import.Name}\" but it is not provided by anyone.\nMod's suggestion: Download {contingency.Name} at <a href=\"{contingency.Link}\">{contingency.Link}</a>");
 				}
 				return;
 			}
 			if (exporters.Count > 1) {
-				string modsResponsibleString = identifyMod(exporters[0]);
+				string modsResponsibleString = exporters[0].Identify();
 				for (int i = 1; i < exporters.Count; i++) {
-					modsResponsibleString += $", {identifyMod(exporters[i])}";
+					modsResponsibleString += $", {exporters[i].Identify()}";
 				}
 				lock (issues) {
-					issues.Add($"Mod {identifyMod(mod)} depends on the import \"{import.Name}\" but it is provided more than once,\nby the following mods: {modsResponsibleString}");
+					issues.Add($"Mod {mod.Identify()} depends on the import \"{import.Name}\" but it is provided more than once,\nby the following mods: {modsResponsibleString}");
 				}
 				return;
 			}

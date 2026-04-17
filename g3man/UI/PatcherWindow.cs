@@ -50,7 +50,7 @@ public class PatcherWindow : G3manWindow {
 		SetModal(true);
 		
 		new Thread(() => {
-			DoThing(mods);
+			DoThing(Program.GetGame()!, Program.GetProfile()!, mods);
 			Program.RunOnMainThreadEventually(() => {
 				canClose = true;
 				closeButton.SetSensitive(true);
@@ -66,13 +66,16 @@ public class PatcherWindow : G3manWindow {
 				Present();
 		});
 	}
-	private void DoThing(List<IMod> mods) {
-		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, Program.CurrentProfileFolderPath(), Program.GetGame()!.DatafilePath);
+	private void DoThing(Game game, Profile profile, List<IMod> mods) {
+		string profilePath = game.GetProfileFolderPath(profile);
+		string profileLivePath = game.GetProfileLiveFolderPath(profile);
+		
+		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, profilePath, game.DatafilePath);
 		
 		setStatus("Hashing current datafile...");
 		string hash;
 		try {
-			using FileStream stream = new FileStream(Program.GetGame()!.GetOutputDatafilePath(), FileMode.Open, FileAccess.Read);
+			using FileStream stream = new FileStream(game.GetInputDatafilePath(), FileMode.Open, FileAccess.Read);
 			hash = IO.HashToString(MD5.HashData(stream));
 		}
 		catch {
@@ -128,10 +131,8 @@ public class PatcherWindow : G3manWindow {
 				try {
 					File.Move(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.GetBackupDatafilePath(), true);
 					
-					File.Copy(Program.GetGame()!.GetOutputDatafilePath(),
+					File.Copy(Program.GetGame()!.GetInputDatafilePath(),
 						Program.GetGame()!.GetCleanDatafilePath(), true);
-					// TODO: handle hash
-					//Program.GetGame()!.Hash = hash;
 					Program.GetGame()!.Write();
 					IO.RemoveLastOutputHash(Program.GetGame()!);
 				}
@@ -177,24 +178,17 @@ public class PatcherWindow : G3manWindow {
 		
 		if (!Program.DataLoader.IsAlreadyGiven(Program.GetGame()!, datafileXdeltaPatches))
 			Program.DataLoader.LoadAsync(Program.GetGame()!, datafileXdeltaPatches);
-		foreach (IMod mod in mods) {
-			List<XdeltaSourcePair> patches = mod.GetXdeltaTargetPairs(Program.GetGame()!.Directory, Program.CurrentProfileFolderPath());
-			if (patches.Count == 0)
-				continue;
-
-			string xdeltaFolder = Path.Combine(Program.GetGame()!.Directory, "g3man", "live", "xdelta", mod.ModId);
-			Directory.CreateDirectory(xdeltaFolder);
-			foreach (XdeltaSourcePair patch in patches) {
-				setStatus($"Applying: {patch.Filename}");
-				using FileStream stream = new FileStream(Path.Combine(xdeltaFolder, patch.RelativeSourcePath), FileMode.Create);
-				int ret = patch.Decode(stream);
-				if (ret != 0) {
-					setStatus($"Failed to apply patch: {patch.Filename}");
-					return;
-				}
-			}
-		}
 		
+		
+		setStatus("Applying .xdelta patches");
+		
+		IO.CreateLiveFolder(profilePath, profileLivePath);
+
+		(IMod Mod, XdeltaSourcePair FailedPatch)? xdeltaError = IO.CreateXdeltaFoldersAndApply(game.Directory, profilePath, profileLivePath, mods);
+		if (xdeltaError.HasValue) {
+			setStatus($"Mod {xdeltaError.Value.Mod.Identify()} had a failed Xdelta patch called \"{xdeltaError.Value.FailedPatch.Filename}\"\nfor \"{xdeltaError.Value.FailedPatch.RelativeSourcePath}\"");
+			return;
+		} 
 		
 		setStatus("Waiting for game data to load...");
 		UndertaleData data;
@@ -213,29 +207,33 @@ public class PatcherWindow : G3manWindow {
 
 		List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
 		DatafilePatcher datafilePatcher = new DatafilePatcher();
-		string profileDirectory = Program.CurrentProfileFolderPath();
-		string relativeProfileDirectory = Path.GetRelativePath(Program.GetGame()!.Directory, profileDirectory);
 		
-		UndertaleData? output = datafilePatcher.Patch(noXdeltas, Program.GetProfile()!, profileDirectory, 
-			relativeProfileDirectory,
+		
+		string relativeProfilePath = Path.GetRelativePath(game.Directory, profilePath);
+		
+		UndertaleData? output = datafilePatcher.Patch(noXdeltas, profile, profilePath, 
+			relativeProfilePath, Program.GetProfile()!.ID,
 			data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;
 		
 		
-		bool overwritingInput = (Program.GetGame()!.DatafilePath == Program.GetGame()!.OutputDatafilePath);
-		bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
+		bool overwritingInput = (game.DatafilePath == game.GetOutputDatafileRelativePath(profile));
+		
 		setStatus("Writing...");
 		try {
-			IO.Apply(output, Program.GetGame()!.Directory,
-				profileDirectory, Program.GetGame()!.OutputDatafilePath, 
-				writeHash: overwritingInput, createOldSymlink, symlinkName: null);
+			IO.Apply(output, game.Directory, game.GetOutputDatafileRelativePath(profile), 
+				writeHash: overwritingInput);
 		}
 		catch (Exception e) {
 			Program.Logger.Error(e);
 			setStatus("Failed to write output datafile! Check the log.");
 			return;
 		}
+		
+		bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
+		if (createOldSymlink)
+			IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
 		
 		string launchInstructions =
 			overwritingInput ? "You can launch the game by any means to play!" :

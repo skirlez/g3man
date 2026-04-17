@@ -43,7 +43,14 @@ public class CLI {
 			applyCommand.Options.Add(outName);
 	  
 			applyCommand.SetAction(parseResult => {
+
+	
+				
 				DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
+				DirectoryInfo outLocationInfo = parseResult.GetRequiredValue(outLocation);
+				string gamePath = outLocationInfo.FullName;
+				string profilePath = profileDirectoryInfo.FullName;
+		
 				Program.Logger.Info("Parsing profile and mods...");
 
 				Profile profile;
@@ -55,6 +62,7 @@ public class CLI {
 					return 1;
 				}
 
+				string profileLivePath = Path.Combine(gamePath, "g3man", "live", profile.ID);
 
 
 				bool anyFailed = false;
@@ -89,25 +97,26 @@ public class CLI {
 					return 1;
 				}
 				
-				DirectoryInfo outLocationInfo = parseResult.GetRequiredValue(outLocation);
+				IO.CreateLiveFolder(profilePath, profileLivePath);
+
+				IO.CreateXdeltaFoldersAndApply(gamePath, profilePath, profileLivePath, mods);		
 
 				string outputDatafileName = parseResult.GetValue(outName) ?? "data.win";
-
-				string ulid = Ulid.NewUlid().ToString();
-				string relativeProfilePath = $"g3man/links/{ulid}";
+				
+				string relativeProfileLivePath = $"g3man/live/{profile.ID}";
+				string relativeProfilePath = $"g3man/live/{profile.ID}/profile";
 									
 				DatafilePatcher datafilePatcher = new DatafilePatcher();
 				UndertaleData? output = datafilePatcher.Patch(mods, profile, 
-					profileDirectoryInfo.FullName, relativeProfilePath, data, Program.Logger, status => {});
+					profileDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, Program.Logger, status => {});
 				if (output == null)
 					return 1;
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 				Program.Logger.Info("Writing...");
 
-				bool writeHash = (IO.DatafileRelativePaths.Contains(outputDatafileName));
+				bool writeHash = (IO.DatafileNames.Contains(outputDatafileName));
 				try {
-					IO.Apply(data, outLocationInfo.FullName, profileDirectoryInfo.FullName, outputDatafileName, writeHash,
-						createOldSymlink, ulid);
+					IO.Apply(data, outLocationInfo.FullName, outputDatafileName, writeHash);
 				}
 				catch (Exception e) {
 					Program.Logger.Error("Failed to save output data.win");

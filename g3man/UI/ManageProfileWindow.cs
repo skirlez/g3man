@@ -78,6 +78,35 @@ public class ManageProfileWindow : G3manWindow {
 			saveNameBox.SetSensitive(value);
 		}
 		
+		
+
+		
+		CheckButton outputOverrideCheck = CheckButton.New();
+		outputOverrideCheck.SetLabel("Save datafile with unique name for this profile");
+		outputOverrideCheck.SetTooltipText(
+			"This option makes it so you can define a unique name for the datafile this profile will save, rather than sharing the same name as all other profiles.");
+
+		
+		Label outputOverrideLabel = Label.New("Output datafile override");
+		outputOverrideLabel.SetHalign(Align.Start);
+		
+		Entry outputOverrideEntry = Entry.New();
+		outputOverrideEntry.SetText(profile?.OutputDatafileOverride ?? "");
+
+		Box outputOverrideBox = Box.New(Orientation.Vertical, 5);
+		outputOverrideBox.Append(outputOverrideLabel);
+		outputOverrideBox.Append(outputOverrideEntry);
+		
+		outputOverrideCheck.OnToggled += (sender, _) => {
+			outputOverrideToggled(sender.GetActive());
+		};
+		void outputOverrideToggled(bool value) {
+			outputOverrideBox.SetSensitive(value);
+		}
+		bool outputOverride = profile?.EnableOutputOverride ?? false;
+		outputOverrideCheck.SetActive(outputOverride);
+		outputOverrideToggled(outputOverride);
+		
 		/*
 		Label descriptionLabel = Label.New("Description");
 		descriptionLabel.SetHalign(Align.Start);
@@ -111,7 +140,7 @@ public class ManageProfileWindow : G3manWindow {
 			
 
 			Profile newProfile = new Profile(nameEntry.GetText(), IDEntry.GetText(), 
-							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), []);
+							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), outputOverrideCheck.GetActive(), outputOverrideEntry.GetText(), []);
 			if (newProfile.Name == "") {
 				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
 				popup.Dialog();
@@ -122,9 +151,25 @@ public class ManageProfileWindow : G3manWindow {
 				popup.Dialog();
 				return;
 			}
+			if (newProfile.SeparateModdedSave && newProfile.ModdedSaveName == "") {
+				PopupWindow popup = new PopupWindow(this, "Issue!",
+					"If \"Separate modded save\" is enabled, \"Modded save name\"\n"
+					+ $"cannot be blank (as it is the game's new save folder name).",
+					"Okay");
+				popup.Dialog();
+				return;
+			}
+			if (newProfile.EnableOutputOverride && newProfile.OutputDatafileOverride == "") {
+				PopupWindow popup = new PopupWindow(this, "Issue!",
+					"If overriding the output datafile is enabled,\n\"Output datafile override\" cannot be blank.",
+					"Okay");
+				popup.Dialog();
+				return;
+			}
+			
 			
 			bool oldProfileExistsAndIDChanged = profile is not null && newProfile.ID != profile.ID;
-			string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man");
+			string profilesFolder = Path.Combine(Program.GetGame()!.Directory, "g3man", "profiles");
 			try {
 				if (oldProfileExistsAndIDChanged || asNew) {
 					if (newProfile.ID == "") {
@@ -142,19 +187,11 @@ public class ManageProfileWindow : G3manWindow {
 						popup.Dialog();
 						return;
 					}
-
+					
 					Directory.CreateDirectory(Path.Combine(profilesFolder, newProfile.ID));
 					IO.CopyDirectory(Path.Combine(profilesFolder, profile!.ID),
 						Path.Combine(profilesFolder, newProfile.ID), recursive: true);
-				}
-
-				if (newProfile.SeparateModdedSave && newProfile.ModdedSaveName == "") {
-					PopupWindow popup = new PopupWindow(this, "Issue!",
-						"If \"Separate modded save\" is enabled, \"Modded save name\"\n"
-						+ $"cannot be blank (as it is the game's new save folder name).",
-						"Okay");
-					popup.Dialog();
-					return;
+					
 				}
 				
 				newProfile.Write(Program.GetGame()!);
@@ -182,6 +219,7 @@ public class ManageProfileWindow : G3manWindow {
 					PopupWindow popup = new PopupWindow(this,  "Error!" ,"The profile was saved correctly, however, due to an error, the profile has been duplicated.\nWhen you refresh, the older version of this profile will reappear.", "Damn");
 					popup.Dialog();
 				}
+				
 			}
 
 			saveCallback(newProfile, asNew);
@@ -211,12 +249,14 @@ public class ManageProfileWindow : G3manWindow {
 		
 		doneButton.OnClicked += (_, _) => SaveProfile(asNew: false);
 		
-		Box box = Box.New(Orientation.Vertical, 10);
+		Box box = Box.New(Orientation.Vertical, 12);
 		box.SetMargin(10);
 		box.Append(nameBox);
 		box.Append(IDBox);
 		box.Append(moddedSaveCheck);
 		box.Append(saveNameBox);
+		box.Append(outputOverrideCheck);
+		box.Append(outputOverrideBox);
 		//box.Append(editMetadataButton);
 		//box.Append(Separator.New(Orientation.Horizontal));
 		//box.Append(Label.New("Distribution Metadata"));
