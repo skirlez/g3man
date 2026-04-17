@@ -3,15 +3,15 @@ using Gtk;
 namespace g3man.UI;
 
 public class PopupWindow : G3manWindow {
-    public static Action<PopupWindow> CloseAction = (window => {
+    public static Action<PopupWindow> CloseWindowAction = (window => {
         window.Close();
     });
     private Window owner;
     public PopupWindow(Window owner, string title, string message, string buttonText) 
-        : this(owner, title, message, [buttonText], [CloseAction]) {}
+        : this(owner, title, message, [buttonText], [CloseWindowAction]) {}
 
     public PopupWindow(Window owner, string title, string message, 
-            string[] buttonTexts, Action<PopupWindow>[] actions) {
+            string[] buttonTexts, Action<PopupWindow>[] actions, Action<PopupWindow>? beforeClose = null) {
         SetTitle(title);
         SetResizable(false);
         SetSizeRequest(400, 200);
@@ -34,7 +34,7 @@ public class PopupWindow : G3manWindow {
         }
         buttonsBox.SetValign(Align.End);
         buttonsBox.SetHalign(Align.Center);
-
+        
 
         Box box = Box.New(Orientation.Vertical, 5);
         box.Append(messageLabel);
@@ -42,6 +42,13 @@ public class PopupWindow : G3manWindow {
         box.SetMargin(10);
         
         SetChild(box);
+
+        if (beforeClose is not null) {
+            OnCloseRequest += (_, _) => {
+                beforeClose(this);
+                return false;
+            };
+        }
     }
 
     public void Dialog() {

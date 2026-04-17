@@ -66,6 +66,10 @@ public class PatcherWindow : G3manWindow {
 				Present();
 		});
 	}
+
+	record ChoiceLock() {
+		public int Choice = 0;
+	}
 	private void DoThing(Game game, Profile profile, List<IMod> mods) {
 		string profilePath = game.GetProfileFolderPath(profile);
 		string profileLivePath = game.GetProfileLiveFolderPath(profile);
@@ -82,59 +86,61 @@ public class PatcherWindow : G3manWindow {
 			hash = "";
 		}
 		
-		string lastHash = IO.GetLastOutputHash(Program.GetGame()!);
-		
+		string lastHash = IO.GetLastOutputHash(game);
+		bool forceReloadDatafile = false;
 		
 		if (lastHash != hash && hash != "" && lastHash != "") {
-			string[] buttonTexts = ["Update Clean Datafile", "Use Old", "Cancel"];
-			object lockObject = new object();
-			int choice = 0;
+			string[] buttonTexts = ["Update clean datafile copy", "Do nothing", "Cancel"];
+			ChoiceLock lockObject = new ChoiceLock();
+			
 			PopupWindow popupWindow = new PopupWindow(this, "Question",
-				"g3man has detected that the game's datafile has been modified.\n"
+				$"g3man has detected that the game's datafile ({game.GetInputDatafileRelativePath()}) has been modified.\n"
 				+ $"Did you update the game? If so, select \"{buttonTexts[0]}\".\n"
 				+ $"Otherwise, select \"{buttonTexts[1]}\".",
 				buttonTexts,
-				[
+				
+				actions: [
 					(PopupWindow window) => {
-						window.Close();
 						lock (lockObject) {
-							choice = 1;
-							Monitor.Pulse(lockObject);
+							lockObject.Choice = 1;
+							Monitor.PulseAll(lockObject);
 						}
+						window.Close();
 					},
 					(PopupWindow window) => {
-						window.Close();
 						lock (lockObject) {
-							choice = 2;
-							Monitor.Pulse(lockObject);
+							lockObject.Choice = 2;
+							Monitor.PulseAll(lockObject);
 						}
-					},
-					(PopupWindow window) => {
 						window.Close();
-						lock (lockObject) {
-							choice = 3;
-							Monitor.Pulse(lockObject);
+					}, 
+					PopupWindow.CloseWindowAction,
+				], 
+				beforeClose: _ => {
+					lock (lockObject) {
+						if (lockObject.Choice == 0) {
+							lockObject.Choice = 3;
+							Monitor.PulseAll(lockObject);
 						}
-					},
-				]);
+					}
+				});
 
 			lock (lockObject) {
 				Program.RunOnMainThreadEventually(() => popupWindow.Dialog());
 				// wait for user to make choice
-				while (choice == 0)
+				while (lockObject.Choice == 0)
 					Monitor.Wait(lockObject);
 			}
 
-			if (choice == 1) {
-				// update clean datafile
+			if (lockObject.Choice == 1) {
 				setStatus("Updating clean datafile...");
 				try {
-					File.Move(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.GetBackupDatafilePath(), true);
+					File.Move(game.GetCleanDatafilePath(), game.GetBackupDatafilePath(), true);
 					
-					File.Copy(Program.GetGame()!.GetInputDatafilePath(),
-						Program.GetGame()!.GetCleanDatafilePath(), true);
-					Program.GetGame()!.Write();
-					IO.RemoveLastOutputHash(Program.GetGame()!);
+					File.Copy(game.GetInputDatafilePath(),
+						game.GetCleanDatafilePath(), true);
+					game.Write();
+					IO.RemoveLastOutputHash(game);
 				}
 				catch (Exception e) {
 					Program.Logger.Error($"Failed to update clean datafile: {e}");
@@ -142,13 +148,13 @@ public class PatcherWindow : G3manWindow {
 					return;
 				}
 
-
-				Program.DataLoader.LoadAsync(Program.GetGame()!, datafileXdeltaPatches);
+				forceReloadDatafile = true;
 			}
-			else if (choice == 2) {
-				// do nothing
+			else if (lockObject.Choice == 2) {
+				// can't trust this hash anymore
+				IO.RemoveLastOutputHash(game);
 			}
-			else if (choice == 3) {
+			else if (lockObject.Choice == 3) {
 				canClose = true;
 				Program.RunOnMainThreadEventually(Close);
 				return;
@@ -160,8 +166,8 @@ public class PatcherWindow : G3manWindow {
 			setStatus("Restoring clean datafile");
 			try
 			{
-				IO.RemoveLastOutputHash(Program.GetGame()!);
-				IO.Deapply(Program.GetGame()!);
+				IO.RemoveLastOutputHash(game);
+				IO.Deapply(game);
 
 				setStatus("Restored clean datafile!");
 			}
@@ -178,9 +184,7 @@ public class PatcherWindow : G3manWindow {
 		}
 		*/
 		
-		if (!Program.DataLoader.IsAlreadyGiven(Program.GetGame()!, datafileXdeltaPatches))
-			Program.DataLoader.LoadAsync(Program.GetGame()!, datafileXdeltaPatches);
-		
+		Program.DataLoader.LoadAsync(game, datafileXdeltaPatches, forceReloadDatafile);
 		
 		setStatus("Applying .xdelta patches");
 		
@@ -214,7 +218,7 @@ public class PatcherWindow : G3manWindow {
 		string relativeProfilePath = Path.GetRelativePath(game.Directory, profilePath);
 		
 		UndertaleData? output = datafilePatcher.Patch(noXdeltas, profile, profilePath, 
-			relativeProfilePath, Program.GetProfile()!.ID,
+			relativeProfilePath, profile.ID,
 			data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
 			return;

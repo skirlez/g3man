@@ -14,15 +14,9 @@ public class Config {
 	public string SteamExecutable;
 
 	private const int LatestVersion = 2;
-	
-	public Config() {
-		GameEntries = new List<GameEntry>();
-		Initializer = Program.Initializer.Gtk4;
-		ColorScheme = Program.ColorScheme.SystemDefault;
-		AllowModScripting = false;
-		CheckForUpdates = true;
-	}
-	
+
+	public Config() : this(new JsonElement()) { }
+
 	public Config(JsonElement root) {
 		int formatVersion = JsonUtil.GetOrDefault(root, "format_version", LatestVersion);
 		if (formatVersion == 1) {
@@ -30,7 +24,7 @@ public class Config {
 			GameEntries = gameDirectories.Select(s => new GameEntry(s, "default")).ToList();
 		}
 		else {
-			JsonElement[] gameEntries = JsonUtil.GetOrDefaultClass<JsonElement[]>(root, "game_entries", null!);
+			JsonElement[] gameEntries = JsonUtil.GetOrDefaultClass<JsonElement[]>(root, "game_entries", []);
 			GameEntries = new List<GameEntry>();
 			foreach (JsonElement gameEntry in gameEntries) {
 				try {
@@ -58,7 +52,7 @@ public class Config {
 		
 		CheckForUpdates = JsonUtil.GetOrDefault(root, "check_for_updates", true);
 		
-		SteamExecutable = JsonUtil.GetOrDefaultClass(root, "steam_executable", "");
+		SteamExecutable = JsonUtil.GetOrDefaultClass(root, "steam_executable", ProgramPaths.GuessSteamExecutablePath());
 
 	}
 

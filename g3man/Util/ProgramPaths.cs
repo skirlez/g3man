@@ -73,6 +73,23 @@ public static class ProgramPaths {
 		return "";
 	}
 	
+	public static string GuessSteamExecutablePath() {
+		string steamPath = GuessSteamPath();
+		if (steamPath == "")
+			return "";
+		#if WINDOWS
+			string[] possibleSubpaths = ["Steam.exe"];
+		#else
+			string[] possibleSubpaths = [];
+		#endif
+		foreach (string subpath in possibleSubpaths) {
+			string combined = Path.Combine(steamPath, subpath);
+			if (File.Exists(combined))
+				return combined;
+		}
+		return "";
+	}
+	
 	private static string GuessSteamCommonPath() {
 		string path = GuessSteamPath();
 		if (path == "")

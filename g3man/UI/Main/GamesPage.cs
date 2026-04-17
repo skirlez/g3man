@@ -143,7 +143,7 @@ public partial class MainWindow {
 		selectGameButtons.Add(selectGameButton);
 
 		Button manageGameButton = Button.NewWithLabel("Manage");
-		manageGameButton.OnClicked += (button, _) => {
+		manageGameButton.OnClicked += (_, _) => {
 			if (game.FormatVersion == 1) {
 				GameUpgraderWindow upgraderWindow = new GameUpgraderWindow(this, game);
 				upgraderWindow.Dialog(this);

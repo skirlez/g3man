@@ -60,7 +60,7 @@ public class GameAdderWindow : G3manWindow {
 		UndertaleData data;
 		try {
 			using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
-			data = UndertaleIO.Read(stream);
+			data = UndertaleIO.Read(stream, ((warning, important) => { if (important )logger.Info(warning); }));
 		}
 		catch (Exception e) {
 			return new Result<Success, Error>(new Error("An error occurred while reading the game's datafile", e));

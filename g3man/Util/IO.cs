@@ -43,7 +43,7 @@ public static class IO {
 	
 	public static void Apply(UndertaleData data, 
 							string gameDirectory, 
-							string outputDatafileName,
+							string outputDatafileRelativePath,
 							bool writeHash) 
 	{
 		
@@ -64,19 +64,22 @@ public static class IO {
 		
 		deleteLegacySymlink(gameDirectory);
 		if (writeHash) {
-			string hash = HashToString(hashBytes);
-			string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
-			File.WriteAllText(outputHashTextFilePath, hash);
+			WriteGameLastOutputHash(gameDirectory, hashBytes);
 		}
 
-		File.Move(tempFilePath, Path.Combine(gameDirectory, outputDatafileName), true);
+		File.Move(tempFilePath, Path.Combine(gameDirectory, outputDatafileRelativePath), true);
 		File.Delete(tempFilePath);
 	}
+
+	private static void WriteGameLastOutputHash(string gameDirectory, byte[] hashBytes) {
+		string hash = HashToString(hashBytes);
+		string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
+		File.WriteAllText(outputHashTextFilePath, hash);
+	}
+	
 	
 	/* On normal operating systems, this makes a symlink.
 	 * On Windows, this makes a "Junction". */
-	
-	
 	private static void SymlinkFolder(string targetDirectory, string path) {
 		#if LINUX || OSX
 			File.CreateSymbolicLink(path, targetDirectory);
@@ -93,8 +96,7 @@ public static class IO {
 		#endif
 	}
 
-	private static void DeleteSymlink(string path)
-	{
+	private static void DeleteSymlink(string path) {
 		if (File.Exists(path))
 			File.Delete(path);
 		else if (Directory.Exists(path))
@@ -130,7 +132,12 @@ public static class IO {
 		string appliedProfileSymlink = Path.Combine(game.Directory, AppliedProfileSymlinkName);
 		if (Directory.Exists(appliedProfileSymlink))
 			Directory.Delete(appliedProfileSymlink, false);
-		File.Copy(Program.GetGame()!.GetCleanDatafilePath(), Program.GetGame()!.GetInputDatafilePath(), true);
+		byte[] hashBytes;
+		using (FileStream stream = new FileStream(game.GetCleanDatafilePath(), FileMode.Open, FileAccess.Read)) {
+			hashBytes = MD5.HashData(stream);		
+		}
+		File.Copy(game.GetCleanDatafilePath(), game.GetInputDatafilePath(), true);
+		WriteGameLastOutputHash(game.Directory, hashBytes);
 	}
 
 	

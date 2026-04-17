@@ -141,19 +141,21 @@ public class DataLoader {
 	
 	
 	public bool IsAlreadyGiven(Game game, List<Xdelta> xdeltaPaths) {
+		Debug.Assert(Monitor.IsEntered(Lock));
 		return lastGame is not null
 			//&& game.Hash == lastGame.Hash
 			&& game == lastGame
 			&& Xdelta.SequenceEquals(xdeltaPaths, lastXdeltaPaths!);
 	}
-	public void LoadAsync(Game newGame, List<Xdelta> xdeltaPaths, bool allowSameGame = false) {
-		if (IsAlreadyGiven(newGame, xdeltaPaths) && !allowSameGame) {
-			logger.Debug("Same data as what's already loaded or being loaded");
-			return;
-		}
+	public void LoadAsync(Game newGame, List<Xdelta> xdeltaPaths, bool forceReloadDatafile = false) {
 		logger.DebugNewline();
 		logger.Debug("New request for " + newGame.DisplayName);
 		lock (Lock) {
+			if (IsAlreadyGiven(newGame, xdeltaPaths) && !forceReloadDatafile && !Lock.Errored) {
+				logger.Debug("Same data as what's already loaded or being loaded");
+				return;
+			}
+			
 			Lock.Path = newGame.GetCleanDatafilePath();
 			Lock.Xdeltas = xdeltaPaths;
 			lastGame = newGame;

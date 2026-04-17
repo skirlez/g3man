@@ -1,5 +1,6 @@
 using g3man.Models;
 using g3man.UI.Main;
+using g3man.Util;
 using Gtk;
 
 namespace g3man.UI;
@@ -145,6 +146,28 @@ public class ManageGameWindow : G3manWindow {
 		
 		
 		
+		Button openGameFolderButton = Button.NewWithLabel("Open game folder");
+		openGameFolderButton.OnClicked += (_, _) => { IO.OpenFileExplorer(game.Directory); };
+		openGameFolderButton.SetHalign(Align.Start);
+		
+		Button restoreDatafileButton = Button.NewWithLabel($"Restore clean datafile ({game.GetInputDatafileRelativePath()})");
+		restoreDatafileButton.OnClicked += (_, _) => {
+			try {
+				// TODO: don't run this on the UI thread
+				IO.Deapply(game);
+			}
+			catch (Exception e) {
+				Program.Logger.Error($"Failed to restore clean datafile: {e}");
+				PopupWindow errorWindow = new PopupWindow(this, "Error!", "Error occured trying to restore the clean datafile", "Damn");
+				errorWindow.Dialog();
+				return;
+			}
+			PopupWindow window = new PopupWindow(this, "Success!", "Clean datafile has been restored!", "Thanks");
+			window.Dialog();
+		};
+		restoreDatafileButton.SetHalign(Align.Start);
+		
+		
 		Button saveButton = Button.NewWithLabel("Save");
 		saveButton.OnClicked += (_, _) => {
 			int newAppId;
@@ -181,15 +204,20 @@ public class ManageGameWindow : G3manWindow {
 		fateBox.SetValign(Align.End);
 		fateBox.Append(saveButton);
 		fateBox.Append(removeButton);
-		fateBox.SetVexpand(true);
 
+		Box spacer = Box.New(Orientation.Horizontal, 0);
+		spacer.SetVexpand(true);
 		
 		Box box = Box.New(Orientation.Vertical, 10);
 		box.SetMargin(10);
 		box.Append(nameBox);
 		box.Append(launchMethodBox);
 		box.Append(paradigmBox);
+		box.Append(openGameFolderButton);
+		box.Append(restoreDatafileButton);
+		box.Append(spacer);
 		box.Append(fateBox);
+		
 		
 		SetChild(box);
 	}

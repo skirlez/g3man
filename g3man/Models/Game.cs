@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -18,13 +19,15 @@ public class Game {
 
 	private string DatafileExtension;
 	private string DatafileFolder;
-
-	public string GetDatafileName() {
-		return Path.GetFileName(DatafilePath);
-	}
 	
-	public static string GetDefaultOutputDatafilePath(string inputDatafilePath) {
-		return $"{Path.GetDirectoryName(inputDatafilePath)}/g3man_{Path.GetFileName(inputDatafilePath)}";
+	
+	public static string GetDefaultOutputDatafilePath(string inputDatafilePath)
+	{
+		string folder = Path.GetDirectoryName(inputDatafilePath) ?? "";
+		string filename = $"g3man_{Path.GetFileName(inputDatafilePath)}";
+		if (folder == "")
+			return filename;
+		return Path.Combine(folder, filename);
 	}
 
 	public enum ExecutableType {
@@ -102,16 +105,22 @@ public class Game {
 	public string GetInputDatafilePath() {
 		return Path.Combine(Directory, GetInputDatafileRelativePath());
 	}
+	public string GetOutputDatafilePath(Profile profile) {
+		return Path.Combine(Directory, GetOutputDatafileRelativePath(profile));
+	}
+	
 	public string GetInputDatafileRelativePath() {
 		return DatafilePath;
 	}
 	public string GetOutputDatafileRelativePath(string profileID) {
-		return $"{DatafileFolder}/{profileID}{DatafileExtension}";
+		if (DatafileFolder != "")
+			return Path.Combine(DatafileFolder, $"{profileID}{DatafileExtension}");
+		return Path.Combine($"{profileID}{DatafileExtension}");
 	}
 	public string GetOutputDatafileRelativePath(Profile profile) {
 		if (profile.EnableOutputOverride)
 			return GetOutputDatafileRelativePath(profile.ID);
-		return GetOutputDatafileRelativePath() ;
+		return GetOutputDatafileRelativePath();
 	}
 	public string GetOutputDatafileRelativePath() {
 		return OutputDatafilePath;
@@ -136,22 +145,24 @@ public class Game {
 
 	public void Launch(Config config, Profile profile) {
 		Debug.Assert(ExecutableStatus(config).ok);
+		List<string> gameArguments = ["-game", GetOutputDatafilePath(profile)];
+
+		// at least one version of the linux runner always appended "-game game.unx" at the end of its arguments, overriding
+		// our choice of datafile. including a single " character (appears to) make the runner listen to us,
+		// so i'm assuming it breaks the argument parser. it doesn't seem to break anything else so it is always included.
+		gameArguments.Add("\"");
 		
+		List<string> steamArguments = ["-applaunch", ExecutableSteamAppId.ToString(), "--"];
 		switch (ChosenExecutableType) {
-			case ExecutableType.File: 
-				Process.Start(new ProcessStartInfo {
-					FileName = Path.Combine(Directory, ExecutablePath),
-					// at least one version of the linux runner always appended "-game game.unx" at the end of its arguments, overriding
-					// our choice of datafile. including a single " character (appears to) make the runner listen to us, so i'm assuming it breaks the argument parser.
-					ArgumentList = { "-game", GetOutputDatafileRelativePath(profile), "\"" },
+			case ExecutableType.File:
+				Process.Start(new ProcessStartInfo(Path.Combine(Directory, ExecutablePath), gameArguments) {
+		
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});
 				break;
 			case ExecutableType.Steam:
-				Process.Start(new ProcessStartInfo {
-					FileName = config.SteamExecutable,
-					ArgumentList = { "-applaunch", ExecutableSteamAppId.ToString(), "--", "-game", GetOutputDatafileRelativePath(profile) },
+				Process.Start(new ProcessStartInfo(config.SteamExecutable, steamArguments.Concat(gameArguments).ToList()) {
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});
