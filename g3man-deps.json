@@ -75,6 +75,11 @@
     "hash": "sha256-d3RbSDFmB8UosYsQGzhHFBCZ5hcPtIpdmQcylYVSLe4="
   },
   {
+    "pname": "LuaCSharp",
+    "version": "0.5.3",
+    "hash": "sha256-+4A9HQdml0m7l11bvZOILg42YGrT+HEYhdnNYRDMCCc="
+  },
+  {
     "pname": "Magick.NET-Q8-AnyCPU",
     "version": "14.13.0",
     "hash": "sha256-/LOVGZkGiT8uHuX3np05kCJc9eckn5NembqNLHHgm28="

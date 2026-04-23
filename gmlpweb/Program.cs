@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Reflection;
-using gmlp;
+using gmlpv2;
+using Lua;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.JSInterop;
+using PatchCommon;
 using Underanalyzer.Decompiler;
 using UndertaleModLib;
 using UndertaleModLib.Compiler;
@@ -80,80 +82,73 @@ public class Program {
 	 */
 	[JSInvokable("patch")]
 	public static object Patch(string patch, string code) {
-
-		PatchesRecord record = new PatchesRecord();
-		CodeSource source = new SingleCodeSource(code);
-
+		
+		SingleCodeSource source = new SingleCodeSource(code);
+		PatchIntentionAggregate<FileRecord> aggregate = new();
+		string newCode;
 		try {
-			Language.Token[] tokens = Language.Tokenize(patch);
-
-			// our job is to get to the patch section, people may be pasting their entire patch here, and that should be valid
-			int i = 0;
-			while (i < tokens.Length && tokens[i] is Language.SectionToken sectionToken &&
-					sectionToken.Section != "patch") {
-				i++;
-				while (i < tokens.Length && tokens[i] is not Language.SectionToken)
-					i++;
-				i++;
-			}
-
-			if (i >= tokens.Length) {
-				// error the user for being stupid
-				i = 0;
-			}
-
-			int increment = 0;
-			Language.ExecutePatchSection(tokens, i, TheOnlyCodeFileName, code, true, new PatchOwner("gmlpweb"), record,
-				false, ref increment);
-			Language.ApplyPatches(record, source, []);
-		}
-		catch (PatchExecutionException e) {
-			return new { result = e.Message, type = 1 };
-		}
-		catch (InvalidPatchException e) {
-			return new { result = e.Message, type = 1 };
+			gmlpv2.Language.FindIntentions(patch, "gmlpweb.lua", aggregate);
 		}
 		catch (Exception e) {
 			return new { result = e.ToString(), type = 2 };
 		}
 
-		CodeFile? result = source.GetCodeFile("");
-		Debug.Assert(result is not null);
-		string newCode = result.GetAsString();
+		if (aggregate.HasErrors()) {
+			return new { result = string.Join('\n', aggregate.GetAllErrors()), type = 1 };
+		}
+
+		RecordAggregate<FileRecord> recordAggregate = aggregate.RealizeAll(source);
+		PatchResults results = gmlpv2.Language.Apply(recordAggregate, source);
+		if (results.HasErrors())
+		{
+			return new { result = string.Join('\n', results.GetAllErrors()), type = 1 };
+		}
+		newCode = results.GetAllResults().First().Value;
+		
+		
 		return new { result = newCode, type = 0 };
 	}
 
 	[JSInvokable("compile_and_decompile")]
-	public static string CompileAndDecompile(string code) {
+	public static object CompileAndDecompile(string code) {
 		importGroup.QueueReplace(TheOnlyCodeFileName, code);
-		importGroup.Import();
-		return new DecompileContext(context, codeEntry, settings).DecompileToString();
+		CompileResult result = importGroup.Import(false);
+		if (!result.Successful) {
+			return new { result = CreateCompilationError(result), type = 1 };
+		}
+		string decompiled = new DecompileContext(context, codeEntry, settings).DecompileToString();
+		return new { result = decompiled, type = 0 };
 	}
 	
 	[JSInvokable("compile_and_disassemble")]
-	public static string CompileAndDisassemble(string code) {
+	public static object CompileAndDisassemble(string code) {
 		importGroup.QueueReplace(codeEntry, code);
-		importGroup.Import();
-		return codeEntry.Disassemble(data.Variables, data.CodeLocals?.For(codeEntry));
+		CompileResult result = importGroup.Import(false);
+		if (!result.Successful) {
+			return new { result = CreateCompilationError(result), type = 1 };
+		}
+		string disassembly = codeEntry.Disassemble(data.Variables, data.CodeLocals?.For(codeEntry));
+		return new { result = disassembly, type = 0 };
 	}
-	
+
+	private static string CreateCompilationError(CompileResult result) {
+		HashSet<string> alreadySaid = new HashSet<string>();
+		
+		foreach (CompileError error in result.Errors) {
+			string detailedMessage = error.GenerateDetailedMessage();
+			alreadySaid.Add(detailedMessage);
+		}
+		var s = (alreadySaid.Count > 1) ? "s" : "";
+		return $"Code compilation error{s}:\n {string.Join("\n", alreadySaid)}";
+	}
 	
 	/**
 	 * gmlp expects to work with a class that can provide several code files, but
 	 * we only need to work with one.
 	 */
 	private class SingleCodeSource(string only) : CodeSource {
-		private string only = only;
-		public override CodeFile? GetCodeFile(string _) {
-			return new StringCodeFile(only);
-		}
-
-		public override string? GetReplacedCodeVerbatim(string file) {
-			return only;
-		}
-
-		public override void Replace(string _, string code) {
-			only = code;
+		public override CodeFile GetCodeFile(string _) {
+			return new CodeFile(only);
 		}
 	}
 }

@@ -6,67 +6,80 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using common;
+using PatchCommon;
 
 namespace gmlp;
 
 /**
-* This file contains most of the implementation of gmlp.
-* As it currently is, the language is mostly "fake": there are no types,
-* the variables at the start are all hardcoded, functions aren't real and each expect specific tokens.
+* This file contains most of the implementation of gmlpv1. It has been superceded by gmlpv2.
+* 
+* The language is mostly "fake": there are no types, the variables at the start are all hardcoded,
+* functions aren't real and each expect specific tokens. It's very bad code.
 *
-* Deserves a rewrite to make it cleaner.
 */
 public static class Language {
-	public static List<string> ExecuteEntirePatch(string patchText, CodeSource data, PatchesRecord record, PatchOwner owner) {
-		int patchIncrement = 0;
-		List<string> allTargets = [];
 
-		Token[] tokens = Tokenize(patchText);
+	public static void FindIntentions(string patch, string patchName, PatchIntentionAggregate<UnitOperations> aggregate) {
+
+		int patchIncrement = 0;
+		
+		Token[] tokens = Tokenize(patch);
 		int pos = 0;
 		while (pos < tokens.Length) {
 			int lastLineNumber = tokens[pos].LineNumber;
 			if (tokens[pos] is SectionToken metaSectionToken && metaSectionToken.Section == "meta") {
-				(string[] targets, bool critical, pos) = ExecuteMetadataSection(tokens, pos + 1);
-				int startPos = pos;
+				(string[] targets, bool critical, bool last, pos) = ExecuteMetadataSection(tokens, pos + 1);
+				
 				foreach (string target in targets) {
-					pos = startPos;
-					CodeFile? codeFile = data.GetCodeFile(target);
-					if (codeFile is null)
-						throw new InvalidPatchException($"Target \"{target}\" does not exist");
-					string code = codeFile.GetAsString();
+					int p = pos;
+					aggregate.AddIntention(last, new PatchIntention<UnitOperations>(target, patchName, critical, (record, source) => {
+						CodeFile? codeFile = source.GetCodeFile(target);
+						if (codeFile is null) {
+							if (!critical)
+								return;
+							throw new PatchRealizationException($"Target \"{target}\" does not exist");
+						}
 
-					if (pos < tokens.Length && tokens[pos] is SectionToken patchSectionToken &&
-						patchSectionToken.Section == "patch") {
-						pos = ExecutePatchSection(tokens, pos + 1, target, code, critical, owner, record, true, ref patchIncrement);
-					}
-					else {
-						throw new InvalidPatchException($"Incomplete patch; meta section without patch section");
-					}
+						string code = codeFile.GetAsString();
+						if (p < tokens.Length && tokens[p] is SectionToken patchSectionToken &&
+								patchSectionToken.Section == "patch") {
+							ExecutePatchSection(tokens, p + 1, code, critical, record, true,
+								ref patchIncrement);
+						}
+						else {
+							throw new PatchRealizationException($"Incomplete patch; meta section without patch section");
+						}
+					}));
 				}
-				allTargets.AddRange(targets);
+				pos++;
+				while (pos < tokens.Length && tokens[pos] is not SectionToken) {
+					pos++;
+				}
 			}
 			else {
-				throw new InvalidPatchException(
+				throw new PatchRealizationException(
 					$"Expected \"meta:\" section at start of patch (line {lastLineNumber})");
 			}
 		}
-	
-		return allTargets;
 	}
+	
+	
 
-
-	private static (string[] target, bool critical, int pos) ExecuteMetadataSection(Token[] tokens, int pos) {
+	private static (string[] target, bool critical, bool last, int pos) ExecuteMetadataSection(Token[] tokens, int pos) {
 		bool critical = true;
+		bool last = false;
 		List<string> targets = [];
 		List<string> variablesSeen = [];
 		while (pos < tokens.Length) {
 			Token token = tokens[pos];
 			if (token is NameToken nameToken) {
 				if (variablesSeen.Contains(nameToken.Name)) {
-					throw new InvalidPatchException($"\"{nameToken.Name}\" has already been set; it cannot be set more than once");
+					throw new PatchRealizationException($"\"{nameToken.Name}\" has already been set; it cannot be set more than once");
 				}
 				variablesSeen.Add(nameToken.Name);
 				switch (nameToken.Name) {
+					case "last":
 					case "critical": {
 						Token equalsToken = Expect(tokens, pos + 1, typeof(EqualsToken), nameToken.LineNumber);
 						pos++;
@@ -75,11 +88,14 @@ public static class Language {
 						pos++;
 
 						if (valueToken.Name != "true" && valueToken.Name != "false") {
-							throw new InvalidPatchException(
+							throw new PatchRealizationException(
 								$"At line {valueToken.LineNumber}: Expected \"true\" or \"false\"");
 						}
-
-						critical = valueToken.Name == "true";
+						
+						if (nameToken.Name == "critical")
+							critical = valueToken.Name == "true";
+						else
+							last = valueToken.Name == "true";
 						break;
 					}
 					case "targets": {
@@ -117,7 +133,7 @@ public static class Language {
 						break;
 					}
 					default:
-						throw new InvalidPatchException(
+						throw new PatchRealizationException(
 							$"At line {nameToken.LineNumber}: invalid metadata variable {nameToken.Name}");
 				}
 			}
@@ -129,11 +145,11 @@ public static class Language {
 		}
 
 		if (targets.Count == 0)
-			throw new InvalidPatchException($"Meta section must contain at least one target in \"targets\"");
+			throw new PatchRealizationException($"Meta section must contain at least one target in \"targets\"");
 
-		return (targets.ToArray(), critical, pos);
+		return (targets.ToArray(), critical, last, pos);
 	}
-
+	
 	private static int findLineWith(int start, string[] lines, string code, string str, bool isRegex) {
 		int positionSum = 0;
 		for (int j = 0; j < start; j++)
@@ -247,13 +263,12 @@ public static class Language {
 		}
 	}
 
-	public static int ExecutePatchSection(Token[] tokens, int pos, string target, string code, bool critical, PatchOwner owner, PatchesRecord record, bool bailOnSection, ref int patchIncrement) {
+	public static int ExecutePatchSection(Token[] tokens, int pos, string code, bool critical, UnitOperations unitOperations, bool bailOnSection, ref int patchIncrement) {
 		// TODO make sure code has \n line endings only
 		
 		// we prepend a "\n" for line 0
 		code = "\n" + code;
 		string[] lines = code.Split('\n');
-		UnitOperations unitOperations = record.GetUnitOperationsOrCreate(target, code);
 
 		List<Caret> carets = [new Caret(0, 0, lines.Length - 1)];
 		string lastRemovalReason = "";
@@ -565,22 +580,22 @@ public static class Language {
 						int filePos = carets[i].Line;
 						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
 						OperationType type = PatchOperation.WriteOperationTypes[nameToken.Name];
-						if ((type == OperationType.WriteBefore || type == OperationType.WriteBeforeLast)) {
+						if (type == OperationType.WriteBefore) {
 							if (filePos == carets[i].StartLine) {
 								if (filePos == 0) {
 									// seems like an easy mistake to make so a more precise error message is sent here
-									throw new InvalidPatchException($"Invalid use of \"write_before\" on line 0, "
+									throw new PatchRealizationException($"Invalid use of \"write_before\" on line 0, "
 									                                + "which is the very start of the file; Carets cannot write there. "
 									                                + "(Notably, you can still \"write\" on the last line of the file, it doesn't count outside the file.)");
 								}
 
-								throw new InvalidPatchException(
+								throw new PatchRealizationException(
 									$"Invalid use of \"write_before\" on line {filePos}, which is "
 									+ "the starting line of this carets' scope. Carets cannot write outside their scope. "
 									+ "(You can still \"write\" on the last line of your scope, as it is before the closing brace.)");
 							}
 							if (IsEndOfScope(lines[filePos])) {
-								throw new InvalidPatchException(
+								throw new PatchRealizationException(
 									$"Invalid use of \"write_before\" on line {filePos}, which is "
 									+ "the line of the closing brace of a scope; you must use \"write\" on the previous line "
 									+ "if you wish to write inside that scope.");
@@ -588,7 +603,7 @@ public static class Language {
 						}
 						
 							
-						linePatches.Add(new PatchOperation(stringToken.Text, critical, type, owner, patchIncrement));
+						linePatches.Add(new PatchOperation(stringToken.Text, critical, type, patchIncrement));
 						patchIncrement++;
 					}
 
@@ -604,7 +619,7 @@ public static class Language {
 					for (int i = 0; i < carets.Count; i++) {
 						int filePos = carets[i].Line;
 						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						linePatches.Add(new ReplaceSubstringPatchOperation(oldStringToken.Text, newStringToken.Text, oldStringToken.Regex, critical, owner, patchIncrement));
+						linePatches.Add(new ReplaceSubstringPatchOperation(oldStringToken.Text, newStringToken.Text, oldStringToken.Regex, critical, patchIncrement));
 						patchIncrement++;
 					}
 
@@ -612,7 +627,7 @@ public static class Language {
 				}
 
 				default:
-					throw new InvalidPatchException(
+					throw new PatchRealizationException(
 						$"At line {nameToken.LineNumber}: unknown operation {nameToken.Name}");
 			}
 
@@ -621,7 +636,7 @@ public static class Language {
 		}
 
 		if (carets.Count == 0) {
-			throw new PatchExecutionException($"All carets have been removed (have been sent out of their scope, or have searched for nonexistent lines). Log from last caret:\n{lastRemovalReason}");
+			throw new PatchRealizationException($"All carets have been removed (have been sent out of their scope, or have searched for nonexistent lines). Log from last caret:\n{lastRemovalReason}");
 		}
 
 		return pos;
@@ -632,85 +647,26 @@ public static class Language {
 		line = line.Trim();
 		return line.StartsWith('}') || line.EndsWith('}');
 	}
+	
 
-	public static void ExecutePatchSection(string patchSection, string target, string code, bool critical,
-		PatchOwner owner, PatchesRecord record, ref int patchIncrement) {
-		Token[] tokens = Tokenize(patchSection);
-		ExecutePatchSection(tokens, 0, target, code, critical, owner, record, false, ref patchIncrement);
-	}
-
-	public static void ApplyPatches(PatchesRecord record, CodeSource source, List<PatchOwner> order) {
-		foreach (KeyValuePair<string, UnitOperations> recordPair in record.GetData()) {
-			string file = recordPair.Key;
-
-			UnitOperations unitOperations = recordPair.Value;
-			string[] lines = unitOperations.Code.Split('\n').ToArray();
-
-			foreach (KeyValuePair<int, List<PatchOperation>> unitPatchPair in unitOperations.GetData()) {
+	public static PatchResults Apply(RecordAggregate<UnitOperations> record, CodeSource source) {
+		PatchResults results = new PatchResults();
+		foreach (KeyValuePair<string, UnitOperations> pair in record.GetChanges()) {
+			string file = pair.Key;
+			string[] lines = source.GetCodeFile(file)!.GetAsLines().Prepend("").ToArray();
+			foreach (KeyValuePair<int, List<PatchOperation>> unitPatchPair in pair.Value.GetData()) {
 				int line = unitPatchPair.Key;
 				List<PatchOperation> operations = unitPatchPair.Value;
-				List<PatchOperation> replacers =
-					unitPatchPair.Value.Where(op => op.Type == OperationType.WriteReplace || op.Type == OperationType.WriteReplaceSubstring).ToList();
-
-				// can't merge if we have two replacers on the same line and both are critical (can't choose)
-				// if we have two non-critical patches then we can pick the one with higher priority
-				bool invalidUnitPatch = (replacers.Count >= 2 && (replacers.Count(op => op.Critical) >= 2));
-				if (invalidUnitPatch) {
-					List<string> atFaultList = replacers.Select(op => op.Owner.Name).ToList();
-					throw new PatchApplicationException(
-						$"There are two or more critical and incompatible replacers on the same line ({line}), file {unitOperations.FileTarget}",
-						"The following mods are at fault", atFaultList);
-				}
-
-				replacers.Sort((a, b) => a.IsHigherPriorityThan(b, order));
-				if (replacers.Count >= 2) {
-					// pick out the last critical replacer, or the last non-critical replacer if we don't have any
-					// (last has highest priority)
-					PatchOperation chosenReplacer = replacers.LastOrDefault(op => op.Critical, replacers.Last());
-					operations.RemoveAll(op => replacers.Contains(op)
-						&& op != chosenReplacer);
-				}
-
-				
-				/*
-				
-				 BULLSHIT: reverse calls from the same owner when results appear in reverse order
-				 IN SHORT, if we don't do this, subsequent calls in the same patch will appear in the opposite order,
-				 which isn't very user friendly.
-				*/
-
-				List<IGrouping<PatchOwner, PatchOperation>> sameOwners = operations.GroupBy(op => op.Owner).ToList();
-				foreach (IGrouping<PatchOwner, PatchOperation> ownerGroup in sameOwners) {
-					IEnumerable<IGrouping<ReversibleOperationClass, PatchOperation>> afterTypeGroups = ownerGroup.ToList()
-						.Where(op => PatchOperation.ReversibleWriteOperationClasses.ContainsKey(op.Type)).GroupBy(op => PatchOperation.ReversibleWriteOperationClasses[op.Type]);
-
-					foreach (IGrouping<ReversibleOperationClass, PatchOperation> typeGroup in afterTypeGroups) {
-						List<PatchOperation> list = new List<PatchOperation>(typeGroup.ToList());
-						list.Sort((a, b) => a.IsHigherPriorityThan(b, order));
-						List<int> incrementsList = list.Select(op => op.Increment).ToList();
-						for (int i = 0; i < list.Count; i++) {
-							list[i].Increment = incrementsList[list.Count - i - 1];
-						}
-					}
-				}
-				
-				operations.Sort((a, b) => a.IsHigherPriorityThan(b, order));
+				operations.Sort((a, b) => a.IsHigherPriorityThan(b));
 				
 				StringBuilder after = new StringBuilder();
-				StringBuilder afterLast = new StringBuilder();
-				
 				StringBuilder before = new StringBuilder();
-				StringBuilder beforeLast = new StringBuilder();
-				
 				StringBuilder afterElseIf = new StringBuilder();
 				StringBuilder afterElse = new StringBuilder();
-				
 				StringBuilder conditions = new StringBuilder();
-				List<PatchOwner> conditionAdders = [];
 				int conditionsCount = 0;
-				
+	
 				string lineToReinsert = lines[line];
-				
 				foreach (PatchOperation op in operations) {
 					switch (op.Type) {
 						case OperationType.WriteReplace:
@@ -719,22 +675,14 @@ public static class Language {
 						case OperationType.WriteBefore:
 							before.Insert(0, op.Text + "\n");
 							break;
-						case OperationType.WriteBeforeLast:
-							beforeLast.Append(op.Text + "\n");
-							break;
 						case OperationType.Write:
 							after.Insert(0, "\n" + op.Text);
-							break;
-						case OperationType.WriteLast:
-							afterLast.Append("\n" + op.Text);
 							break;
 						case OperationType.WriteAndCondition:
 						case OperationType.WriteOrCondition:
 							string operand = op.Type == OperationType.WriteAndCondition ? "&&" : "||";
 							conditions.Append($"\n{operand} {op.Text})");
 							conditionsCount++;
-							if (!conditionAdders.Contains(op.Owner))
-								conditionAdders.Add(op.Owner);
 							break;
 						case OperationType.WriteElseIf:
 							afterElseIf.Insert(0, "\nelse if " + op.Text);
@@ -763,38 +711,39 @@ public static class Language {
 				else
 					afterElseResult = $"\nelse {{ {afterElse}\n}}";
 
-				
+
 				if (conditionsCount > 0) {
 					// we have to add a conditionsCount amount of parentheses before the expression. Finding it could be a little hard
-					
-					// TODO make this Better
 					if (lineToReinsert.TrimStart().StartsWith("if")) {
 						int index = lineToReinsert.IndexOf("if", StringComparison.Ordinal);
-						lineToReinsert = lineToReinsert.Insert(index + "if".Length + 1, new string('(', conditionsCount));
+						lineToReinsert = lineToReinsert.Insert(index + "if".Length + 1,
+							new string('(', conditionsCount));
 					}
 					else if (lineToReinsert.TrimStart().StartsWith("else if")) {
 						int index = lineToReinsert.IndexOf("else if", StringComparison.Ordinal);
-						lineToReinsert = lineToReinsert.Insert(index + "else if".Length + 1, new string('(', conditionsCount));
+						lineToReinsert = lineToReinsert.Insert(index + "else if".Length + 1,
+							new string('(', conditionsCount));
 					}
 					else if (lineToReinsert.TrimStart().StartsWith("while")) {
 						int index = lineToReinsert.IndexOf("while", StringComparison.Ordinal);
-						lineToReinsert = lineToReinsert.Insert(index + "while".Length + 1, new string('(', conditionsCount));
+						lineToReinsert = lineToReinsert.Insert(index + "while".Length + 1,
+							new string('(', conditionsCount));
 					}
 					else {
-						throw new PatchApplicationException(
-							$"Attempted to add a condition to an invalid line ({line}), file {unitOperations.FileTarget}. Line:\n" + lines[line]
-							+ "\nYou can only add conditions to if and while statements.",
-							"One or more of the following mods are at fault", conditionAdders.Select(owner => owner.Name).ToList());
+						results.AddError(file,($"In {file}: Attempted to add a condition to an invalid line ({line})\nYou can only add conditions to if and while statements."));
 					}
 				}
-				
-				lines[line] = $"{before}{beforeLast}{lineToReinsert}{conditions}{afterElseIf}{afterElseResult}{after}{afterLast}";
+
+				lines[line] = $"{before}{lineToReinsert}{conditions}{afterElseIf}{afterElseResult}{after}";
+
 			}
-			
+
 			// remove starting newline
 			string finalResult = string.Join("\n", lines).Remove(0, 1);
-			source.Replace(file, finalResult);
+			results.AddResult(file, finalResult);
 		}
+
+		return results;
 	}
 
 	public class Token(int lineNumber) {
@@ -886,7 +835,7 @@ public static class Language {
 				}
 
 				if (build == "-" || build == "+") {
-					throw new InvalidPatchException($"At line {lineNumber}: Expected a number after the sign");
+					throw new PatchRealizationException($"At line {lineNumber}: Expected a number after the sign");
 				}
 
 				int number = int.Parse(build);
@@ -974,7 +923,7 @@ public static class Language {
 				if (c == '@') {
 					i++;
 					if (i >= patch.Length || patch[i] != '\'') {
-						throw new InvalidPatchException(
+						throw new PatchRealizationException(
 							$"At line {lineNumber}: Expected a string after the \'{c}\' character");
 					}
 				}
@@ -1020,7 +969,7 @@ public static class Language {
 				}
 
 				if (i >= patch.Length) {
-					throw new InvalidPatchException(
+					throw new PatchRealizationException(
 						$"At line {lineNumber}: Reached end of file before string terminated");
 				}
 
@@ -1065,17 +1014,17 @@ public static class Language {
 	
 	private static Token Expect(Token[] tokens, int pos, Type type, int lastLineNumber) {
 		if (pos >= tokens.Length)
-			throw new InvalidPatchException(
+			throw new PatchRealizationException(
 				$"At line {lastLineNumber}: Expected {GetHumanTypeName(type)}, found end of file");
 		Token token = tokens[pos];
 		if (!type.IsInstanceOfType(token))
-			throw new InvalidPatchException(
+			throw new PatchRealizationException(
 				$"At line {token.LineNumber}: Expected {GetHumanTypeName(type)}, but found {GetHumanTypeName(token.GetType())}");
 		return token;
 	}
 	private static void TokenTypeAssert(Token token, Type expected) {
 		if (!expected.IsInstanceOfType(token))
-			throw new InvalidPatchException(
+			throw new PatchRealizationException(
 				$"At line {token.LineNumber}: Expected {GetHumanTypeName(expected)}, but found {GetHumanTypeName(token.GetType())}");
 	}
 	
@@ -1104,28 +1053,8 @@ public static class Language {
 			case "CommaToken":
 				return "a comma";
 			default:
-				return "67";
+				throw new UnreachableException();
 		}
 	}
 }
 
-public class InvalidPatchException(string message) : Exception(message);
-
-public class PatchExecutionException(string message) : Exception(message);
-
-public class PatchApplicationException(string message, string blameMessage, List<string> atFault) : Exception(message) {
-	private readonly List<string> atFault = atFault;
-
-	public string Blame() {
-		Debug.Assert(atFault.Count != 0);
-		string atFaultString = blameMessage + ":\n" + atFault[0];
-		for (int i = 1; i < atFault.Count; i++) {
-			atFaultString += ",\n" + atFault[i];
-		}
-
-		return atFaultString;
-	}
-	public string FullMessage() {
-		return $"{Message}\n{Blame()}";
-	}
-}

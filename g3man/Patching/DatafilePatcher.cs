@@ -4,8 +4,10 @@ using System.Text;
 using g3man.Models;
 using g3man.Util;
 using gmlp;
+using gmlpv2;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
+using PatchCommon;
 using UndertaleModLib;
 using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
@@ -314,7 +316,8 @@ public class DatafilePatcher {
 	
 	public UndertaleData? Patch(List<Mod> mods, Profile profile, 
 			string profileLocation, string relativeProfilePath, string relativeProfileLivePath,
-			UndertaleData data, Logger logger, Action<string> statusCallback) {
+			UndertaleData data, Logger logger, Action<string> statusCallback) 
+	{
 		void setStatusAndInfo(string message) {
 			logger.Info(message);
 			statusCallback(message);
@@ -400,30 +403,38 @@ public class DatafilePatcher {
 		}
 		
 		GlobalDecompileContext context = new GlobalDecompileContext(data);
-		PatchesRecord record = new PatchesRecord();
 		CompileGroup group = new CompileGroup(data, context);
 		GameMakerCodeSource source = new GameMakerCodeSource(group);
 		
-		List<PatchOwner> order = mods.Select(mod => new PatchOwner(mod.ModId)).ToList();
+		if (mods.Any(mod => mod.Imports.Any(GameAPI.IsImportAskingForMe))) {
+			GameAPI.Inject(data, profile, relativeProfilePath, relativeProfileLivePath, group);
+			CompileResult gameAPIResult = group.Compile();
+			if (!gameAPIResult.Successful) {
+				setStatusAndError("Failed to insert g3man Game API!", 
+					gameAPIResult.PrintAllErrors(false));
+				return null;
+			}
+		}
 		
-		// Map of mods to patch blames
-		// patch blame maps map gamemaker code targets
-		Dictionary<Mod, PatchBlame> patchBlames = new Dictionary<Mod, PatchBlame>();
+		
+		List<PatchStep<Mod>> firstPatchSteps = [];
+		List<PatchStep<Mod>> lastPatchSteps = [];
+
 		
 		foreach (Mod mod in mods) {
-			int index = mods.IndexOf(mod);
 			if (mod.Patches.Length != 0)
 				setStatusAndInfo($"Reading patches from: {mod.DisplayName}");
-			patchBlames[mod] = new PatchBlame();
+			
+			PatchIntentionAggregate<UnitOperations> gmlpIntentionAggregate = new();
+			PatchIntentionAggregate<FileRecord> gmlpv2IntentionAggregate = new();
+			
+			
 			foreach (PatchLocation patchLocation in mod.Patches) {
-				// the only one right now
-				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
-				
 				string modFolder = Path.Combine(profileLocation, mod.ModId);
 				string fullPath = Path.Combine(modFolder, patchLocation.Path);
 				
 				if (Directory.Exists(fullPath)) {
-					foreach (string file in Directory.GetFiles(fullPath, "*.gmlp", SearchOption.AllDirectories)) {
+					foreach (string file in Directory.GetFiles(fullPath, $"*.{patchLocation.Extension}", SearchOption.AllDirectories)) {
 						if (!processPatch(file, Path.GetRelativePath(modFolder, file)))
 							return null;
 					}
@@ -437,95 +448,83 @@ public class DatafilePatcher {
 					return null;
 				}
 				
-
-
 				bool processPatch(string patchPath, string relativePath) {
-					List<string> targets;
 					string patchText;
 					try {
 						patchText = File.ReadAllText(patchPath).ReplaceLineEndings("\n");
+						if (patchLocation.Type == PatchFormatType.GMLP) {
+							gmlp.Language.FindIntentions(patchText, relativePath, gmlpIntentionAggregate);
+							return true;
+						}
+
+						if (patchLocation.Type == PatchFormatType.GMLPv2) {
+							gmlpv2.Language.FindIntentions(patchText, relativePath, gmlpv2IntentionAggregate);
+							return true;
+						}
 					}
 					catch (Exception e) {
-						setStatusAndError($"An error occured while trying to read a patch file at {relativePath} from {mod.Identify()}!", e.ToString());
+						setStatusAndError(
+							$"An error occurred while trying to read a patch file at \"{relativePath}\" from {mod.Identify()}!",
+							e.ToString());
 						return false;
 					}
-					try {
-						targets = Language.ExecuteEntirePatch(patchText, source, record, order[index]);
-						foreach (string target in targets) {
-							if (!patchBlames[mod].ContainsKey(target))
-								patchBlames[mod][target] = [relativePath];
-							else
-								patchBlames[mod][target].Add(relativePath);
-						}
-						return true;
-					}
-					catch (PatchExecutionException e) {
-						setStatusAndError($"An error occured while executing a patch from {mod.Identify()} at {relativePath}!", e.Message);
-					}
-					catch (InvalidPatchException e) {
-						setStatusAndError($"Invalid patch provided by {mod.Identify()} at {relativePath}!", e.Message);
-					}
-					return false;
+					throw new UnreachableException();
 				}
-			}
-		}
-
-		setStatusAndInfo("Applying patches...");
-
-		try {
-			Language.ApplyPatches(record, source, order);
-		}
-		catch (PatchApplicationException e) {
-			statusCallback($"Patching failed! {CHECK_LOG}\n{e.Blame()}");
-			logger.Error($"Patching failed! {e.FullMessage()}");
-			return null;
-		}
-
-		if (mods.Any(mod => mod.Imports.Any(GameAPI.IsImportAskingForMe))) {
-			UndertaleScript? g3manAPIScript = data.Scripts.ByName(GameAPI.ScriptName);
-			if (g3manAPIScript is null) {
-				g3manAPIScript = new UndertaleScript();
-				g3manAPIScript.Name = new UndertaleString(GameAPI.ScriptName);
-				g3manAPIScript.Code = new UndertaleCode();
-				g3manAPIScript.Code.Name = new UndertaleString($"gml_GlobalScript_{GameAPI.ScriptName}");
 				
-				data.Code.Add(g3manAPIScript.Code);
-				data.Scripts.Add(g3manAPIScript);
-				
-				UndertaleGlobalInit ginit = new UndertaleGlobalInit();
-				ginit.Code = g3manAPIScript.Code;
-				data.GlobalInitScripts.Add(ginit);
-				data.Strings.Add(g3manAPIScript.Code.Name);
-				data.Strings.Add(g3manAPIScript.Name);
 			}
-		
-			group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID, relativeProfilePath, relativeProfileLivePath));
-		}
 
-		setStatusAndInfo("Compiling...");
-		
-		CompileResult result = group.Compile();
-		if (!result.Successful) {
-			(string error, List<Mod> modsResponsible) = generateCompileError(result, patchBlames, source);
-			string modsResponsibleString;
-			if (modsResponsible.Count == 0) {
-				modsResponsibleString = "g3man"; // g3man game API most likely
-			}
-			else {
-				modsResponsibleString = (modsResponsible[0]).Identify();
-				for (int i = 1; i < modsResponsible.Count; i++) {
-					modsResponsibleString += $", {modsResponsible[i].Identify()}";
+			List<string> intentionErrors = gmlpv2IntentionAggregate.GetAllErrors().Concat(gmlpIntentionAggregate.GetAllErrors()).ToList();
+			if (intentionErrors.Count != 0) {
+				string total = "";
+				foreach (string error in intentionErrors) {
+					total += error;
 				}
+
+				setStatusAndError("Patch intention errors occurred!", total);
+				return null;
 			}
 
-			statusCallback($"Compilation failed! {CHECK_LOG}\nOne or more of the following mods are at fault:\n{modsResponsibleString}");
-			logger.Error($"Compilation failed! Below will be a file-by-file analysis,"
-				+ " showing which files failed to compile, and which mods change that file."
-				+ $"\n{error}");
-			return null;
+			
+			gmlpv2IntentionAggregate.AddStepsIfNecessary(firstPatchSteps, lastPatchSteps, source, mod, gmlpv2.Language.Apply);
+			gmlpIntentionAggregate.AddStepsIfNecessary(firstPatchSteps, lastPatchSteps, source, mod, gmlp.Language.Apply);
 		}
-		
 
+
+		lastPatchSteps.Reverse();
+		List<PatchStep<Mod>> patchSteps = firstPatchSteps.Concat(lastPatchSteps).ToList();
+		int steps = patchSteps.Count;
+
+		int currentStep = 1;
+
+		foreach (PatchStep<Mod> step in patchSteps) {
+			setStatusAndInfo($"Applying patches... (step {currentStep}/{steps})");
+			PatchResults patchResults = step.Apply();
+			if (patchResults.HasErrors()) {
+				setStatusAndError("Some patches failed to execute!", string.Join('\n', patchResults.GetAllErrors()));
+				return null;
+			}
+			
+			foreach (KeyValuePair<string, string> pair in patchResults.GetAllResults()) {
+				group.QueueCodeReplace(data.Code.ByName(pair.Key), pair.Value);
+			}
+
+			CompileResult compileResult = group.Compile();
+			if (!compileResult.Successful) {
+				List<PatchInfo> allResponsible = compileResult.Errors.Select(e => e.Code.Name.Content).SelectMany(step.WhoTouches).ToList();
+				if (allResponsible.All(info => !info.Critical)) {
+					continue;
+				}
+				
+				string detailedError = generateCompileError(compileResult, step, patchResults);
+				string message = $"Compilation error while applying patches from {step.Owner.Identify()}!";
+				setStatusAndError(message, $"Below will be a file-by-file analysis of every compilation error.\n\n{detailedError}");
+				return null;
+			}
+			currentStep++;
+		}
+	
+	
+		
 		if (profile.SeparateModdedSave)
 			data.GeneralInfo.Name.Content = profile.ModdedSaveName;
 		
@@ -538,53 +537,7 @@ public class DatafilePatcher {
 		
 		return data;
 	}
-
-	private (string, List<Mod>) generateCompileError(CompileResult result, Dictionary<Mod, PatchBlame> patchBlames, GameMakerCodeSource source) {
-		List<Mod> modsResponsible = [];
-		StringBuilder sb = new StringBuilder();
-		int number = 1;
-			
-		// group errors by file
-		IEnumerable<IGrouping<UndertaleCode, CompileError>> errors = result.Errors.GroupBy(error => error.Code);
-		foreach (IGrouping<UndertaleCode, CompileError> errorGroup in errors) {
-			string fileName = errorGroup.Key.Name.Content;
-			sb.AppendLine($"{number}. Code filename: {fileName}");
-
-			foreach (KeyValuePair<Mod, PatchBlame> kvp in patchBlames) {
-				if (!kvp.Value.ContainsKey(fileName))
-					continue;
-				if (!modsResponsible.Contains(kvp.Key))
-					modsResponsible.Add(kvp.Key);
-				sb.AppendLine($"Mod {kvp.Key.Identify()} contains the following patch files that change this code file:");
-				foreach (string path in kvp.Value[fileName]) {
-					sb.AppendLine(path);
-				}
-			}
-				
-			sb.AppendLine("========== ERRORS START ==========");
-			int errorIndex = 1;
-			// compiler weirdly likes to repeat some errors so we just check if we already said something before saying it
-			HashSet<string> alreadySaid = new HashSet<string>();
-			foreach (CompileError error in errorGroup) {
-				string detailedMessage = error.GenerateDetailedMessage();
-				if (!alreadySaid.Contains(detailedMessage)) {
-					sb.AppendLine($"{errorIndex}. {detailedMessage}");
-					alreadySaid.Add(detailedMessage);
-					errorIndex++;
-				}
-			}
-			sb.AppendLine("========== ERRORS END ==========");
-				
-			string code = source.GetReplacedCodeVerbatim(fileName)!;
-			sb.AppendLine($"========== BAD FILE START ==========\n{code}\n========== BAD FILE END ==========");
-				
-
-			number += 1;
-		}
-
-		return (sb.ToString(), modsResponsible);
-	}
-
+	
 	public static bool IsDataPatched(UndertaleData data) {
 		return data.Scripts.ByName(GameAPI.ScriptName) is not null;
 	}
@@ -733,6 +686,13 @@ public class DatafilePatcher {
 			
 			List<Mod> exporters = WhoExports(import.Name);
 			if (exporters.Count == 0) {
+				if (import.Contingency is GiveUpContingency a) {
+					lock (issues) {
+						issues.Add($"Mod {mod.Identify()} depends on the import \"{import.Name}\" but it is not provided by anyone.");
+					}
+
+					return;
+				}
 				RecommendContingency contingency = (RecommendContingency)import.Contingency;
 				lock (issues) {
  					issues.Add($"Mod {mod.Identify()} depends on the import \"{import.Name}\" but it is not provided by anyone.\nMod's suggestion: Download {contingency.Name} at <a href=\"{contingency.Link}\">{contingency.Link}</a>");
@@ -752,6 +712,52 @@ public class DatafilePatcher {
 
 
 		}
+	}
+	
+	
+	private string generateCompileError(CompileResult compileResult, PatchStep<Mod> step, PatchResults result) {
+		StringBuilder sb = new StringBuilder();
+		int number = 1;
+			
+		// group errors by file
+		IEnumerable<IGrouping<UndertaleCode, CompileError>> errors = compileResult.Errors.GroupBy(error => error.Code);
+		foreach (IGrouping<UndertaleCode, CompileError> errorGroup in errors) {
+			string fileName = errorGroup.Key.Name.Content;
+			sb.AppendLine($"{number}. Code filename: {fileName}");
+
+	
+			sb.AppendLine($"The following patches from the mod {step.Owner.Identify()} touch this code file:");
+			foreach (PatchInfo info in step.WhoTouches(fileName)) {
+				sb.AppendLine($"- {info.Filename}");
+			}
+
+			if (step.WhoTouches(fileName).All(i => !i.Critical)) {
+				sb.AppendLine(
+					"None of these patch files are marked as critical, so normally this error wouldn't prevent patching.");
+			}
+			
+			sb.AppendLine("========== ERRORS START ==========");
+			int errorIndex = 1;
+			// compiler weirdly likes to repeat some errors so we just check if we already said something before saying it
+			HashSet<string> alreadySaid = new HashSet<string>();
+			foreach (CompileError error in errorGroup) {
+				string detailedMessage = error.GenerateDetailedMessage();
+				if (!alreadySaid.Contains(detailedMessage)) {
+					sb.AppendLine($"{errorIndex}. {detailedMessage}");
+					alreadySaid.Add(detailedMessage);
+					errorIndex++;
+				}
+			}
+			
+			sb.AppendLine("========== ERRORS END ==========");
+			string code = string.Join('\n', result.GetResult(fileName).Split('\n').Select((x, i) => $"{i + 1}. {x}"));
+			sb.AppendLine($"========== BAD FILE START ==========\n{code}\n========== BAD FILE END ==========");
+				
+
+			number += 1;
+		}
+
+		return sb.ToString();
 	}
 }
 

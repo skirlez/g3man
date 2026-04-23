@@ -1,4 +1,5 @@
 using gmlp;
+using PatchCommon;
 using Underanalyzer.Decompiler;
 using UndertaleModLib;
 using UndertaleModLib.Compiler;
@@ -18,18 +19,13 @@ public class GameMakerCodeSource(CompileGroup compileGroup) : CodeSource {
 		UndertaleCode code = compileGroup.Data.Code.ByName(name);
 		if (code is null)
 			return null;
-		return new GameMakerCodeFile(code, compileGroup.GlobalContext);
+		string text = new DecompileContext(compileGroup.GlobalContext, code, Settings).DecompileToString();
+		return new CodeFile(text);
 	}
-
-	public override string? GetReplacedCodeVerbatim(string file) {
-		if (!replaced.ContainsKey(file))
-			return null;
-		return replaced[file];
-	}
-
-	private readonly Dictionary<string, string> replaced = new Dictionary<string, string>();
+	
+	/*
 	public override void Replace(string file, string code) {
 		compileGroup.QueueCodeReplace(compileGroup.Data.Code.ByName(file), code);
-		replaced[file] = code;
 	}
+	*/
 }

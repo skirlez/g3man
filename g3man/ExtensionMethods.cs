@@ -18,7 +18,7 @@ public static class ExtensionMethods
 	
 	public static void SetExpand(this Widget widget, bool expand) {
 		widget.SetHexpand(expand);
-		widget.SetVexpand(true);
+		widget.SetVexpand(expand);
 	}
 	
 	public static Box With(this Box box, params  Widget[] widgets) {

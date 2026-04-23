@@ -36,6 +36,7 @@
       flags = [ "-DG3MAN_SKIP_LIBXDELTA=ON" ];
     };
     
+
     g3man = pkgs.buildDotnetModule {
       pname = "g3man";
       version = "8";

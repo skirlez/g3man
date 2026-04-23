@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using g3man.Util;
+using PatchCommon;
 
 namespace g3man.Models;
 
@@ -210,7 +211,7 @@ public class Mod : IMod {
 	}
 	
 	public string Identify() {
-		return $"{DisplayName} (ID \"{ModId}\")";
+		return $"\"{DisplayName}\" (ID \"{ModId}\")";
 	} 
 }
 public class InvalidModException(string message) : Exception(message);
@@ -218,23 +219,33 @@ public class InvalidModException(string message) : Exception(message);
 public class PatchLocation {
 	public string Path;
 	public PatchFormatType Type;
-	
+
+	public string Extension {
+		get {
+			return Type switch {
+				PatchFormatType.GMLP => "gmlp",
+				PatchFormatType.GMLPv2 => "lua",
+				_ => throw new UnreachableException()
+			};
+		}
+	}
+
+
 	public PatchLocation(JsonElement root) {
 		Path = JsonUtil.GetStringOrThrow(root, "path");
 		string typeString = JsonUtil.GetStringOrThrow(root, "type");
 		Type = typeString switch {
 			"gmlp" => PatchFormatType.GMLP,
+			"gmlpv2" => PatchFormatType.GMLPv2,
 			_ => throw new InvalidPatchTypeException("Invalid patch format type: " + typeString
-				+ "\nRight now the only type is \"gmlp\".)")
+				+ "\nSupported types: \"gmlp, gmlpv2\".)")
 		};
 	}
 }
 public class InvalidPatchTypeException(string message) : InvalidModException(message);
 
 
-public enum PatchFormatType {
-	GMLP
-}
+
 
 public class RelatedMod {
 	public string ModId;

@@ -25,12 +25,12 @@ write_or_condition('test5')
 		return
 """
 if (((((((condition)
-|| test0)
-&& test1)
-&& test2)
-|| test3)
-&& test4)
 || test5)
+&& test4)
+|| test3)
+&& test2)
+&& test1)
+|| test0)
 """;
 	}
 }

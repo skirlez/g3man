@@ -8,7 +8,9 @@ A mod manager and mod patcher for GameMaker games.
 
 Utilizes the incredible [UndertaleModLib](https://github.com/UnderminersTeam/UndertaleModTool) and [Underanalyzer](https://github.com/UnderminersTeam/Underanalyzer) libraries.
 
-This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), an interactive website for creating gmlp patches used by g3man. You can try it out [here](https://skirlez.github.io/g3man/)!
+This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae),
+an interactive website for creating GMLPv2 patches. You can try it out [here](https://skirlez.github.io/g3man/)!
+(GMLPv2 patches will be usable in version 8, right now they're on the main branch).
 
 ## Features
 - Support for all GameMaker games compiled in VM mode (theoretically)
@@ -26,6 +28,9 @@ This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae), a
 - Efficient pre-loading of the game's datafile
 
 *(You can have several Xdelta patches, but every consecutive patch has to be made for the output of the prior patches)
+
+## Coming in Version 8
+- GMLPv2: a Lua-based patching solution
 
 ## Installation
 

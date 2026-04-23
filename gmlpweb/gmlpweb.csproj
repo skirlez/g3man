@@ -17,7 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\gmlp\gmlp.csproj" />
+    <ProjectReference Include="..\gmlpv2\gmlpv2.csproj" />
+    <ProjectReference Include="..\PatchCommon\PatchCommon.csproj" />
     <ProjectReference Include="..\UndertaleModLib\UndertaleModLib.csproj" />
   </ItemGroup>
     
