@@ -213,9 +213,9 @@ public class PatcherWindow : G3manWindow {
 
 		List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
 		DatafilePatcher datafilePatcher = new DatafilePatcher();
-		
-		
-		string relativeProfilePath = Path.GetRelativePath(game.Directory, profilePath);
+
+
+		string relativeProfilePath = $"g3man/profiles/{profile.ID}";
 		
 		UndertaleData? output = datafilePatcher.Patch(noXdeltas, profile, profilePath, 
 			relativeProfilePath, profile.ID,
