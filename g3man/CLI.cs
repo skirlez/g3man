@@ -55,7 +55,7 @@ public class CLI {
 
 				Profile profile;
 				try {
-					profile = Profile.Parse(profileDirectoryInfo.FullName, doFolderCheck: false);
+					profile = Profile.ParseFolder(profileDirectoryInfo.FullName, doFolderCheck: false);
 				}
 				catch (Exception e) {
 					Program.Logger.Error($"Failed to parse profile:\n{e.Message}");

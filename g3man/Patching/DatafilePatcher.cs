@@ -334,7 +334,7 @@ public class DatafilePatcher {
 			if (path == "")
 				return true;
 			setStatusAndInfo($"Running script: {path}");
-			string relativePath = Path.Combine(mod.FolderName, path);
+			string relativePath = Path.Combine(mod.ModId, path);
 			string fullStringPath = Path.Combine(profileLocation, relativePath);
 			string code;
 				
@@ -374,7 +374,7 @@ public class DatafilePatcher {
 		foreach (Mod mod in mods) {
 			if (mod.DatafilePath != "") {
 				setStatusAndInfo($"Merging: {mod.DisplayName}");
-				string fullDatafilePath = Path.Combine(profileLocation, mod.FolderName, mod.DatafilePath);
+				string fullDatafilePath = Path.Combine(profileLocation, mod.ModId, mod.DatafilePath);
 				UndertaleData? modData = null;
 				try {
 					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
@@ -386,7 +386,7 @@ public class DatafilePatcher {
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
-				merge(data, modData, Path.Combine(profileLocation, mod.FolderName));
+				merge(data, modData, Path.Combine(profileLocation, mod.ModId));
 				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 			}
@@ -419,7 +419,7 @@ public class DatafilePatcher {
 				// the only one right now
 				Debug.Assert(patchLocation.Type == PatchFormatType.GMLP);
 				
-				string modFolder = Path.Combine(profileLocation, mod.FolderName);
+				string modFolder = Path.Combine(profileLocation, mod.ModId);
 				string fullPath = Path.Combine(modFolder, patchLocation.Path);
 				
 				if (Directory.Exists(fullPath)) {

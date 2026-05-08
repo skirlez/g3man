@@ -78,7 +78,7 @@ public class Profile {
 		Parallel.ForEach(profileFolders, profileFolder => {
 
 			try {
-				Profile profile = Parse(profileFolder);
+				Profile profile = ParseFolder(profileFolder);
 				profiles.Add(profile);
 			}
 			catch (Exception e) {
@@ -89,17 +89,24 @@ public class Profile {
 		return profiles.ToList();
 	}
 	
-	public static Profile Parse(string profileFolder, bool doFolderCheck = true) {
+	public static Profile ParseFolder(string profileFolder, bool doFolderCheck = true) {
 		string fullPath = Path.Combine(profileFolder, "profile.json");
-		string text = File.ReadAllText(fullPath); 
-		JsonDocument jsonDoc = JsonDocument.Parse(text);
 		string folderName = Path.GetFileName(profileFolder);
-		Profile profile = new Profile(jsonDoc.RootElement, folderName);
+		Profile profile;
+		{
+			using FileStream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read);
+			profile = Parse(stream, folderName);
+		}
 		if (doFolderCheck && folderName != profile.ID)
 			throw new InvalidDataException($"Profile's ID does not match with its folder name. ID is \"{profile.ID}\", but found it in folder \"{folderName}\"");
 		return profile;
 	}
-
+	public static Profile Parse(Stream stream, string v1folderName) {
+		JsonDocument jsonDoc = JsonDocument.Parse(stream);
+		Profile profile = new Profile(jsonDoc.RootElement, v1folderName);
+		return profile;
+	}
+	
 	public JsonObject ToJson() {
 		return new JsonObject() {
 			["format_version"] = 2,
@@ -159,5 +166,9 @@ public class Profile {
 				disabledIds.Add(kvp.Key.ModId);
 		}
 		ModsDisabled = disabledIds.ToArray();
+	}
+
+	public string Identify() {
+		return $"{Name} (ID \"{ID}\")";
 	}
 }

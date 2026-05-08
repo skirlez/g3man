@@ -134,12 +134,14 @@ public partial class MainWindow {
 				if (path is null)
 					return;
 				if (Path.GetExtension(path) == ".xdelta") {
+					// TODO: this is done on the main thread
 					File.Copy(path, Path.Combine(Program.CurrentProfileFolderPath(), Path.GetFileName(path)), true);
+					ParseModsAndUpdateMenu();
 				}
-				else
-					TryExtractingZip(file, ZipType.Mod);
-
-				ParseModsAndUpdateMenu();
+				else {
+					UnzipperWindow window = new UnzipperWindow(UnzipperWindow.ZipType.Mod);
+					window.Dialog(this, file, ParseModsAndUpdateMenu);
+				}
 			});
 			window.Dialog(this);
 		};

@@ -36,8 +36,9 @@ public partial class MainWindow {
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
 			FileDialogWindow window = new FileDialogWindow("Select a profile ZIP file", [zipFilter], (file) => {
-				TryExtractingZip(file, ZipType.Profile);
-				ParseProfilesAndUpdateMenu();
+				UnzipperWindow window = new UnzipperWindow(UnzipperWindow.ZipType.Profile);
+				window.Dialog(this, file, ParseProfilesAndUpdateMenu);
+				
 			});
 			window.Dialog(this);
 		};

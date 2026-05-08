@@ -22,18 +22,17 @@ public partial class MainWindow {
 		
 		Label updateFoundLabel = Label.New("");
 
-		void setUpdateFoundText(int version) {
+		void setUpdateFoundText(string version) {
 			updateFoundLabel.SetMarkup(
 				$"You are on an outdated version!"
 				+ $"\n(Latest is {version}, you are on {Program.Version})"
 				+ $"\nYou may download it <a href=\"https://github.com/skirlez/g3man/releases/latest\">here</a>.");
 		}
 
-		setUpdateFoundText(Program.Version + 1);
+		setUpdateFoundText((Program.Version + 1).ToString());
 		
 		Label checkingUpdateLabel = Label.New("Checking for updates...");
 		Label latestVersionLabel = Label.New("You are on the latest version.");
-		Label futureVersionLabel = Label.New("You are from the future!\nOr just using bleeding edge.");
 		Label errorLabel = Label.New("Could not check for updates.\nYou should probably check manually.");
 		Label empty = Label.New("");
 		
@@ -42,7 +41,6 @@ public partial class MainWindow {
 		updateStatusStack.AddChild(updateFoundLabel);
 		updateStatusStack.AddChild(checkingUpdateLabel);
 		updateStatusStack.AddChild(latestVersionLabel);
-		updateStatusStack.AddChild(futureVersionLabel);
 		updateStatusStack.AddChild(errorLabel);
 		updateStatusStack.AddChild(empty);
 		updateStatusStack.SetVisibleChild(empty);
@@ -56,23 +54,21 @@ public partial class MainWindow {
 		UpdateChecker checker = new UpdateChecker(() => {
 			updateStatusStack.SetVisibleChild(checkingUpdateLabel);
 		}, 
-		(int version) => {
+		(string? version) => {
 			Program.RunOnMainThreadEventually(() => {
-				if (version == 0) {
+				if (version is null) {
 					updateStatusStack.SetVisibleChild(errorLabel);
 					
 				}
-				else if (version > Program.Version) {
+				else if (version != Program.Version.ToString()) {
 					setUpdateFoundText(version);
 					updateStatusStack.SetVisibleChild(updateFoundLabel);
 					AddExclamationToAbout();
 				}
-				else if (version == Program.Version) {
+				else {
 					updateStatusStack.SetVisibleChild(latestVersionLabel);
 				}
-				else {
-					updateStatusStack.SetVisibleChild(futureVersionLabel);
-				}
+
 			});
 		});
 		

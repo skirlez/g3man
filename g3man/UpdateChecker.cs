@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace g3man;
 
-public class UpdateChecker(Action OnStarted, Action<int> OnCompletion) {
+public class UpdateChecker(Action OnStarted, Action<string?> OnCompletion) {
     private const string URL = "https://api.github.com/repos/skirlez/g3man/releases/latest";
     private volatile int Ready = 1;
     public void Check() {
@@ -18,12 +18,11 @@ public class UpdateChecker(Action OnStarted, Action<int> OnCompletion) {
                 client.DefaultRequestHeaders.Add("User-Agent", "g3man Update Checker");
                 string result = await client.GetStringAsync(URL);
                 Dictionary<string, object> dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(result)!;
-                string tagName = string.Join("", dictionary["tag_name"].ToString()!.Where(char.IsDigit));
-                int version = int.Parse(tagName);
-                OnCompletion.Invoke(version);
+                string tagName = dictionary["tag_name"].ToString()!;
+                OnCompletion.Invoke(tagName);
             }
             catch {
-                OnCompletion.Invoke(0);
+                OnCompletion.Invoke(null);
             }
             Ready = 1;
         }) {

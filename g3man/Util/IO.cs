@@ -11,8 +11,10 @@ public static class IO {
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
 	public const string OutputHashTextFileName = "last_hash.txt";
 	
-	public static readonly string[] DatafileNames = ["data.win", "game.unx"];
-	public static readonly string[] DatafileRelativePaths = ["data.win", "assets/game.unx"];
+	public static readonly string[] DatafileNames = ["data.win", "game.unx", "game.ios", "game.droid"];
+	
+	// i am completely guessing on where game.ios would be lol
+	public static readonly string[] DatafileRelativePaths = ["data.win", "assets/game.unx", "assets/game.ios", "assets/game.droid"];
 
 	public static string CommaSeparatedDatafilePaths() {
 		return string.Join(", ", DatafileRelativePaths);

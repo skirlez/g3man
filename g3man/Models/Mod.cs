@@ -47,8 +47,6 @@ public class Mod : IMod {
 	
 	public Import[] Imports;
 	public string[] Exports;
-
-	public string FolderName;
 	
 	
 	/*
@@ -70,7 +68,7 @@ public class Mod : IMod {
 	*/
 
 	
-	private Mod(JsonElement root, string folderName) {
+	private Mod(JsonElement root) {
 		ModId = JsonUtil.GetStringOrThrow(root, "mod_id");
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		Description = JsonUtil.GetStringOrThrow(root, "description", "");
@@ -126,8 +124,6 @@ public class Mod : IMod {
 		Imports = JsonUtil.GetObjectArrayOrThrow(root, "imports", [])
 			.Select(x => new Import(x)).ToArray();
 		Exports = JsonUtil.GetStringArrayOrThrow(root, "exports", []);
-		
-		FolderName = folderName;
 	}
 
 	public bool HasAnyScripts() {
@@ -150,15 +146,8 @@ public class Mod : IMod {
 		});
 		Parallel.ForEach(modFolders, modFolder => {
 			string fullPath = Path.Combine(modFolder, "mod.json");
-
-			
 			try {
-				string text = File.ReadAllText(fullPath);
-				JsonDocument jsonDoc = JsonDocument.Parse(text);
-				string folderName = Path.GetFileName(modFolder);
-				Mod mod = new Mod(jsonDoc.RootElement, folderName);
-				if (folderName != mod.ModId)
-					throw new InvalidDataException($"Mod's ID does not match with its folder name. ID is \"{mod.ModId}\", but found it in folder \"{folderName}\"");
+				Mod mod = ParseFolder(modFolder);
 				mods.Add(mod);
 			}
 			catch (Exception e) {
@@ -168,6 +157,24 @@ public class Mod : IMod {
 
 
 		return mods.ToList();
+	}
+	
+	public static Mod ParseFolder(string modFolder) {
+		string fullPath = Path.Combine(modFolder, "mod.json");
+		string folderName = Path.GetFileName(modFolder);
+		Mod mod;
+		{
+			using FileStream s = new FileStream(fullPath, FileMode.Open, FileAccess.Read);
+			mod = Parse(s);
+		}
+		if (folderName != mod.ModId)
+			throw new InvalidDataException($"Profile's ID does not match with its folder name. ID is \"{mod.ModId}\", but found it in folder \"{folderName}\"");
+		return mod;
+	}
+	public static Mod Parse(Stream stream) {
+		JsonDocument jsonDoc = JsonDocument.Parse(stream);
+		Mod mod = new Mod(jsonDoc.RootElement);
+		return mod;
 	}
 
 	public List<XdeltaSourcePair> GetXdeltaTargetPairs(string gameFolder, string profileFolder) {
