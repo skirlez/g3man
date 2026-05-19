@@ -1,36 +1,85 @@
-async function onBlazorInitialized() {
-  patchDisplay.textContent = patchEditor.value;
-  codeDisplay.textContent = codeEditor.value;
-  applyPatch();
-}
+
+
+const pDiv = document.getElementById("patchEditor");
+const cDiv = document.getElementById("codeEditor");
+const pcDiv = document.getElementById("patchedCodeEditor");
 
 const patchOption = document.getElementById("patch");
 const decompileOption = document.getElementById("decompile");
 const disassembleOption = document.getElementById("disassemble");
 
-const patchEditor = document.getElementById("patchEditor");
-const patchDisplay = document.getElementById("patchDisplay");
-const codeEditor = document.getElementById("codeEditor");
-const codeDisplay = document.getElementById("codeDisplay");
-const patchedCode = document.getElementById("patchedCode");
 const terminal = document.getElementById("terminal");
 
-function refreshHighlights() {
-  codeDisplay.removeAttribute("data-highlighted");
-  patchDisplay.removeAttribute("data-highlighted");
-  patchedCode.removeAttribute("data-highlighted");
-  hljs.highlightAll();
+async function onBlazorInitialized() {
+  pDiv.textContent = 
+`
+
+patch("code entry name(s) would go here", function(t)
+  -- adding code after a condition
+  local i = 1
+  i = t:find_line_with(i, 'if (condition)')
+  t:write(i + 1, 'show_message("Patch applied!")')
+
+  -- adding more conditions to an if statement
+  i = 1
+  t:write_before(i, 'added_condition = true')
+  i = t:find_line_with(i, 'if (condition)')
+  t:write(i, '&& added_condition')
+
+  -- removing unwanted code
+  i = 1
+  i = t:find_line_with(i, 'I hope')
+  t:write_before(i, 'if false {')
+  t:write(i, '}')
+end)
+
+
+-- https://github.com/skirlez/g3man/wiki/Introduction-to-gmlp`
+  pEditor = ace.edit(pDiv, {
+    theme : "ace/theme/one_dark",
+    showPrintMargin : false,
+    mode : "ace/mode/lua",
+    useWorker : false
+  });
+  pEditor.session.on("change", function() {
+    applyPatch();
+  })
+
+  cDiv.textContent = 
+`condition = true;
+
+if (condition)
+{
+    show_message("Condition met!");
+}
+else
+{
+    show_message("Condition not met...");
+    show_message("I hope no one patches this out");
+}`
+  cEditor = ace.edit(cDiv, {
+    theme : "ace/theme/one_dark",
+    showPrintMargin : false,
+    mode : "ace/mode/javascript",
+    useWorker : false
+  });
+  cEditor.session.on("change", function() {
+    applyPatch();
+  })
+
+  pcDiv.style.visiblity = "visible";
+  pcEditor = ace.edit(pcDiv, {
+    theme : "ace/theme/one_dark",
+    showPrintMargin : false,
+    mode : "ace/mode/javascript",
+    readOnly : true,
+    useWorker : false
+  });
+
+  
+  applyPatch();
 }
 
-patchEditor.addEventListener("input", (event) => {
-  patchDisplay.textContent = patchEditor.value;
-  applyPatch();
-});
-
-codeEditor.addEventListener("input", (event) => {
-  codeDisplay.textContent = codeEditor.value;
-  applyPatch();
-});
 
 patchOption.onclick = () => {
   applyPatch();
@@ -44,14 +93,15 @@ disassembleOption.onclick = () => {
   applyPatch();
 };
 
+
 async function applyPatch() {
   let patched = await DotNet.invokeMethodAsync(
     "gmlpweb",
     "patch",
-    patchEditor.value,
-    codeEditor.value,
+    pEditor.getValue(),
+    cEditor.getValue(),
   );
-
+  
   if (patched.type === 1) {
     // error
     terminal.classList.add("error");
@@ -64,23 +114,35 @@ async function applyPatch() {
     return;
   }
 
-  if (disassembleOption.checked) {
-    patched.result = await DotNet.invokeMethodAsync(
-      "gmlpweb",
-      "compile_and_disassemble",
-      patched.result,
+  let output;
+  if (patchOption.checked) {
+    output = patched;
+  }
+  else if (disassembleOption.checked) {
+    output = await DotNet.invokeMethodAsync(
+        "gmlpweb",
+        "compile_and_disassemble",
+        patched.result,
     );
-  } else if (decompileOption.checked) {
-    patched.result = await DotNet.invokeMethodAsync(
-      "gmlpweb",
-      "compile_and_decompile",
-      patched.result,
+  } 
+  else if (decompileOption.checked) {
+    output = await DotNet.invokeMethodAsync(
+        "gmlpweb",
+        "compile_and_decompile",
+        patched.result,
     );
   }
-
-  patchedCode.textContent = patched.result;
-  terminal.textContent = "All quiet on the western front.";
-  terminal.classList.remove("error");
-
-  refreshHighlights();
+  if (output.type === 1) {
+    // compilation fail
+    terminal.classList.add("error");
+    terminal.textContent = output.result;
+    output = patched;
+  }
+  else {
+    terminal.textContent = "All quiet on the western front.";
+    terminal.classList.remove("error");
+  }
+  
+  pcEditor.setValue(output.result);
+  pcEditor.clearSelection();
 }

@@ -11,7 +11,6 @@
     --low-contrast: var(--on-background);
     --caret: var(--foreground);
     --editor-background: #282c34;
-    --editor-border-radius: 1rem;
     --editor-gaps: 1rem;
     --terminal-background: black;
     --error: red;
@@ -47,8 +46,7 @@ header img {
     gap: var(--editor-gaps);
 }
 
-#editors,
-#output {
+#editors, #output {
     width: 100%;
     max-width: 50%;
     height: 100%;
@@ -56,20 +54,8 @@ header img {
     flex-direction: column;
     gap: var(--editor-gaps);
 }
-
 #output > article {
     height: 100%;
-}
-
-#patchContainer,
-#codeContainer,
-#patchedCodeContainer {
-    background-color: var(--editor-background);
-}
-
-#options {
-    padding-left: 1rem;
-    padding-top: 1rem;
 }
 
 .layered {
@@ -98,16 +84,13 @@ code {
     height: 100%;
 }
 
-textarea {
-    resize: none;
-}
-
 #terminal {
     padding: 1rem;
     background-color: var(--terminal-background);
     color: var(--low-contrast);
     overflow: scroll;
     height: max-content;
+    z-index: 10;
 }
 
 #terminal.error {
@@ -120,25 +103,7 @@ pre {
     margin-bottom: 0;
 }
 
-#patchContainer,
-#patchDisplay {
-    border-top-right-radius: var(--editor-border-radius);
-    border-bottom-right-radius: var(--editor-border-radius);
-}
 
-#codeContainer,
-#codeDisplay {
-    border-top-right-radius: var(--editor-border-radius);
-}
-
-#patchedCodeContainer {
-    border-top-left-radius: var(--editor-border-radius);
-    border-bottom-left-radius: var(--editor-border-radius);
-}
-
-#output > :nth-child(2) {
-    border-top-left-radius: var(--editor-border-radius);
-}
 
 @media (max-width: 80ch) {
     #app {
@@ -146,16 +111,24 @@ pre {
         margin: 0.5rem;
     }
 
-    #patchContainer,
-    #patchDisplay,
-    #codeContainer,
-    #codeDisplay,
-    #patchedCodeContainer,
-    #patchedCode {
-        border-radius: var(--editor-border-radius);
-    }
+}
 
-    #output > :nth-child(2) {
-        border-top-right-radius: var(--editor-border-radius);
-    }
+
+#editors {
+    display: flex;
+}
+
+#patchEditor, #codeEditor {
+    width: 100%;
+    height: 50%;
+}
+
+#patchedCodeEditor {
+    height: 90%;
+    width: 100%;
+}
+
+.displayTitle {
+    color: var(--foreground);
+    margin-left: 5px;
 }

@@ -23,72 +23,44 @@
         </header>
         <main id="app">
             <section id="editors">
-                <article id="patchContainer" class="layered">
-                    <textarea id="patchEditor" spellcheck="false">
-// adding code after a condition
-find_line_with('if (condition)')
-move(1)
-write('show_message("Patch applied!")')
-
-// adding more conditions to an if statement
-move_to_start()
-write('added_condition = true')
-find_line_with('if (condition)')
-write_and_condition('added_condition')
-
-// removing unwanted code
-move_to_end()
-reverse_find_line_with('I hope')
-write_before('if false {')
-write_last('}')
-
-// https://github.com/skirlez/g3man/wiki/Introduction-to-gmlp</textarea
-                    >
-                    <pre><code id="patchDisplay" class="language-js"></code></pre>
-                </article>
-                <article id="codeContainer" class="layered">
-                    <textarea id="codeEditor" spellcheck="false">
-condition = true;
-
-if (condition)
-{
-    show_message("Condition met!");
-}
-else
-{
-    show_message("Condition not met...");
-    show_message("I hope no one patches this out");
-}</textarea
-                    >
-                    <pre><code id="codeDisplay" class="language-gml"></code></pre>
-                </article>
+                <div class="displayTitle">
+                    GMLPv2 Patch
+                </div>
+                <div id="patchEditor"></div>
+                <div class="displayTitle">
+                    Source Code
+                </div>
+                <div id="codeEditor"></div>
             </section>
             <section id="output">
                 <article id="patchedCodeContainer">
                     <article id="options">
+                        <div class="displayTitle">
+                            Result
+                        </div>
                         <input type="radio" id="patch" name="options" />
-                        <label for="patch">just patch</label>
+                        <label for="patch">Just patch</label>
                         <input
                             type="radio"
                             id="decompile"
                             name="options"
                             checked
                         />
-                        <label for="decompile">also decompile</label>
+                        <label for="decompile">Compile and decompile</label>
                         <input type="radio" id="disassemble" name="options" />
-                        <label for="disassemble">also disassemble</label>
+                        <label for="disassemble">Compile and disassemble</label>
                     </article>
-                    <pre><code id="patchedCode" class="language-gml"></code></pre>
+                    <div id="patchedCodeEditor"></div>
                 </article>
-                <code id="terminal">All quiet on the western front.</code>
+                <code style="white-space: pre-line" id="terminal">All quiet on the western front. </code>
             </section>
         </main>
-
         <div id="blazor-error-ui">
             An unhandled error has occurred.
             <a href="" class="reload">Reload</a>
             <a class="dismiss">🗙</a>
         </div>
+        <script src="/ace-editor/src-min/ace.js" type="text/javascript" charset="utf-8"></script>
         <script src="_framework/blazor.webassembly.js"></script>
         <script src="main.js"></script>
         <script src="https://unpkg.com/@highlightjs/cdn-assets@11.11.1/highlight.min.js"></script>

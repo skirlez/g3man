@@ -20,13 +20,15 @@ public class PatcherWindow : G3manWindow {
 		this.owner = owner;
 		
 		SetSizeRequest(400, 300);
-		SetResizable(false);
+
 		statusLabel = Label.New("");
 		statusLabel.SetJustify(Justification.Center);
 		statusLabel.SetValign(Align.Center);
 		statusLabel.SetHalign(Align.Center);
 		statusLabel.SetMargin(20);
 		statusLabel.SetVexpand(true);
+		statusLabel.SetWrap(true);
+		
 		
 		closeButton = Button.NewWithLabel("Close");
 		closeButton.SetSensitive(false);

@@ -20,5 +20,8 @@
     <PropertyGroup Condition="'$(IsLinux)'=='true'">
         <DefineConstants>LINUX</DefineConstants>
     </PropertyGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\PatchCommon\PatchCommon.csproj" />
+    </ItemGroup>
     
 </Project>
