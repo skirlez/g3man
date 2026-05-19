@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using g3man.Models;
 using g3man.Util;
 using UndertaleModLib;
@@ -19,6 +20,7 @@ public class DataLoader {
 		logger = Logger.Make("DATALOADER");
 		Thread thread = new Thread(() => {
 			UndertaleData? result = null;
+			string? hash = null;
 			MemoryStream dataMemory = new MemoryStream();
 			while (true) {
 				string path;
@@ -34,7 +36,8 @@ public class DataLoader {
 					}
 					else {
 						if (result is not null) {
-							logger.Debug("Loaded data of " + result.GeneralInfo.DisplayName.Content);
+							logger.Info("Loaded data of " + result.GeneralInfo.DisplayName.Content);
+							logger.Info($"Data has MD5 hash: {hash}");
 							Lock.Result = result;
 						}
 						logger.Debug("Waiting (idle)");
@@ -73,7 +76,6 @@ public class DataLoader {
 							stream.CopyTo(dataMemory);
 						}
 						else {
-							
 							logger.Debug($"Found {xdeltas.Count} xdelta patches");
 							logger.Debug($"Applying: {xdeltas.First().Filename}");
 							int status = xdeltas.First().Decode(path, dataMemory);
@@ -101,10 +103,14 @@ public class DataLoader {
 					}
 
 					try {
+						dataMemory.Seek(0,SeekOrigin.Begin);
+						hash = IO.HashToString(MD5.HashData(dataMemory));
+						dataMemory.Seek(0,SeekOrigin.Begin);
 						result = UndertaleIO.Read(dataMemory);
 					}
 					catch (Exception e) {
 						result = null;
+						hash = null;
 						logger.Error("Failed to load datafile: " + e);
 						Lock.Errored = true;
 						continue;

@@ -87,7 +87,10 @@ public class Game {
 	}
 
 	public string GetCleanDatafilePath() {
-		return Path.Combine(Directory, "g3man", DatafilePatcher.CleanDataName);
+		return Path.Combine(Directory, GetCleanDatafileRelativePath());
+	}
+	public string GetCleanDatafileRelativePath() {
+		return Path.Combine("g3man", DatafilePatcher.CleanDataName);
 	}
 	public string GetBackupDatafilePath() {
 		return Path.Combine(Directory, "g3man", DatafilePatcher.CleanDataBackupName);

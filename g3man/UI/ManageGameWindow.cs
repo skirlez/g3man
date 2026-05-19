@@ -97,7 +97,7 @@ public class ManageGameWindow : G3manWindow {
 		
 		Label[] paradigms = [
 			Label.New("\"Do not modify game; launch via g3man/arguments ONLY\""),
-			Label.New("\"Modify game; launch in any way\"")
+			Label.New("\"Modify game; can launch via any means\"")
 		];
 		foreach (Label p in paradigms) {
 			paradigmDisplayStack.AddChild(p);
@@ -150,22 +150,51 @@ public class ManageGameWindow : G3manWindow {
 		openGameFolderButton.OnClicked += (_, _) => { IO.OpenFileExplorer(game.Directory); };
 		openGameFolderButton.SetHalign(Align.Start);
 		
-		Button restoreDatafileButton = Button.NewWithLabel($"Restore clean datafile ({game.GetInputDatafileRelativePath()})");
-		restoreDatafileButton.OnClicked += (_, _) => {
-			try {
-				// TODO: don't run this on the UI thread
-				IO.Deapply(game);
-			}
-			catch (Exception e) {
-				Program.Logger.Error($"Failed to restore clean datafile: {e}");
-				PopupWindow errorWindow = new PopupWindow(this, "Error!", "Error occured trying to restore the clean datafile", "Damn");
-				errorWindow.Dialog();
-				return;
-			}
-			PopupWindow window = new PopupWindow(this, "Success!", "Clean datafile has been restored!", "Thanks");
-			window.Dialog();
+		Button cleanToInput = Button.NewWithLabel($"(1) Copy {game.GetCleanDatafileRelativePath()} -> {game.GetInputDatafileRelativePath()}");
+		cleanToInput.OnClicked += (_, _) => {
+			DoFileOperation(() => {
+				try {
+					IO.Deapply(game);
+					return (true, null);
+				}
+				catch (Exception e) {
+					Program.Logger.Error($"Failed to restore clean datafile: {e}");
+					return (false, null);
+				}
+			});
 		};
-		restoreDatafileButton.SetHalign(Align.Start);
+		cleanToInput.SetHalign(Align.Start);
+		
+		Button inputToClean = Button.NewWithLabel($"(2) Copy {game.GetInputDatafileRelativePath()} -> {game.GetCleanDatafileRelativePath()}");
+		inputToClean.OnClicked += (_, _) => {
+			DoFileOperation(() => {
+				try {
+					File.Copy(game.GetInputDatafilePath(), game.GetCleanDatafilePath(), true);
+					return (true, null);
+				}
+				catch (Exception e) {
+					Program.Logger.Error($"Failed to copy input datafile to clean datafile: {e}");
+					return (false, null);
+				}
+			});
+		};
+		inputToClean.SetHalign(Align.Start);
+		Button restoreCleanBackup = Button.NewWithLabel($"(3) Restore last backup of clean datafile");
+		restoreCleanBackup.OnClicked += (_, _) => {
+			DoFileOperation(() => {
+				try {
+					if (!File.Exists(game.GetBackupDatafilePath()))
+						return (false, "No clean datafile backup found...");
+					File.Copy(game.GetBackupDatafilePath(), game.GetCleanDatafilePath(), true);
+					return (true, null);
+				}
+				catch (Exception e) {
+					Program.Logger.Error($"Failed to copy input datafile to clean datafile: {e}");
+					return (false, null);
+				}
+			});
+		};
+		restoreCleanBackup.SetHalign(Align.Start);
 		
 		
 		Button saveButton = Button.NewWithLabel("Save");
@@ -209,12 +238,30 @@ public class ManageGameWindow : G3manWindow {
 		spacer.SetVexpand(true);
 		
 		Box box = Box.New(Orientation.Vertical, 10);
+
+		Label optionsLabel = Label.New("");
+		optionsLabel.SetMarkup("<u>Options</u>");
+		optionsLabel.SetHalign(Align.Start);
+		Label paradigmLabel = Label.New("");
+		paradigmLabel.SetMarkup("<u>Patching Paradigm</u>");
+		paradigmLabel.SetHalign(Align.Start);
+		Label fileLabel = Label.New("");
+		fileLabel.SetMarkup("<u>File Management</u>");
+		fileLabel.SetHalign(Align.Start);
+		
 		box.SetMargin(10);
+		box.Append(optionsLabel);
 		box.Append(nameBox);
 		box.Append(launchMethodBox);
+		box.Append(Separator.New(Orientation.Horizontal));
+		box.Append(paradigmLabel);
 		box.Append(paradigmBox);
+		box.Append(Separator.New(Orientation.Horizontal));
+		box.Append(fileLabel);
 		box.Append(openGameFolderButton);
-		box.Append(restoreDatafileButton);
+		box.Append(cleanToInput);
+		box.Append(inputToClean);
+		box.Append(restoreCleanBackup);
 		box.Append(spacer);
 		box.Append(fateBox);
 		
@@ -227,6 +274,29 @@ public class ManageGameWindow : G3manWindow {
 		SetModal(true);
 		Present();
 	}
-	
+
+
+	private void DoFileOperation(Func<(bool, string?)> action) {
+		Thread thread = new Thread(() => {
+			(bool success, string? message) = action();
+			Program.RunOnMainThreadEventually(() => {
+				PopupWindow window;
+				if (success) {
+					window = new PopupWindow(this,
+						"Success", message ?? "Operation completed successfully", "Thanks");
+				}
+				else {
+					window = new PopupWindow(this,
+						"Error!", message ?? "An error occurred trying to do this operation", "Damn");
+				}
+				window.Dialog();
+				SetSensitive(true);
+			});
+		});
+		//TODO: make sure this prevents you from closing the window
+		SetSensitive(false);
+		thread.Start();
+		
+	}
 }
 
