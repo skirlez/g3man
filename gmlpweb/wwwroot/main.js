@@ -16,19 +16,18 @@ async function onBlazorInitialized() {
 
 patch("code entry name(s) would go here", function(t)
   -- adding code after a condition
-  local i = 1
-  i = t:find_line_with(i, 'if (condition)')
+  local i
+  i = t:find_line_with(1, 'if (condition)')
   t:write(i + 1, 'show_message("Patch applied!")')
 
   -- adding more conditions to an if statement
-  i = 1
-  t:write_before(i, 'added_condition = true')
-  i = t:find_line_with(i, 'if (condition)')
+  t:write_before(1, 'added_condition = true')
+  
+  i = t:find_line_with(1, 'if (condition)')
   t:write(i, '&& added_condition')
 
   -- removing unwanted code
-  i = 1
-  i = t:find_line_with(i, 'I hope')
+  i = t:find_line_with(1, 'I hope')
   t:write_before(i, 'if false {')
   t:write(i, '}')
 end)
