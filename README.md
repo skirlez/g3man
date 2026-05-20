@@ -45,9 +45,11 @@ Go to the [Releases](https://github.com/skirlez/g3man/releases) page, and follow
 
 ## Mods made with g3man
 
-[Void Stranger Endless Void](https://github.com/skirlez/void-stranger-endless-void/): a level builder for Void Stranger
+- [Void Stranger Endless Void](https://github.com/skirlez/void-stranger-endless-void/): a level builder for Void Stranger
 
-[Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the example mods ([1](https://github.com/Skirlez/nubbys-forgery-example-mod), [2](https://github.com/skirlez/nubbys-forgery-example-mod-2)): an API for Nubby's Number Factory, and two mods that depends on it to add new things to the game
+- [Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the example mods ([1](https://github.com/Skirlez/nubbys-forgery-example-mod), [2](https://github.com/skirlez/nubbys-forgery-example-mod-2)): an API for Nubby's Number Factory, and two mods that depends on it to add new things to the game
+
+- [NubPak!](https://gamebanana.com/mods/618918): a huge expansion mod for Nubby's Number Factory
 
 Have YOU made ANYTHING with g3man? I would love to add more to this list! Please open an issue regarding your creation, even if it's something really small.
 
@@ -58,10 +60,6 @@ See this [wiki page](https://github.com/skirlez/g3man/wiki/Building-g3man-and-gm
 
 If you're thinking of contributing, here's a list of things that g3man should have.
 
-- Script Security
-
-  Mods can run just any C# code they want, which is not ideal for security.
-  Scripts are turned off by default for this reason, but there should likely be better measures in place.
 
 - Support for more platforms
   
