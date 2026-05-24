@@ -45,7 +45,7 @@ public abstract class Operation(string name, LuaValueType[] additionalTypes) {
 			state.LineToReinsert = regex.Replace(state.LineToReinsert, replacer);
 		}));
 		
-		All.Add(new EndOperation("get_end"));
+		All.Add(new EndOperation("last_line"));
 	}
 
 	public static void AcquiantAll(LuaTable table) {
@@ -201,7 +201,7 @@ public class FindLineWithOperation(string name, bool isReverse, bool isRegex) : 
 	
 	private static int reverseFindLineWith(int start, string[] lines, string code, string str, bool isRegex) {
 		int positionSum = 0;
-		for (int j = 0; j < start; j++)
+		for (int j = 0; j <= start; j++)
 			positionSum += lines[j].Length + 1;
 		int index;
 		if (isRegex) {
