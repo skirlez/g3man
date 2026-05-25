@@ -14,18 +14,23 @@ public class GameMakerCodeSource(CompileGroup compileGroup) : CodeSource {
 		RemoveSingleLineBlockBraces = false,
 		EmptyLineBeforeSwitchCases = true
 	};
+
+	private Dictionary<string, CodeFile> cache = new();
 	
 	public override CodeFile? GetCodeFile(string name) {
+		if (cache.ContainsKey(name))
+			return cache[name];
 		UndertaleCode code = compileGroup.Data.Code.ByName(name);
 		if (code is null)
 			return null;
 		string text = new DecompileContext(compileGroup.GlobalContext, code, Settings).DecompileToString();
-		return new CodeFile(text);
+		CodeFile file = new CodeFile(text);
+		cache[name] = file;
+		return file;
 	}
-	
-	/*
-	public override void Replace(string file, string code) {
-		compileGroup.QueueCodeReplace(compileGroup.Data.Code.ByName(file), code);
+
+
+	public void RemoveFromCache(string name) {
+		cache.Remove(name);
 	}
-	*/
 }

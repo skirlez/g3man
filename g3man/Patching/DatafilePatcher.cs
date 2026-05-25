@@ -499,6 +499,7 @@ public class DatafilePatcher {
 		foreach (PatchStep<Mod> step in patchSteps) {
 			setStatusAndInfo($"Applying patches... (step {currentStep}/{steps})");
 			PatchResults patchResults = step.Apply();
+		
 			if (patchResults.HasErrors()) {
 				setStatusAndError("Some patches failed to execute!", string.Join('\n', patchResults.GetAllErrors()));
 				return null;
@@ -506,6 +507,7 @@ public class DatafilePatcher {
 			
 			foreach (KeyValuePair<string, string> pair in patchResults.GetAllResults()) {
 				group.QueueCodeReplace(data.Code.ByName(pair.Key), pair.Value);
+				source.RemoveFromCache(pair.Key);
 			}
 
 			CompileResult compileResult = group.Compile();

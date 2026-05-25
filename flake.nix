@@ -39,17 +39,17 @@
 
     g3man = pkgs.buildDotnetModule {
       pname = "g3man";
-      version = "8";
+      version = "9";
       src = builtins.filterSource
       (path: type: type != "directory" || (baseNameOf path != "gmlpweb" && baseNameOf path != ".github"))
       ./.;
   
       projectFile = "g3man";
   
-      # generated via
-      # dotnet restore --packages=packageDir ./g3man/g3man.csproj && nix-shell -p nuget-to-json --command 'nuget-to-json packageDir > g3man-deps.json' && rm -r packageDir
+      # generated via:
+      # dotnet restore --packages=packageDir g3man && dotnet restore --packages=packageDir gmlpv2.Tests && nix-shell -p nuget-to-json --command 'nuget-to-json packageDir > deps-nix.json' && rm -r packageDir
       # (from https://wiki.nixos.org/wiki/DotNET)
-      nugetDeps = ./g3man-deps.json;
+      nugetDeps = ./deps-nix.json;
   
       projectReferences = [];
   
@@ -63,6 +63,11 @@
         libadwaita
         libxdelta
         libg3man
+      ];
+
+      doCheck = true;
+      testProjectFile = [
+        "gmlpv2.Tests"
       ];
   
       # We build the c libraries the Nix way
