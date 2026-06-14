@@ -231,7 +231,7 @@ public class DatafilePatcher {
 		
 		data.MaxLocalVarCount = Math.Max(data.MaxLocalVarCount, modData.MaxLocalVarCount);
 
-		if (data.CodeLocals is not null) {
+		if (modData.CodeLocals is not null) {
 			foreach (UndertaleCodeLocals locals in modData.CodeLocals)
 				data.CodeLocals.Add(locals);
 		}

@@ -120,7 +120,7 @@ public class Game {
 			return Path.Combine(DatafileFolder, $"{profileID}{DatafileExtension}");
 		return Path.Combine($"{profileID}{DatafileExtension}");
 	}
-	public string GetOutputDatafileRelativePath(Profile profile) {
+	public string	GetOutputDatafileRelativePath(Profile profile) {
 		if (profile.EnableOutputOverride)
 			return GetOutputDatafileRelativePath(profile.ID);
 		return GetOutputDatafileRelativePath();
@@ -155,20 +155,22 @@ public class Game {
 		// so i'm assuming it breaks the argument parser. it doesn't seem to break anything else so it is always included.
 		gameArguments.Add("\"");
 		
-		List<string> steamArguments = ["-applaunch", ExecutableSteamAppId.ToString(), "--"];
 		switch (ChosenExecutableType) {
 			case ExecutableType.File:
 				Process.Start(new ProcessStartInfo(Path.Combine(Directory, ExecutablePath), gameArguments) {
-		
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});
 				break;
 			case ExecutableType.Steam:
-				Process.Start(new ProcessStartInfo(config.SteamExecutable, steamArguments.Concat(gameArguments).ToList()) {
+				Console.WriteLine("here");
+				List<string> steamArguments = ["-applaunch", ExecutableSteamAppId.ToString(), "--"];
+				Process? a = Process.Start(new ProcessStartInfo(config.SteamExecutable, steamArguments.Concat(gameArguments).ToList()) {
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});
+				a?.WaitForExit();
+				Console.WriteLine("left");
 				break;
 		}
 	}
@@ -187,6 +189,12 @@ public class Game {
 	}
 
 
+	public static Game Parse(Stream stream, GameEntry entry) {
+		JsonDocument jsonDoc = JsonDocument.Parse(stream);
+		Game game = new Game(jsonDoc.RootElement, entry);
+		return game;
+	}
+	
 	public static List<Game> ParseAll(List<GameEntry> gameEntries, Action<Exception, GameEntry>? errorHandler = null) {
 		ConcurrentBag<Game> games = new ConcurrentBag<Game>();
 		
@@ -197,9 +205,8 @@ public class Game {
 		{
 			try {
 				string fullPath = Path.Combine(gameEntry.Path, "g3man", "game.json");
-				string text = File.ReadAllText(fullPath); 
-				JsonDocument jsonDoc = JsonDocument.Parse(text);
-				Game game = new Game(jsonDoc.RootElement, gameEntry);
+				using FileStream stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read);
+				Game game = Parse(stream, gameEntry);
 				games.Add(game);
 			}
 			catch (Exception e) {

@@ -11,63 +11,103 @@ public class CLI {
 		Program.Config = new Config();
 		Program.Config.AllowModScripting = true;
 		
-		RootCommand root = new RootCommand("This program can apply g3man mods or g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
-		Command applyCommand = new Command("apply");
-		applyCommand.Description = "Apply a g3man profile";
+		RootCommand root = new("This program can apply g3man mods or g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
+		Command applyCommand = new("apply") {
+			Description = "Apply a g3man profile to a game"
+		};
 		root.Subcommands.Add(applyCommand);
+		
 		{
-			Option<DirectoryInfo> profileLocation = new Option<DirectoryInfo>("--path", "-p");
-			profileLocation.Description = "Path to the profile folder containing profile.json";
-			profileLocation.Required = true;
-			profileLocation.Arity = ArgumentArity.ExactlyOne;
+			Option<bool> launch = new("--launch", "-l") {
+				Description = "Also launch the game",
+				Required = false,
+				Arity = ArgumentArity.Zero
+			};
+			applyCommand.Options.Add(launch);
+			Option<string> steamExe = new("--steam", "-s") {
+				Description = "Path to Steam's executable. Must be provided if -l is provided and the game is configured to launch through steam.",
+				Required = false,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			applyCommand.Options.Add(steamExe);
+			
+			Option<FileInfo> gameJson = new("--game-json", "-gj") {
+				Description = "Path to the game.json file",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			applyCommand.Options.Add(gameJson);
+
+			Option<DirectoryInfo> gameLocation = new("--game-folder", "-gf") {
+				Description = "Path to the game's folder",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			applyCommand.Options.Add(gameLocation);
+			
+			Option<FileInfo> profileJson = new("--profile-json", "-pj") {
+				Description = "Path to the profile.json file",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			applyCommand.Options.Add(profileJson);
+
+			
+			Option<DirectoryInfo> profileLocation = new("--mods-folder", "-pf") {
+				Description = "Path to the mods folder",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
 			applyCommand.Options.Add(profileLocation);
-
 			
-			Option<FileInfo> datafileLocation = new Option<FileInfo>("--datafile", "-d");
-			datafileLocation.Description = "Path to the game's clean datafile";
-			datafileLocation.Required = true;
-			datafileLocation.Arity = ArgumentArity.ExactlyOne;
-			applyCommand.Options.Add(datafileLocation);
-
+			Option<FileInfo> cleanDataLocation = new("--clean_data", "-d") {
+				Description = "Path to the clean datafile of the game",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			applyCommand.Options.Add(cleanDataLocation);
 			
-			Option<DirectoryInfo> outLocation = new Option<DirectoryInfo>("--out", "-o");
-			outLocation.Description = "Directory where the output datafile should be saved";
-			outLocation.Required = true;
-			outLocation.Arity = ArgumentArity.ExactlyOne;
-			applyCommand.Options.Add(outLocation);
-			
-			
-			Option<String> outName = new Option<String>("--outname", "-n");
-			outLocation.Description = "What name should the output datafile have";
-			outLocation.Arity = ArgumentArity.ExactlyOne;
-			applyCommand.Options.Add(outName);
 	  
 			applyCommand.SetAction(parseResult => {
-
-	
+				FileInfo gameJsonInfo = parseResult.GetRequiredValue(gameJson);
+				DirectoryInfo gameDirectoryInfo = parseResult.GetRequiredValue(gameLocation);
 				
-				DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation)!;
-				DirectoryInfo outLocationInfo = parseResult.GetRequiredValue(outLocation);
-				string gamePath = outLocationInfo.FullName;
+				FileInfo profileJsonInfo = parseResult.GetRequiredValue(profileJson);
+				DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation);
+
+				bool shouldLaunch = parseResult.GetValue(launch);
+				string? steamPath = parseResult.GetValue(steamExe);
+				
+				GameEntry entry = new GameEntry(gameDirectoryInfo.FullName, "");
+				Game game; 
+				try {
+					using FileStream stream = new FileStream(gameJsonInfo.FullName, FileMode.Open, FileAccess.Read);
+					game = Game.Parse(stream, entry);
+				}
+				catch (Exception e) {
+					Program.Logger.Error($"Failed to parse game:\n{e.Message}");
+					return 1;
+				}
+				
 				string profilePath = profileDirectoryInfo.FullName;
 		
 				Program.Logger.Info("Parsing profile and mods...");
 
 				Profile profile;
 				try {
-					profile = Profile.ParseFolder(profileDirectoryInfo.FullName, doFolderCheck: false);
+					using FileStream stream = new FileStream(profileJsonInfo.FullName, FileMode.Open, FileAccess.Read);
+					profile = Profile.Parse(stream, "");
 				}
 				catch (Exception e) {
 					Program.Logger.Error($"Failed to parse profile:\n{e.Message}");
 					return 1;
 				}
 
-				string profileLivePath = Path.Combine(gamePath, "g3man", "live", profile.ID);
-
-
+				string profileLivePath = game.GetProfileLiveFolderPath(profile);  
+				
 				bool anyFailed = false;
 				List<Mod> mods = Mod.ParseAll(profileDirectoryInfo.FullName, (e, path) => {
-					Program.Logger.Info($"Mod at {path} failed to parse: {e.Message}");
+					Program.Logger.Info($"Mod at {path} failed to parse:\n{e.Message}");
 					Interlocked.Exchange(ref anyFailed, true);
 				}).Where(mod => !profile.ModsDisabled.Contains(mod.ModId)).ToList();
 
@@ -85,11 +125,12 @@ public class CLI {
 				string[] modOrder = profile.ModOrder.Concat(missingIds).ToArray();
 				
 				mods.Sort((mod1, mod2) => int.Sign(Array.IndexOf(modOrder, mod1.ModId) - Array.IndexOf(modOrder, mod2.ModId)));
-				FileInfo dataFileInfo = parseResult.GetRequiredValue(datafileLocation);
-				Program.Logger.Info("Loading clean datafile...");
+
+				FileInfo cleanData = parseResult.GetRequiredValue(cleanDataLocation);
+				Program.Logger.Info("Loading datafile...");
 				UndertaleData data;
 				try {
-					using FileStream stream = new FileStream(dataFileInfo.FullName, FileMode.Open, FileAccess.Read);
+					using FileStream stream = new FileStream(cleanData.FullName, FileMode.Open, FileAccess.Read);
 					data = UndertaleIO.Read(stream);
 				}
 				catch (Exception e) {
@@ -99,19 +140,22 @@ public class CLI {
 				
 				IO.CreateLiveFolder(profilePath, profileLivePath);
 
-				IO.CreateXdeltaFoldersAndApply(gamePath, profilePath, profileLivePath, mods);		
+				IO.CreateXdeltaFoldersAndApply(gameDirectoryInfo.FullName, profilePath, profileLivePath, mods);
 
-				string outputDatafileName = parseResult.GetValue(outName) ?? "data.win";
+				string outputDatafileName = game.GetOutputDatafileRelativePath();
 				
 				string relativeProfileLivePath = $"g3man/live/{profile.ID}";
 				string relativeProfilePath = $"g3man/live/{profile.ID}/profile";
 									
 				DatafilePatcher datafilePatcher = new DatafilePatcher();
 				UndertaleData? output = datafilePatcher.Patch(mods, profile, 
-					profileDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, Program.Logger, status => {});
+					profileDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, Program.Logger,
+					_ => {});
 				if (output == null)
 					return 1;
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
+				if (createOldSymlink)
+					IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
 				Program.Logger.Info("Writing...");
 
 				// theoretically could parse the game.json in this location to figure out what the input datafile name is
@@ -119,13 +163,33 @@ public class CLI {
 				bool writeHash = (IO.DatafileNames.Contains(Path.GetFileName(outputDatafileName)));
 				
 				try {
-					IO.Apply(data, outLocationInfo.FullName, outputDatafileName, writeHash);
+					IO.Apply(data, game.Directory, outputDatafileName, writeHash);
 				}
 				catch (Exception e) {
 					Program.Logger.Error("Failed to save output data.win");
 					Program.Logger.Error(e.ToString());
 				}
 
+				if (shouldLaunch) {
+					Config config = new Config();
+					if (game.ChosenExecutableType == Game.ExecutableType.Steam) {
+						if (steamPath is null) {
+							Program.Logger.Error(
+								"Game is set to launch through Steam, but no Steam path was provided!");
+							return 1;
+						}
+						config.SteamExecutable = steamPath;
+					}
+				
+					Program.Logger.Info("Launching game...");
+					try {
+						game.Launch(config, profile);
+					}
+					catch (Exception e) {
+						Program.Logger.Error($"Error occurred while trying to launch game:\n{e}");
+					}
+				}
+				
 				return 0;
 			}); 
 		}

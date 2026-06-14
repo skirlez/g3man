@@ -102,7 +102,7 @@ public class Config {
 }
 
 public class GameEntry {
-	public string Path;
+	public readonly string Path;
 	public string ProfileFolderName;
 
 	public GameEntry(string path, string profileFolderName) {

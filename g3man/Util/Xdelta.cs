@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using g3man.Models;
 
@@ -77,9 +78,10 @@ public readonly struct Xdelta(string containingFolder, string relativePath) {
 				case ReturnCode.DONE:
 					return 0;
 				case ReturnCode.ERRORED:
-				default:
-					Console.WriteLine(ret);
+					Program.Logger.Error($"libXdelta errored!");
 					return 1;
+				default:
+					throw new UnreachableException();
 			}
 		}
 	}
