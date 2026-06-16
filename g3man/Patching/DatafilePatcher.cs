@@ -483,7 +483,7 @@ public class DatafilePatcher {
 			if (intentionErrors.Count != 0) {
 				string total = "";
 				foreach (string error in intentionErrors) {
-					total += error;
+					total += error + "\n";
 				}
 
 				setStatusAndError("Patch intention errors occurred!", total);

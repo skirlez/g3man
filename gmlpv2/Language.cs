@@ -19,20 +19,49 @@ using LuaFunctionType = Func<LuaFunctionExecutionContext, CancellationToken, Val
 
 public static class Language {
 	private static ValueTask<int> PatchBase(LuaState state, LuaFunctionExecutionContext context, CancellationToken ct, 
-		PatchIntentionAggregate<FileRecord> aggregate, bool last = false) {
+		PatchIntentionAggregate<FileRecord> aggregate) {
 
-		LuaValue targets = context.GetArgument(0);
+		LuaValue argument = context.GetArgument(0);
+
+		bool last;
+		bool critical;
+		IEnumerable<string> targets;
+		if (argument.Type == LuaValueType.String) {
+			targets = [argument.Read<string>()];
+			last = false;
+			critical = false;
+		}
+		else if (argument.Type == LuaValueType.Table) {
+			LuaTable optionsTable = argument.Read<LuaTable>();
+			try {
+				LuaValue targetsOption = optionsTable["target"];
+				if (targetsOption.Type == LuaValueType.String)
+					targets = [targetsOption.Read<string>()];
+				else
+					targets = targetsOption.Read<LuaTable>().GetArraySpan().ToArray().Where(x => x.Type == LuaValueType.String).Select(x => x.Read<string>()).ToList();
+				if (!optionsTable["last"].TryRead(out last)) {
+					last = false;
+				}
+				if (!optionsTable["critical"].TryRead(out critical)) {
+					critical = true;
+				}
+			}
+			catch (Exception _) {
+				throw new LuaRuntimeException(state, "Missing or wrong type in parameter passed to g3man.patch");
+			}
+		}
+		else {
+			throw new LuaRuntimeException(state, "g3man.patch expects either a string or a table as an argument");
+		}
+
 		
-		IEnumerable<string> targetsList = targets.Type == LuaValueType.String
-			? [targets.Read<string>()] 
-			: targets.Read<LuaTable>().GetArraySpan().ToArray().Where(x => x.Type == LuaValueType.String).Select(x => x.Read<string>()).ToList();
 		
 		LuaFunction callback = context.GetArgument<LuaFunction>(1);
 	
 		string patchFilename = callback.Name;
 		
-		foreach (string targetName in targetsList) {
-			aggregate.AddIntention(last, new PatchIntention<FileRecord>(targetName, patchFilename, true, (record, source) => {
+		foreach (string targetName in targets) {
+			aggregate.AddIntention(last, new PatchIntention<FileRecord>(targetName, patchFilename, critical, (record, source) => {
 				CodeFile? file = source.GetCodeFile(targetName);
 				if (file is null) {
 					return;
