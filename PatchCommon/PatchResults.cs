@@ -27,7 +27,7 @@ public class PatchResults {
 		return errors;
 	}
 	
-	public void AddErrors( List<string> newErrors) {
+	public void AddErrors(IEnumerable<string> newErrors) {
 		errors.AddRange(newErrors);
 	}
 	public void AddError(string file, string error) {

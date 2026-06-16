@@ -58,8 +58,11 @@ public class GameAdderWindow : G3manWindow {
 		
 		
 		UndertaleData data;
+		byte[] hash;
 		try {
 			using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
+			hash = MD5.HashData(stream);
+			stream.Seek(0, SeekOrigin.Begin);
 			data = UndertaleIO.Read(stream, ((warning, important) => { if (important )logger.Info(warning); }));
 		}
 		catch (Exception e) {
@@ -103,14 +106,17 @@ public class GameAdderWindow : G3manWindow {
 			return new Result<Success, Error>(new Error("Failed to create game.json", e));
 		}
 
-		if (!cleanDataExists) {
-			try {
+		
+		try {
+			if (!cleanDataExists)
 				File.Copy(datafilePath, game.GetCleanDatafilePath(), true);
-			}
-			catch (Exception e) {
-				return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));
-			}
+			
+			IO.WriteGameLastOutputHash(game.Directory, hash);
 		}
+		catch (Exception e) {
+			return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));
+		}
+		
 
 
 		return new Result<Success, Error>(new Success(game));

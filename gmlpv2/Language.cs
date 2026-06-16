@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Lua;
+using Lua.IO;
+using Lua.Platforms;
 using Lua.Standard;
 using PatchCommon;
 
@@ -58,16 +60,80 @@ public static class Language {
 	
 
 
-	public static void Acquaint(LuaTable table, LuaState state, PatchIntentionAggregate<FileRecord> aggregate) {
-		table["patch"] = new LuaFunction("patch", (context, ct) => 
-			PatchBase(state, context, ct, aggregate));
+	public static void AddModule(LuaState state, PatchIntentionAggregate<FileRecord> aggregate) {
+		LuaTable preload;
+		if (state.Environment["package"].Type == LuaValueType.Nil) {
+			LuaTable package = new LuaTable();
+			state.Environment["package"] = package;
+			preload = new LuaTable();
+			package["preload"] = preload;
+		}
+		else {
+			// i don't think this ever happens
+			LuaTable package = state.Environment["package"].Read<LuaTable>();
+			if (package["preload"].Type == LuaValueType.Nil) {
+				preload = new LuaTable();
+				package["preload"] = preload;
+			}
+			else
+				preload = package["preload"].Read<LuaTable>();
+		}
+
+
+		preload["g3man"] = new LuaFunction("g3man-module-loader", (mcontext, _) => {
+			LuaTable g3man = new LuaTable();
+			g3man["patch"] = new LuaFunction("patch", (context, ct) => 
+				PatchBase(state, context, ct, aggregate));
+			return new (mcontext.Return(g3man));
+		});
 	}
 
 
-	public static void FindIntentions(string patch, string filename, PatchIntentionAggregate<FileRecord> aggregate) {
-		LuaState state = LuaState.Create();
+	private class SandboxedFileSystem(string basis) : ILuaFileSystem {
+		private FileSystem s = new FileSystem(basis);
+		public bool IsReadable(string path) {
+			string norm = Path.GetFullPath(Path.Combine(basis, path));
+			Console.WriteLine(basis);
+			Console.WriteLine(path);
+			Console.WriteLine(norm);
+			return norm.StartsWith(Path.GetFullPath(basis));
+		}
+
+		private const string STOP = "Path outside the sandbox";
+		public ValueTask<ILuaStream> Open(string path, LuaFileOpenMode mode, CancellationToken cancellationToken) {
+			if (!IsReadable(path))
+				throw new UnauthorizedAccessException(STOP);
+			return s.Open(path, mode, cancellationToken);
+		}
+		public ValueTask Rename(string oldName, string newName, CancellationToken cancellationToken) {
+			if (!IsReadable(oldName) || !IsReadable(newName))
+				throw new UnauthorizedAccessException(STOP);
+			return s.Rename(oldName, newName, cancellationToken);
+		}
+		public ValueTask Remove(string path, CancellationToken cancellationToken) {
+			if (!IsReadable(path))
+				throw new UnauthorizedAccessException(STOP);
+			return s.Remove(path, cancellationToken);
+		}
+		public string GetTempFileName() {
+			return s.GetTempFileName();
+		}
+		public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken) {
+			return s.OpenTempFileStream(cancellationToken);
+		}
+	}
+
+	public static void FindIntentions(string patch, string? folder, string filename, PatchIntentionAggregate<FileRecord> aggregate) {
+		LuaPlatform platform = new LuaPlatform(new SandboxedFileSystem(folder ?? ""), new SystemOsEnvironment(), new ConsoleStandardIO(),
+				TimeProvider.System);
+	
+		LuaState state = LuaState.Create(platform);
 		state.OpenBasicLibrary();
-		Acquaint(state.Environment, state, aggregate);
+		state.OpenModuleLibrary();
+		state.OpenStandardLibraries();
+		
+		
+		AddModule(state, aggregate);
 		try {
 			_ = state.DoStringAsync(patch, $"@{filename}").Result;
 		}
@@ -76,6 +142,9 @@ public static class Language {
 		}
 		catch (LuaRuntimeException e) {
 			aggregate.AddError(PrettyString(e, filename));
+		}
+		catch (PatchBadIntentionsException e) {
+			aggregate.AddError(e.Message);
 		}
 	}
 

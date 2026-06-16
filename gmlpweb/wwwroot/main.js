@@ -13,8 +13,9 @@ const terminal = document.getElementById("terminal");
 async function onBlazorInitialized() {
   pDiv.textContent = 
 `
+local g3man = require "g3man"
 
-patch("code entry name(s) would go here", function(t)
+g3man.patch("code entry name(s) would go here", function(t)
   -- adding code after a condition
   local i
   i = t:find_line_with(1, 'if (condition)')

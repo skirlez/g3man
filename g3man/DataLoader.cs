@@ -29,14 +29,14 @@ public class DataLoader {
 				lock (Lock) {
 					if (Lock.Action == LoaderAction.Restart) {
 						if (result is not null)
-							logger.Debug("Told to restart. Discarding: " + result.GeneralInfo.DisplayName.Content);
+							logger.Debug("Told to restart. Discarding: " + result.GeneralInfo?.DisplayName.Content);
 						else
 							logger.Debug("Told to restart. Discarding nothing.");
 						Lock.Action = LoaderAction.Proceed;
 					}
 					else {
 						if (result is not null) {
-							logger.Info("Loaded data of " + result.GeneralInfo.DisplayName.Content);
+							logger.Info("Loaded data of " + result.GeneralInfo?.DisplayName.Content);
 							logger.Info($"Data has MD5 hash: {hash}");
 							Lock.Result = result;
 						}
@@ -179,6 +179,14 @@ public class DataLoader {
 			Lock.PulseToLoad();
 		}
 	}
+	public void ReloadAsync() {
+		if (lastGame is null) {
+			return;
+		}
+		lock (Lock) {
+			LoadAsync(lastGame, lastXdeltaPaths ?? [], true);
+		}
+	}
 	
 	public class LoaderLock() {
 		public LoaderAction Action = LoaderAction.Proceed;
@@ -200,4 +208,6 @@ public class DataLoader {
 		Proceed,
 		Clone,
 	}
+
+
 }

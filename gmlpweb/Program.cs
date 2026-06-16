@@ -87,7 +87,7 @@ public class Program {
 		PatchIntentionAggregate<FileRecord> aggregate = new();
 		string newCode;
 		try {
-			gmlpv2.Language.FindIntentions(patch, "gmlpweb.lua", aggregate);
+			gmlpv2.Language.FindIntentions(patch,null,"gmlpweb.lua", aggregate);
 		}
 		catch (Exception e) {
 			return new { result = e.ToString(), type = 2 };

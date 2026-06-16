@@ -389,7 +389,13 @@ public class DatafilePatcher {
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
-				merge(data, modData, Path.Combine(profileLocation, mod.ModId));
+				try {
+					merge(data, modData, Path.Combine(profileLocation, mod.ModId));
+				}
+				catch (Exception e) {
+					setStatusAndError($"Merging {mod.Identify()} failed!", e.ToString());
+					return null;
+				}
 				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 			}
@@ -458,7 +464,7 @@ public class DatafilePatcher {
 						}
 
 						if (patchLocation.Type == PatchFormatType.GMLPv2) {
-							gmlpv2.Language.FindIntentions(patchText, relativePath, gmlpv2IntentionAggregate);
+							gmlpv2.Language.FindIntentions(patchText, Path.GetDirectoryName(patchPath), relativePath, gmlpv2IntentionAggregate);
 							return true;
 						}
 					}

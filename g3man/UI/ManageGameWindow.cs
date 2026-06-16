@@ -169,7 +169,9 @@ public class ManageGameWindow : G3manWindow {
 		inputToClean.OnClicked += (_, _) => {
 			DoFileOperation(() => {
 				try {
+					File.Copy(game.GetCleanDatafilePath(), game.GetBackupDatafilePath(), true);
 					File.Copy(game.GetInputDatafilePath(), game.GetCleanDatafilePath(), true);
+					Program.DataLoader.ReloadAsync();
 					return (true, null);
 				}
 				catch (Exception e) {
@@ -186,6 +188,8 @@ public class ManageGameWindow : G3manWindow {
 					if (!File.Exists(game.GetBackupDatafilePath()))
 						return (false, "No clean datafile backup found...");
 					File.Copy(game.GetBackupDatafilePath(), game.GetCleanDatafilePath(), true);
+					Program.DataLoader.ReloadAsync();
+
 					return (true, null);
 				}
 				catch (Exception e) {

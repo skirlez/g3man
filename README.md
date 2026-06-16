@@ -29,7 +29,7 @@ an interactive website for creating GMLPv2 patches. You can try it out [here](ht
 
 *(You can have several Xdelta patches, but every consecutive patch has to be made for the output of the prior patches)
 
-## Coming in Version 8
+## Coming in Version 9
 - GMLPv2: a Lua-based patching solution
 
 ## Installation
@@ -47,7 +47,7 @@ Go to the [Releases](https://github.com/skirlez/g3man/releases) page, and follow
 
 - [Void Stranger Endless Void](https://github.com/skirlez/void-stranger-endless-void/): a level builder for Void Stranger
 
-- [Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the example mods ([1](https://github.com/Skirlez/nubbys-forgery-example-mod), [2](https://github.com/skirlez/nubbys-forgery-example-mod-2)): an API for Nubby's Number Factory, and two mods that depends on it to add new things to the game
+- [Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the example mods (found in the [g3man examples monorepo](https://github.com/skirlez/g3man-examples)): an API for Nubby's Number Factory, and two mods that depends on it to add new things to the game
 
 - [NubPak!](https://gamebanana.com/mods/618918): a huge expansion mod for Nubby's Number Factory
 

@@ -12,7 +12,7 @@ public class Shared {
 
 
 		PatchIntentionAggregate<FileRecord> aggregate = new();
-		Language.FindIntentions(patch, "test", aggregate);
+		Language.FindIntentions($"local patch = (require \"g3man\").patch\n{patch}",  null, "test", aggregate);
 		if (aggregate.HasErrors()) {
 			Console.WriteLine(string.Join('\n', aggregate.GetAllErrors()));
 			Assert.Fail();

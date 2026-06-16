@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace PatchCommon;
 
@@ -34,8 +35,12 @@ public class PatchIntentionAggregate<T>() where T : new() {
 		
 		steps.Add(new PatchStep<E>(() => {
 			RecordAggregate<T> aggregate = new();
-			RealizeAll(intentions, aggregate, source);
-			
+			List<PatchRealizationException> errors = RealizeAll(intentions, aggregate, source);
+			if (errors.Count > 0) {
+				PatchResults results = new();
+				results.AddErrors(errors.Select(e => e.ToString()));
+				return results;
+			}
 			return apply(aggregate, source);
 
 		}, blameMap, owner));
@@ -48,12 +53,20 @@ public class PatchIntentionAggregate<T>() where T : new() {
 		return aggregate;
 	}
 
-	private static void RealizeAll(List<PatchIntention<T>> intentions, RecordAggregate<T> aggregate, CodeSource source) {
+	private static List<PatchRealizationException> RealizeAll(List<PatchIntention<T>> intentions, RecordAggregate<T> aggregate, CodeSource source) {
+		List<PatchRealizationException> errors = [];
 		foreach (PatchIntention<T> intention in intentions) {
 			T record = aggregate.GetOrCreate(intention.Target);
-			
-			intention.Realize(record, source);
+			try {
+				intention.Realize(record, source);
+			}
+			catch (PatchRealizationException e) {
+				e.Filename = intention.Info.Filename;
+				errors.Add(e);
+			}
 		}
+
+		return errors;
 	}
 
 	public void AddIntention(bool last, PatchIntention<T> patchIntention) {

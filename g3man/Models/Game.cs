@@ -146,33 +146,39 @@ public class Game {
 	}
 	
 
-	public void Launch(Config config, Profile profile) {
+	public Process? Launch(Config config, Profile profile) {
 		Debug.Assert(ExecutableStatus(config).ok);
+		
 		List<string> gameArguments = ["-game", GetOutputDatafilePath(profile)];
-
+		
 		// at least one version of the linux runner always appended "-game game.unx" at the end of its arguments, overriding
 		// our choice of datafile. including a single " character (appears to) make the runner listen to us,
 		// so i'm assuming it breaks the argument parser. it doesn't seem to break anything else so it is always included.
 		gameArguments.Add("\"");
 		
 		switch (ChosenExecutableType) {
-			case ExecutableType.File:
-				Process.Start(new ProcessStartInfo(Path.Combine(Directory, ExecutablePath), gameArguments) {
+			case ExecutableType.File: {
+				Process? p = Process.Start(new ProcessStartInfo(Path.Combine(Directory, ExecutablePath), gameArguments) {
 					UseShellExecute = false,
 					CreateNoWindow = true
 				});
-				break;
-			case ExecutableType.Steam:
-				Console.WriteLine("here");
+				return p;
+			}
+			case ExecutableType.Steam: {
 				List<string> steamArguments = ["-applaunch", ExecutableSteamAppId.ToString(), "--"];
-				Process? a = Process.Start(new ProcessStartInfo(config.SteamExecutable, steamArguments.Concat(gameArguments).ToList()) {
-					UseShellExecute = false,
-					CreateNoWindow = true
-				});
-				a?.WaitForExit();
-				Console.WriteLine("left");
-				break;
+				Process? p = Process.Start(
+					new ProcessStartInfo(config.SteamExecutable, steamArguments.Concat(gameArguments).ToList()) {
+						UseShellExecute = false,
+						CreateNoWindow = true
+					});
+				return p;
+			}
+			case ExecutableType.Size:
+			default:
+				throw new UnreachableException();
 		}
+
+		
 	}
 	
 	public JsonObject ToJson() {

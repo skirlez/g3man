@@ -57,7 +57,7 @@ public static class Language {
 				}
 			}
 			else {
-				throw new PatchRealizationException(
+				throw new PatchBadIntentionsException(
 					$"Expected \"meta:\" section at start of patch (line {lastLineNumber})");
 			}
 		}

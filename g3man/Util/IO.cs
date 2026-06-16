@@ -73,12 +73,15 @@ public static class IO {
 		File.Delete(tempFilePath);
 	}
 
-	private static void WriteGameLastOutputHash(string gameDirectory, byte[] hashBytes) {
+	public static void WriteGameLastOutputHash(string gameDirectory, byte[] hashBytes) {
 		string hash = HashToString(hashBytes);
+		WriteGameLastOutputHash(gameDirectory, hash);
+	}
+	public static void WriteGameLastOutputHash(string gameDirectory, string hash) {
 		string outputHashTextFilePath = Path.Combine(gameDirectory, "g3man", OutputHashTextFileName);
 		File.WriteAllText(outputHashTextFilePath, hash);
 	}
-	
+
 	
 	/* On normal operating systems, this makes a symlink.
 	 * On Windows, this makes a "Junction". */

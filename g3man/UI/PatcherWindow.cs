@@ -52,11 +52,12 @@ public class PatcherWindow : G3manWindow {
 		SetModal(true);
 		
 		new Thread(() => {
-			DoThing(Program.GetGame()!, Program.GetProfile()!, mods);
+			bool success = DoThing(Program.GetGame()!, Program.GetProfile()!, mods);
 			Program.RunOnMainThreadEventually(() => {
 				canClose = true;
 				closeButton.SetSensitive(true);
-				onSuccess();
+				if (success)
+					onSuccess();
 			});
 		}).Start();
 
@@ -72,7 +73,7 @@ public class PatcherWindow : G3manWindow {
 	record ChoiceLock() {
 		public int Choice = 0;
 	}
-	private void DoThing(Game game, Profile profile, List<IMod> mods) {
+	private bool DoThing(Game game, Profile profile, List<IMod> mods) {
 		string profilePath = game.GetProfileFolderPath(profile);
 		string profileLivePath = game.GetProfileLiveFolderPath(profile);
 		
@@ -92,12 +93,12 @@ public class PatcherWindow : G3manWindow {
 		bool forceReloadDatafile = false;
 		
 		if (lastHash != hash && hash != "" && lastHash != "") {
-			string[] buttonTexts = ["Update clean datafile copy", "Do nothing", "Cancel"];
+			string[] buttonTexts = ["Update clean datafile copy", "Keep it as is", "Cancel"];
 			ChoiceLock lockObject = new ChoiceLock();
 			
 			PopupWindow popupWindow = new PopupWindow(this, "Question",
 				$"g3man has detected that the game's datafile ({game.GetInputDatafileRelativePath()}) has been modified.\n"
-				+ $"Did you update the game? If so, select \"{buttonTexts[0]}\".\n"
+				+ $"Do you wish to update your clean copy as well? If so, select \"{buttonTexts[0]}\"\n(You probably want to choose this if you just updated the game).\n"
 				+ $"Otherwise, select \"{buttonTexts[1]}\".",
 				buttonTexts,
 				
@@ -138,28 +139,27 @@ public class PatcherWindow : G3manWindow {
 				setStatus("Updating clean datafile...");
 				try {
 					File.Move(game.GetCleanDatafilePath(), game.GetBackupDatafilePath(), true);
-					
 					File.Copy(game.GetInputDatafilePath(),
 						game.GetCleanDatafilePath(), true);
-					game.Write();
-					IO.RemoveLastOutputHash(game);
+					// update hash to what we just read
+					IO.WriteGameLastOutputHash(game.Directory, hash);
 				}
 				catch (Exception e) {
 					Program.Logger.Error($"Failed to update clean datafile: {e}");
 					setStatus("Failed to update clean datafile! Please report this as a bug.");
-					return;
+					return false;
 				}
 
 				forceReloadDatafile = true;
 			}
 			else if (lockObject.Choice == 2) {
-				// can't trust this hash anymore
-				IO.RemoveLastOutputHash(game);
+				// update hash to what we just read
+				IO.WriteGameLastOutputHash(game.Directory, hash);
 			}
 			else if (lockObject.Choice == 3) {
 				canClose = true;
 				Program.RunOnMainThreadEventually(Close);
-				return;
+				return false;
 			}
 		}
 		
@@ -195,7 +195,7 @@ public class PatcherWindow : G3manWindow {
 		(IMod Mod, XdeltaSourcePair FailedPatch)? xdeltaError = IO.CreateXdeltaFoldersAndApply(game.Directory, profilePath, profileLivePath, mods);
 		if (xdeltaError.HasValue) {
 			setStatus($"Mod {xdeltaError.Value.Mod.Identify()} had a failed Xdelta patch called \"{xdeltaError.Value.FailedPatch.Filename}\"\nfor \"{xdeltaError.Value.FailedPatch.RelativeSourcePath}\"");
-			return;
+			return false;
 		} 
 		
 		setStatus("Waiting for game data to load...");
@@ -205,7 +205,7 @@ public class PatcherWindow : G3manWindow {
 				if (Program.DataLoader.HasErrored()) {
 					setStatus("Failed to load the game's clean datafile.\nThis can happen for a number of reasons.\n"
 							  + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
-					return;
+					return false;
 				}
 				Monitor.Wait(Program.DataLoader.Lock);
 			}
@@ -223,7 +223,7 @@ public class PatcherWindow : G3manWindow {
 			relativeProfilePath, profile.ID,
 			data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
 		if (output is null)
-			return;
+			return false;
 		
 		
 		bool overwritingInput = (game.DatafilePath == game.GetOutputDatafileRelativePath(profile));
@@ -236,7 +236,7 @@ public class PatcherWindow : G3manWindow {
 		catch (Exception e) {
 			Program.Logger.Error(e);
 			setStatus("Failed to write output datafile! Check the log.");
-			return;
+			return false;
 		}
 		
 		bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
@@ -248,5 +248,6 @@ public class PatcherWindow : G3manWindow {
 						"You must launch the game through g3man\nto see the changes.";
 		
 		setStatus($"Done!\n{launchInstructions}");
+		return true;
 	}
 }

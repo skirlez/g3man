@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Diagnostics;
 using g3man.Models;
 using g3man.Patching;
 using g3man.Util;
@@ -183,7 +184,13 @@ public class CLI {
 				
 					Program.Logger.Info("Launching game...");
 					try {
-						game.Launch(config, profile);
+						Process? p = game.Launch(config, profile);
+						if (p is null) {
+							Program.Logger.Error("Failed to launch game");
+							return 1;
+						}
+						Program.Logger.Info("Launched, waiting for process to close...");
+						p.WaitForExit();
 					}
 					catch (Exception e) {
 						Program.Logger.Error($"Error occurred while trying to launch game:\n{e}");
