@@ -1,6 +1,10 @@
 using g3man.Models;
 using g3man.Util;
+using GdkPixbuf;
 using Gtk;
+using PeNet;
+using PeNet.Header.Resource;
+using UndertaleModLib.Util;
 using Xdelta = g3man.Util.Xdelta;
 
 namespace g3man.UI.Main;
@@ -200,6 +204,46 @@ public partial class MainWindow {
 		gamesList.Add(game);
 	}
 	
+	// TODO: BROKEN; also move to a different thread
+	public void TryLoadExecutableImage(Game game, Image image) {
+		try {
+			PeFile file = new PeFile(Path.Combine(game.Directory, game.ExecutablePath));
+			GroupIconDirectoryEntry iconGroup = file.Resources!.GroupIconDirectories![0].DirectoryEntries.First();
+			int id = iconGroup.NId;
+			Icon icon = iconGroup.AssociatedIcons(file)!.First();
+			if (icon.Id != id)
+				return;
+			byte[] bytes = icon.AsRawSpan().ToArray();
+
+			// obtained through trial and error
+			int offset = 38;
+			
+			Span<byte> span = new Span<byte>(bytes, offset, (int)icon.Size - offset);
+			
+	
+			
+			int zeroIs256(int num) {
+				return num == 0 ? 256 : num;
+			}
+			
+			Pixbuf pixbuf = Pixbuf.NewFromBytes(
+				GLib.Bytes.New(span),
+				Colorspace.Rgb, false, 8, zeroIs256(iconGroup.BWidth),
+				zeroIs256(iconGroup.BHeight), zeroIs256(iconGroup.BWidth) * 3);
+
+			// it is backwards otherwise
+			pixbuf = pixbuf.Flip(false)!;
+			
+			image.SetFromPixbuf(pixbuf);
+			image.SetPixelSize(100);
+
+
+		}
+		catch (Exception e) {
+			Program.Logger.Debug(e.ToString());
+		}
+	}
+	
 	private void SelectGame(Game game, Button buttonPressed) {
 		if (game.FormatVersion == 1) {
 			GameUpgraderWindow window = new GameUpgraderWindow(this, game);
@@ -210,9 +254,11 @@ public partial class MainWindow {
 			button.SetSensitive(true);
 		}
 		buttonPressed.SetSensitive(false);
-		
 		Program.SetGame(game);
 		currentGameLabel.SetText(game.DisplayName);
+
+		//TryLoadExecutableImage(game, currentGameIcon);
+
 		ParseProfilesAndUpdateMenu();
 		if (Program.GetProfile() is not null) {
 			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(

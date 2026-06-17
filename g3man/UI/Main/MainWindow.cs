@@ -18,16 +18,21 @@ public partial class MainWindow : G3manWindow {
 	
 	private ListBox modsListBox;
 	private ScrolledWindow modsListWindow;
-	private List<IMod> modsList;
+	private List<IMod> modsList = new();
+	private Dictionary<IMod, bool> enabledMods = new();
 	private List<Game> gamesList;
-	private Dictionary<IMod, bool> enabledMods;
+	
 	
 	private Label noModsLabel;
 	
 	private Label noGamesAddedLabel;
 	
+	private Image currentGameIcon;
 	private Label currentGameLabel;
 	private Label currentProfileLabel;
+	
+
+	private Box actionBox;
 	
 	private ToggleButton[] pageButtons;
 	
@@ -39,6 +44,7 @@ public partial class MainWindow : G3manWindow {
 	private Label aboutButtonLabelWithUpdate;
 	
 	private ExtraCategories currentExtraCategories;
+	
 
 
 	public MainWindow() {
@@ -118,8 +124,6 @@ public partial class MainWindow : G3manWindow {
 		pageStack.SetVisibleChild(allPages[0]);
 		pageButtons[0].SetActive(true);
 		
-		EnableExtraCategories(ExtraCategories.None);
-		
 		SetupGamesPage(gamesPage);
 		SetupProfilesPage(profilesPage);
 		SetupModsPage(modsPage);
@@ -133,22 +137,89 @@ public partial class MainWindow : G3manWindow {
 		currentProfileLabel = Label.New("No profile selected");
 		currentProfileLabel.SetEllipsize(EllipsizeMode.End);
 		
+		void ApplyModsDialog(bool launch) {
+			PatcherWindow window = new PatcherWindow(this);
+			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
+			window.Dialog(enabledModsList, () => {
+				if (launch) {
+					window.Close();
+					LaunchDialog();
+				}
+			});
+		}
+		
+
+		void LaunchDialog() {
+			Game game = Program.GetGame()!;
+			Status executableStatus = game.ExecutableStatus(Program.Config);
+			if (!executableStatus.ok) {
+				PopupWindow popup = new PopupWindow(this, "Error!",
+					$"{executableStatus.message}",
+					"OK");
+				popup.Dialog();
+				return;
+			}
+
+			try {
+				game.Launch(Program.Config, Program.GetProfile()!);
+			}
+			catch (Exception e) {
+				Program.Logger.Error($"Failed to launch game: {e}");
+				PopupWindow popup = new PopupWindow(this, "Error!",
+					$"Failed to launch game: {e.Message}",
+					"Damn");
+				popup.Dialog();
+				return;
+			}
+			
+			PopupWindow successPopup = new PopupWindow(this, "Game launched!",
+				$"Game launch should be successful.\ng3man does not have to stay open past this point.",
+				"OK");
+			successPopup.Dialog();
+		}
+		
+		Button applyButton = Button.NewWithLabel("Apply");
+		applyButton.OnClicked += (_, _) => {
+			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
+			Program.GetProfile()!.Write(Program.GetGame()!);
+			ApplyModsDialog(launch: false);
+		};
+		
+		Button launchButton = Button.NewWithLabel("Launch");
+		launchButton.OnClicked += (_, _) => { LaunchDialog(); };
+
+		Button applyAndLaunchButton = Button.NewWithLabel("Apply and Launch!");
+		applyAndLaunchButton.OnClicked += (_, _) => {
+			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
+			Program.GetProfile()!.Write(Program.GetGame()!);
+			ApplyModsDialog(launch: true);
+		};
+		actionBox = Box.New(Orientation.Horizontal, 10);
+		actionBox.Append(applyAndLaunchButton);
+		actionBox.Append(applyButton);
+		actionBox.Append(launchButton);
+		actionBox.SetMargin(10);
+		
 		Box currentSetupBox = Box.New(Orientation.Horizontal, 5);
 		currentSetupBox.Append(currentGameLabel);
-		
 		currentSetupBox.Append(slash);
 		currentSetupBox.Append(currentProfileLabel);
-		
-		currentSetupBox.SetHalign(Align.Center);
-		currentSetupBox.SetHexpand(true);
 		currentSetupBox.SetMargin(10);
+		currentSetupBox.SetHexpand(true);
 
+		//currentGameIcon = Image.New();
+		//currentGameIcon.UseFallback = true;
+		Box bottomBox = Box.New(Orientation.Horizontal, 5)
+			.With(currentSetupBox, actionBox);
 		Box programBox = Box.New(Orientation.Vertical, 0);
 		programBox.Append(pageBox);
 		programBox.Append(Separator.New(Orientation.Horizontal));
-		programBox.Append(currentSetupBox);
+		programBox.Append(bottomBox);
+
 		
 		SetChild(programBox);
+		
+		EnableExtraCategories(ExtraCategories.None);
 	}
 
 	enum ExtraCategories {
@@ -167,17 +238,20 @@ public partial class MainWindow : G3manWindow {
 		if (extra < ExtraCategories.Profiles) {
 			profilesButton.SetSensitive(false);
 			modsButton.SetSensitive(false);
+			actionBox.SetSensitive(false);
 			return;
 		}
 		Debug.Assert(Program.GetGame() is not null);
 		profilesButton.SetSensitive(true);
 		if (extra < ExtraCategories.ProfilesAndMods) {
 			modsButton.SetSensitive(false);
+			actionBox.SetSensitive(false);
 			return;
 		}
 
 		Debug.Assert(Program.GetProfile() is not null);
 		modsButton.SetSensitive(true);
+		actionBox.SetSensitive(true);
 	}
 	
 

@@ -181,88 +181,10 @@ public partial class MainWindow {
 		manageModsBox.Append(importFromZipButton);
 		manageModsBox.Append(deleteModButton);
 		manageModsBox.SetMargin(10);
-
-
-		void ApplyModsDialog(bool launch) {
-			PatcherWindow window = new PatcherWindow(this);
-			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
-			window.Dialog(enabledModsList, () => {
-				if (launch) {
-					window.Close();
-					LaunchDialog();
-				}
-			});
-		}
 		
-
-		void LaunchDialog() {
-			Game game = Program.GetGame()!;
-			Status executableStatus = game.ExecutableStatus(Program.Config);
-			if (!executableStatus.ok) {
-				PopupWindow popup = new PopupWindow(this, "Error!",
-					$"{executableStatus.message}",
-					"OK");
-				popup.Dialog();
-				return;
-			}
-
-			try {
-				game.Launch(Program.Config, Program.GetProfile()!);
-			}
-			catch (Exception e) {
-				Program.Logger.Error($"Failed to launch game: {e}");
-				PopupWindow popup = new PopupWindow(this, "Error!",
-					$"Failed to launch game: {e.Message}",
-					"Damn");
-				popup.Dialog();
-				return;
-			}
-			
-			PopupWindow successPopup = new PopupWindow(this, "Game launched!",
-				$"Game launch should be successful.\ng3man does not have to stay open past this point.",
-				"OK");
-			successPopup.Dialog();
-		}
-
-		Button applyButton = Button.NewWithLabel("Apply");
-		applyButton.SetHalign(Align.Center);
-		applyButton.SetVexpand(true);
-		applyButton.SetMarginBottom(20);
-		applyButton.OnClicked += (_, _) => {
-			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			Program.GetProfile()!.Write(Program.GetGame()!);
-			ApplyModsDialog(launch: false);
-		};
-
-
-		Button launchButton = Button.NewWithLabel("Launch");
-		launchButton.SetHalign(Align.Center);
-		launchButton.SetVexpand(true);
-		launchButton.SetMarginBottom(20);
-		launchButton.OnClicked += (_, _) => { LaunchDialog(); };
-
-		Button applyAndLaunchButton = Button.NewWithLabel("Apply and Launch!");
-		applyAndLaunchButton.SetHalign(Align.Center);
-		applyAndLaunchButton.SetVexpand(true);
-		applyAndLaunchButton.SetMarginBottom(20);
-		applyAndLaunchButton.OnClicked += (_, _) => {
-			Program.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			Program.GetProfile()!.Write(Program.GetGame()!);
-			ApplyModsDialog(launch: true);
-		};
-		Box actionBox = Box.New(Orientation.Horizontal, 10);
-
-
-		actionBox.Append(applyAndLaunchButton);
-		actionBox.Append(applyButton);
-		actionBox.Append(launchButton);
-		
-		actionBox.SetHalign(Align.Center);
-		actionBox.SetValign(Align.End);
 
 		page.Append(modsListWindow);
 		page.Append(manageModsBox);
-		page.Append(actionBox);
 		page.Append(Separator.New(Orientation.Horizontal));
 		page.Append(modNameLabel);
 		page.Append(modInfoWindow);
