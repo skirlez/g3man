@@ -95,54 +95,52 @@ disassembleOption.onclick = () => {
 
 
 async function applyPatch() {
-  let patched = await DotNet.invokeMethodAsync(
+  DotNet.invokeMethodAsync(
     "gmlpweb",
     "patch",
     pEditor.getValue(),
     cEditor.getValue(),
-  );
-  
-  if (patched.type === 1) {
-    // error
-    terminal.classList.add("error");
-    terminal.textContent = patched.result;
-    return;
-  } else if (patched.type === 2) {
-    // exception
-    terminal.classList.add("error");
-    terminal.textContent = patched.result;
-    return;
-  }
+  ).then(async patched => {
+    
+    if (patched.type === 1) {
+      // error
+      terminal.classList.add("error");
+      terminal.textContent = patched.result;
+      return;
+    } else if (patched.type === 2) {
+      // exception
+      terminal.classList.add("error");
+      terminal.textContent = patched.result;
+      return;
+    }
 
-  let output;
-  if (patchOption.checked) {
-    output = patched;
-  }
-  else if (disassembleOption.checked) {
-    output = await DotNet.invokeMethodAsync(
-        "gmlpweb",
-        "compile_and_disassemble",
-        patched.result,
-    );
-  } 
-  else if (decompileOption.checked) {
-    output = await DotNet.invokeMethodAsync(
-        "gmlpweb",
-        "compile_and_decompile",
-        patched.result,
-    );
-  }
-  if (output.type === 1) {
-    // compilation fail
-    terminal.classList.add("error");
-    terminal.textContent = output.result;
-    output = patched;
-  }
-  else {
-    terminal.textContent = "All quiet on the western front.";
-    terminal.classList.remove("error");
-  }
-  
-  pcEditor.setValue(output.result);
-  pcEditor.clearSelection();
+    let output;
+    if (patchOption.checked) {
+      output = patched;
+    } else if (disassembleOption.checked) {
+      output = await DotNet.invokeMethodAsync(
+          "gmlpweb",
+          "compile_and_disassemble",
+          patched.result,
+      );
+    } else if (decompileOption.checked) {
+      output = await DotNet.invokeMethodAsync(
+          "gmlpweb",
+          "compile_and_decompile",
+          patched.result,
+      );
+    }
+    if (output.type === 1) {
+      // compilation fail
+      terminal.classList.add("error");
+      terminal.textContent = output.result;
+      output = patched;
+    } else {
+      terminal.textContent = "All quiet on the western front.";
+      terminal.classList.remove("error");
+    }
+
+    pcEditor.setValue(output.result);
+    pcEditor.clearSelection();
+  });
 }

@@ -69,25 +69,24 @@ public class Program {
 			Console.Error.WriteLine(e);
 		}
 	}
-	
-	
+
+
 	/**
-	 * Runs the gmlp patch `patch` on `code`.
-	 * 
-	 * Returns an object with a string result and an integer type.
-	 *
-	 * 0 - success
-	 * 1 - patch failure
-	 * 2 - unhandled program error
-	 */
+	* Runs the gmlp patch `patch` on `code`.
+	*
+	* Returns an object with a string result and an integer type.
+	*
+	* 0 - success
+	* 1 - patch failure
+	* 2 - unhandled program error
+	*/
 	[JSInvokable("patch")]
-	public static object Patch(string patch, string code) {
-		
+	public static async Task<object> Patch(string patch, string code) {
 		SingleCodeSource source = new SingleCodeSource(code);
 		PatchIntentionAggregate<FileRecord> aggregate = new();
-		string newCode;
+		
 		try {
-			gmlpv2.Language.FindIntentions(patch,null,"gmlpweb.lua", aggregate);
+			gmlpv2.Language.FindIntentions(patch, null, "gmlpweb.lua", aggregate);
 		}
 		catch (Exception e) {
 			return new { result = e.ToString(), type = 2 };
@@ -99,13 +98,11 @@ public class Program {
 
 		RecordAggregate<FileRecord> recordAggregate = aggregate.RealizeAll(source);
 		PatchResults results = gmlpv2.Language.Apply(recordAggregate, source);
-		if (results.HasErrors())
-		{
+		if (results.HasErrors()) {
 			return new { result = string.Join('\n', results.GetAllErrors()), type = 1 };
 		}
-		newCode = results.GetAllResults().First().Value;
-		
-		
+
+		string newCode = results.GetAllResults().First().Value;
 		return new { result = newCode, type = 0 };
 	}
 

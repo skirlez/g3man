@@ -21,14 +21,15 @@ public partial class MainWindow {
 		modNameLabel.SetMarginTop(10);
 		modDescriptionLabel = Label.New("");
 		modDescriptionLabel.SetWrap(true);
+		modDescriptionLabel.SetValign(Align.Start);
 		modDescriptionLabel.SetWrapMode(Pango.WrapMode.WordChar);
-		
-		
+		modDescriptionLabel.SetVexpand(true);
 
 		ScrolledWindow modInfoWindow = ScrolledWindow.New();
 		modInfoWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
 		modInfoWindow.SetMargin(10);
 		modInfoWindow.SetChild(modDescriptionLabel);
+		modInfoWindow.SetPropagateNaturalHeight(true);
 
 		modsListBox = ListBox.New();
 		modsListBox.SetHexpand(true);

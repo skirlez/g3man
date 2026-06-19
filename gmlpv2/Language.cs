@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -19,17 +20,20 @@ using LuaFunctionType = Func<LuaFunctionExecutionContext, CancellationToken, Val
 
 public static class Language {
 	private static ValueTask<int> PatchBase(LuaState state, LuaFunctionExecutionContext context, CancellationToken ct, 
-		PatchIntentionAggregate<FileRecord> aggregate) {
+		PatchIntentionAggregate<FileRecord> aggregate, int timeout) {
 
 		LuaValue argument = context.GetArgument(0);
 
-		bool last;
-		bool critical;
+		LuaFunction callback = context.GetArgument<LuaFunction>(1);
+		string patchFilename = callback.Name;
+		
+		bool last = false;
+		bool critical = true;
+		bool failFast = true;
+		string patchName = patchFilename;
 		IEnumerable<string> targets;
 		if (argument.Type == LuaValueType.String) {
 			targets = [argument.Read<string>()];
-			last = false;
-			critical = false;
 		}
 		else if (argument.Type == LuaValueType.Table) {
 			LuaTable optionsTable = argument.Read<LuaTable>();
@@ -39,12 +43,16 @@ public static class Language {
 					targets = [targetsOption.Read<string>()];
 				else
 					targets = targetsOption.Read<LuaTable>().GetArraySpan().ToArray().Where(x => x.Type == LuaValueType.String).Select(x => x.Read<string>()).ToList();
-				if (!optionsTable["last"].TryRead(out last)) {
+
+				// TODO: specified twice
+				if (!optionsTable["last"].TryRead(out last))
 					last = false;
-				}
-				if (!optionsTable["critical"].TryRead(out critical)) {
+				if (!optionsTable["critical"].TryRead(out critical))
 					critical = true;
-				}
+				if (!optionsTable["fail_fast"].TryRead(out failFast))
+					failFast = true;
+				if (!optionsTable["name"].TryRead(out patchName))
+					patchName = patchFilename;
 			}
 			catch (Exception _) {
 				throw new LuaRuntimeException(state, "Missing or wrong type in parameter passed to g3man.patch");
@@ -56,12 +64,10 @@ public static class Language {
 
 		
 		
-		LuaFunction callback = context.GetArgument<LuaFunction>(1);
-	
-		string patchFilename = callback.Name;
+
 		
 		foreach (string targetName in targets) {
-			aggregate.AddIntention(last, new PatchIntention<FileRecord>(targetName, patchFilename, critical, (record, source) => {
+			aggregate.AddIntention(last, new PatchIntention<FileRecord>(targetName, patchName, critical, failFast, (record, source, info) => {
 				CodeFile? file = source.GetCodeFile(targetName);
 				if (file is null) {
 					return;
@@ -71,15 +77,19 @@ public static class Language {
 				target["record"] = (LuaValue.FromObject(record));
 				target["code_file"] = (LuaValue.FromObject(file));
 				target["name"] = targetName;
-				Operation.AcquiantAll(target);
+				Operation.AcquiantAll(target, info);
 				try {
-					var _ = state.CallAsync(callback, [target], ct).Result;
-				}
-				catch (LuaCompileException e) {
-					record.AddError(PrettyString(e));
+					using CancellationTokenSource cts = new(TimeSpan.FromSeconds(timeout));
+					state.CallAsync(callback, [target], cts.Token).GetAwaiter().GetResult();
 				}
 				catch (LuaRuntimeException e) {
-					record.AddError(PrettyString(e, patchFilename));
+					record.AddError(PrettyString(e, info.Name));
+				}
+				catch (LuaCanceledException _) {
+					record.AddError($"Realizing patch intention in \"{patchFilename}\" took too long (infinite loop?)");
+				}
+				catch (Exception e) {
+					record.AddError($"Unhandled error while realizing patch intention in \"{patchFilename}\":\n{e}");
 				}
 
 			}));
@@ -89,7 +99,7 @@ public static class Language {
 	
 
 
-	public static void AddModule(LuaState state, PatchIntentionAggregate<FileRecord> aggregate) {
+	public static void AddModule(LuaState state, PatchIntentionAggregate<FileRecord> aggregate, int timeout) {
 		LuaTable preload;
 		if (state.Environment["package"].Type == LuaValueType.Nil) {
 			LuaTable package = new LuaTable();
@@ -112,7 +122,7 @@ public static class Language {
 		preload["g3man"] = new LuaFunction("g3man-module-loader", (mcontext, _) => {
 			LuaTable g3man = new LuaTable();
 			g3man["patch"] = new LuaFunction("patch", (context, ct) => 
-				PatchBase(state, context, ct, aggregate));
+				PatchBase(state, context, ct, aggregate, timeout));
 			return new (mcontext.Return(g3man));
 		});
 	}
@@ -122,9 +132,6 @@ public static class Language {
 		private FileSystem s = new FileSystem(basis);
 		public bool IsReadable(string path) {
 			string norm = Path.GetFullPath(Path.Combine(basis, path));
-			Console.WriteLine(basis);
-			Console.WriteLine(path);
-			Console.WriteLine(norm);
 			return norm.StartsWith(Path.GetFullPath(basis));
 		}
 
@@ -152,19 +159,19 @@ public static class Language {
 		}
 	}
 
-	public static void FindIntentions(string patch, string? folder, string filename, PatchIntentionAggregate<FileRecord> aggregate) {
+
+	
+	public static void FindIntentions(string patch, string? folder, string filename, PatchIntentionAggregate<FileRecord> aggregate, int timeout = 1000) {
 		LuaPlatform platform = new LuaPlatform(new SandboxedFileSystem(folder ?? ""), new SystemOsEnvironment(), new ConsoleStandardIO(),
 				TimeProvider.System);
 	
 		LuaState state = LuaState.Create(platform);
-		state.OpenBasicLibrary();
-		state.OpenModuleLibrary();
 		state.OpenStandardLibraries();
+		AddModule(state, aggregate, timeout);
 		
-		
-		AddModule(state, aggregate);
 		try {
-			_ = state.DoStringAsync(patch, $"@{filename}").Result;
+			using CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(timeout));
+			state.DoStringAsync(patch, $"@{filename}", cts.Token).GetAwaiter().GetResult();
 		}
 		catch (LuaCompileException e) {
 			aggregate.AddError(PrettyString(e));
@@ -172,8 +179,14 @@ public static class Language {
 		catch (LuaRuntimeException e) {
 			aggregate.AddError(PrettyString(e, filename));
 		}
+		catch (LuaCanceledException _) {
+			aggregate.AddError($"Patch \"{filename}\" took too long to find the intentions of (infinite loop?)");
+		}
 		catch (PatchBadIntentionsException e) {
-			aggregate.AddError(e.Message);
+			aggregate.AddError($"In patch \"{filename}\": {e.Message}");
+		}
+		catch (Exception e) {
+			aggregate.AddError($"Unhandled error while finding patch intentions of \"{filename}\":\n{e}");
 		}
 	}
 
@@ -193,17 +206,17 @@ public static class Language {
 			
 			foreach (KeyValuePair<int, List<PerformedOperation>> lineChangesPair in record.GetChanges()) {
 				List<PerformedOperation> lineChanges = lineChangesPair.Value;
+				int line = lineChangesPair.Key;
+				LineState state = new LineState(lines[line - 1]);
 				foreach (PerformedOperation performed in lineChanges) {
-					int line = lineChangesPair.Key;
-					LineState state = new LineState(lines[line - 1]);
 					try {
 						performed.Apply(state);
 					}
 					catch (LuaRuntimeException e) {
 						results.AddError(targetName, PrettyString(e));
 					}
-					lines[line - 1] = state.GetResult();
 				}
+				lines[line - 1] = state.GetResult();
 				
 
 			}
@@ -216,15 +229,15 @@ public static class Language {
 
 	
 
-	public static string PrettyString(LuaRuntimeException e, string? filename = null) {
+	public static string PrettyString(LuaRuntimeException e, string? name = null) {
 		if (e.ErrorObject == LuaValue.Nil) {
 			return e.ToString();
 		}
-		if (filename is null)
+		if (name is null)
 			return $"In line {e.LuaTraceback?.LastLine}:\n{e.ErrorObject.ToString()}";
-		return $"In file \"{filename}\", line {e.LuaTraceback?.LastLine}:\n{e.ErrorObject.ToString()}";
+		return $"In patch \"{name}\", line {e.LuaTraceback?.LastLine}:\n{e.ErrorObject.ToString()}";
 	}
 	public static string PrettyString(LuaCompileException e) {
-		return $"In file {e.ChunkName}, line {e.Position.Line}, column {e.Position.Column}:\n{e.MainMessage}";
+		return $"In file \"{e.ChunkName}\", line {e.Position.Line}, column {e.Position.Column}:\n{e.MessageWithNearToken}";
 	}
 }

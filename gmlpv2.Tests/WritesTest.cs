@@ -22,8 +22,11 @@ patch('only', function(t)
     t:write(i - 1, 'beforest c')
     t:write_before(i, 'before c')
     t:write(i, 'after c')
+    t:write_replace(i, 'replaced first')
+    t:write_replace(i, 'replaced last')
     
     t:write(t:last_line(), 'after end')
+    t:write_replace(t:last_line(), 'replaced')
     t:write_before(t:last_line(), 'before end')
 end)
 """;
@@ -38,11 +41,11 @@ after a 2
 b
 beforest c
 before c
-c
+replaced last
 after c
 d
 before end
-e
+replaced
 after end
 """;
 	

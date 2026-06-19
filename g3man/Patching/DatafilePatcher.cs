@@ -736,7 +736,7 @@ public class DatafilePatcher {
 	
 			sb.AppendLine($"The following patches from the mod {step.Owner.Identify()} touch this code file:");
 			foreach (PatchInfo info in step.WhoTouches(fileName)) {
-				sb.AppendLine($"- {info.Filename}");
+				sb.AppendLine($"- {info.Name}");
 			}
 
 			if (step.WhoTouches(fileName).All(i => !i.Critical)) {

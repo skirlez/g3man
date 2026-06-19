@@ -61,7 +61,7 @@ public class PatchIntentionAggregate<T>() where T : new() {
 				intention.Realize(record, source);
 			}
 			catch (PatchRealizationException e) {
-				e.Filename = intention.Info.Filename;
+				e.Filename = intention.Info.Name;
 				errors.Add(e);
 			}
 		}
@@ -94,17 +94,18 @@ public class PatchIntentionAggregate<T>() where T : new() {
  *
  * Example: gmlp's record keeps track of which operations will be applied to which lines.
  */
-public readonly struct PatchIntention<T>(string target, string filename, bool critical, Action<T, CodeSource> action) where T : new() {
+public readonly struct PatchIntention<T>(string target, string name, bool critical, bool failFast, Action<T, CodeSource, PatchInfo> action) where T : new() {
 	public readonly string Target = target;
-	public readonly PatchInfo Info = new PatchInfo(filename, critical);
+	public readonly PatchInfo Info = new PatchInfo(name, critical, failFast);
 	
 	public void Realize(T record, CodeSource source) {
-		action(record, source);
+		action(record, source, Info);
 	}
 }
 
-public readonly struct PatchInfo(string filename, bool critical) {
+public readonly struct PatchInfo(string name, bool critical, bool failFast) {
+	public readonly string Name = name;
 	public readonly bool Critical = critical;
-	public readonly string Filename = filename;
+	public readonly bool FailFast = failFast;
 }
 

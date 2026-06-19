@@ -32,10 +32,10 @@ public static class Language {
 				
 				foreach (string target in targets) {
 					int p = pos;
-					aggregate.AddIntention(last, new PatchIntention<UnitOperations>(target, patchName, critical, (record, source) => {
+					aggregate.AddIntention(last, new PatchIntention<UnitOperations>(target, patchName, critical, failFast: true, (record, source, info) => {
 						CodeFile? codeFile = source.GetCodeFile(target);
 						if (codeFile is null) {
-							if (!critical)
+							if (!info.Critical)
 								return;
 							throw new PatchRealizationException($"Target \"{target}\" does not exist");
 						}
@@ -43,7 +43,7 @@ public static class Language {
 						string code = codeFile.GetAsString();
 						if (p < tokens.Length && tokens[p] is SectionToken patchSectionToken &&
 								patchSectionToken.Section == "patch") {
-							ExecutePatchSection(tokens, p + 1, code, critical, record, true,
+							ExecutePatchSection(tokens, p + 1, code, info, record, true,
 								ref patchIncrement);
 						}
 						else {
@@ -262,7 +262,7 @@ public static class Language {
 		}
 	}
 
-	public static int ExecutePatchSection(Token[] tokens, int pos, string code, bool critical, UnitOperations unitOperations, bool bailOnSection, ref int patchIncrement) {
+	public static int ExecutePatchSection(Token[] tokens, int pos, string code, PatchInfo info, UnitOperations unitOperations, bool bailOnSection, ref int patchIncrement) {
 		// TODO make sure code has \n line endings only
 		
 		// we prepend a "\n" for line 0
@@ -602,7 +602,7 @@ public static class Language {
 						}
 						
 							
-						linePatches.Add(new PatchOperation(stringToken.Text, critical, type, patchIncrement));
+						linePatches.Add(new PatchOperation(stringToken.Text, info.Critical, type, patchIncrement));
 						patchIncrement++;
 					}
 
@@ -618,7 +618,7 @@ public static class Language {
 					for (int i = 0; i < carets.Count; i++) {
 						int filePos = carets[i].Line;
 						List<PatchOperation> linePatches = unitOperations.GetPatchOperationsOrCreate(filePos);
-						linePatches.Add(new ReplaceSubstringPatchOperation(oldStringToken.Text, newStringToken.Text, oldStringToken.Regex, critical, patchIncrement));
+						linePatches.Add(new ReplaceSubstringPatchOperation(oldStringToken.Text, newStringToken.Text, oldStringToken.Regex, info.Critical, patchIncrement));
 						patchIncrement++;
 					}
 
