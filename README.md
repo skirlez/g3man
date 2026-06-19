@@ -1,8 +1,7 @@
 # g3man
 **G**ame**M**aker **M**od **Man**ager
 
-<img alt="image" src="https://github.com/user-attachments/assets/b0581803-f844-4ce0-8b32-a00507c9c26a" />
-
+<img alt="Screenshot_20260619_033924" src="https://github.com/user-attachments/assets/342b9c0f-5835-429d-bf2d-8c2927686b17" />
 
 A mod manager and mod patcher for GameMaker games. 
 
@@ -10,14 +9,13 @@ Utilizes the incredible [UndertaleModLib](https://github.com/UnderminersTeam/Und
 
 This repository also contains gmlpweb by [@hexfae](https://github.com/hexfae),
 an interactive website for creating GMLPv2 patches. You can try it out [here](https://skirlez.github.io/g3man/)!
-(GMLPv2 patches will be usable in version 8, right now they're on the main branch).
 
 ## Features
 - Support for all GameMaker games compiled in VM mode (theoretically)
 - Its own mod format:
 	- Mods can be applied simultaneously, and should keep working after most updates
 	- Mod scripting: mods can run .csx scripts, like UndertaleModTool
-	- A custom patch language/format called GMLP
+	- A lua-based code patching solution (GMLPv2)
   - Dependency checking
 - A profile system to easily switch between sets of mods
 - Profile save separation (opt-in)
@@ -28,9 +26,6 @@ an interactive website for creating GMLPv2 patches. You can try it out [here](ht
 - Efficient pre-loading of the game's datafile
 
 *(You can have several Xdelta patches, but every consecutive patch has to be made for the output of the prior patches)
-
-## Coming in Version 9
-- GMLPv2: a Lua-based patching solution
 
 ## Installation
 
@@ -60,7 +55,6 @@ See this [wiki page](https://github.com/skirlez/g3man/wiki/Building-g3man-and-gm
 
 If you're thinking of contributing, here's a list of things that g3man should have.
 
-
 - Support for more platforms
   
   MacOS support, for example, should be fairly trivial if anyone is interested in adding support for it. There's already an OSX constant defined in the project, I just don't have any Apple hardware.
@@ -77,8 +71,6 @@ If you're thinking of contributing, here's a list of things that g3man should ha
 
   GTK has an API for this, so I'll probably implement this soon.
 
-- Use an actual testing library for gmlp tests
-
 - Git diff support as a patching format
 
 - YYC
@@ -93,6 +85,11 @@ If you're thinking of contributing, here's a list of things that g3man should ha
 ## License
 AGPLv3. Xdelta code included in `c/xdelta3` is Apache License 2.0 (`c/xdelta3/LICENSE`)
 
+## Discord
+I set up a Discord for this project.
+
+If you have any question regarding the project, you can join and ask (even if you suspect the question is dumb).
+https://discord.gg/BS47ZeX2RH
 
 ## Contributing
 Please contribute
