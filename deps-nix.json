@@ -250,6 +250,11 @@
     "hash": "sha256-sKQjvF/qlEgfrCKHt1OzT+QZdtPt4RBBZd2f0oD1ldg="
   },
   {
+    "pname": "PeNet",
+    "version": "6.1.2",
+    "hash": "sha256-PJ0INGKUEiUyI7N+0kF2tmEBvFbdvSmCgvYF8QHIZVQ="
+  },
+  {
     "pname": "PropertyChanged.Fody",
     "version": "4.1.0",
     "hash": "sha256-SAId/w7y5RZqMnpnJ6nmMjaPXQIr2h6QsRKZ4yuoYYU="
@@ -273,6 +278,11 @@
     "pname": "System.Runtime.CompilerServices.Unsafe",
     "version": "6.1.2",
     "hash": "sha256-X2p/U680Zfkr622oc+vg5JYgbDEzE7mLre5DVaayWTc="
+  },
+  {
+    "pname": "System.Security.Cryptography.Pkcs",
+    "version": "10.0.7",
+    "hash": "sha256-+3RdvoSme0k3FoutPdJLkbWPWsmqPVo80hMgpuH3FP0="
   },
   {
     "pname": "System.Text.Encodings.Web",
