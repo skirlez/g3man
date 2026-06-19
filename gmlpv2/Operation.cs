@@ -157,6 +157,8 @@ public class FindLineWithOperation(string name, bool isReverse, bool isRegex) : 
 		string str = context.GetArgument<string>(2);
 		string code = file.GetAsString();
 		string[] lines = file.GetAsLines();
+
+		str = str.Trim();
 		
 		int lineIndex;
 		if (isReverse)
