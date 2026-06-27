@@ -47,18 +47,7 @@ public class DatafilePatcher {
 	private const string G3MAN_MANGLE_PREFIX = "g3man_mangled_";
 
 	// mostly the same as undertalemodcli
-	private static readonly ScriptOptions scriptOptions = ScriptOptions.Default
-		.AddImports(
-			"UndertaleModLib", "UndertaleModLib.Models", "UndertaleModLib.Decompiler",
-			"UndertaleModLib.Scripting", "UndertaleModLib.Compiler",
-			"UndertaleModLib.Util", "System", "System.IO", "System.Threading.Tasks",
-			"System.Collections.Generic",  "System.Text.RegularExpressions")
-		.AddReferences(typeof(UndertaleObject).GetTypeInfo().Assembly,
-			typeof(System.Text.RegularExpressions.Regex).GetTypeInfo().Assembly,
-			typeof(TextureWorker).GetTypeInfo().Assembly,
-			typeof(ImageMagick.MagickImage).GetTypeInfo().Assembly,
-			typeof(Underanalyzer.Decompiler.DecompileContext).Assembly)
-		.WithEmitDebugInformation(true);
+	private static readonly ScriptOptions scriptOptions = ScriptingUtil.CreateDefaultScriptOptions();
 	
 	/**
 	 * If the resource should be excluded according to the patcher's settings, return the object it
@@ -390,7 +379,7 @@ public class DatafilePatcher {
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 				try {
-					merge(data, modData, Path.Combine(profileLocation, mod.ModId));
+					merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
 				}
 				catch (Exception e) {
 					setStatusAndError($"Merging {mod.Identify()} failed!", e.ToString());
