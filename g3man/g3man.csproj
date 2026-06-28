@@ -65,6 +65,6 @@
   </ItemGroup>
   
   <ItemGroup Condition="'$(IsWindows)'=='true'">
-    <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.7.0" />
+    <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.8.0" />
   </ItemGroup>
 </Project>
