@@ -218,10 +218,18 @@ public class PatcherWindow : G3manWindow {
 
 
 		string relativeProfilePath = $"g3man/profiles/{profile.ID}";
-		
-		UndertaleData? output = datafilePatcher.Patch(noXdeltas, profile, profilePath, 
-			relativeProfilePath, profile.ID,
-			data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
+		UndertaleData? output;
+		try {
+			output = datafilePatcher.Patch(noXdeltas, profile, profilePath,
+				relativeProfilePath, profile.ID,
+				data, Logger.MakeWithoutInfo("PATCHER"), setStatus);
+		}
+		catch (Exception e) {
+			setStatus("Unknown error occurred while patching! Report this as a bug.");
+			Program.Logger.Error($"Unhandled exception while patching:\n{e}");
+			return false;
+		}
+
 		if (output is null)
 			return false;
 		

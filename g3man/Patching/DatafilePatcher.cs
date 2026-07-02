@@ -734,22 +734,68 @@ public class DatafilePatcher {
 			}
 			
 			sb.AppendLine("========== ERRORS START ==========");
+			string[] lines = result.GetResult(fileName).Split('\n');
 			int errorIndex = 1;
+			HashSet<int> relevantLines = new HashSet<int>();
+			const int RADIUS = 5;
 			// compiler weirdly likes to repeat some errors so we just check if we already said something before saying it
 			HashSet<string> alreadySaid = new HashSet<string>();
+			
 			foreach (CompileError error in errorGroup) {
 				string detailedMessage = error.GenerateDetailedMessage();
 				if (!alreadySaid.Contains(detailedMessage)) {
 					sb.AppendLine($"{errorIndex}. {detailedMessage}");
 					alreadySaid.Add(detailedMessage);
+					
+
+					int tryExtractLineNumber() {
+						const string LINE_TEXT = " line ";
+						int lineTextLocation = detailedMessage.IndexOf(LINE_TEXT, StringComparison.Ordinal);
+						if (lineTextLocation == -1)
+							return -1;
+						
+						int spaceAfter = detailedMessage.IndexOf(' ', lineTextLocation + LINE_TEXT.Length);
+						if (spaceAfter == -1)
+							return -1;
+						string numberText = detailedMessage.Substring(lineTextLocation + LINE_TEXT.Length,
+							spaceAfter - (lineTextLocation + LINE_TEXT.Length) - 1);
+						bool success = int.TryParse(numberText, out int num);
+						if (!success) 
+							return -1;
+						return num;
+					}
+					int num = tryExtractLineNumber();
+					if (num != -1) {
+						for (int i = -RADIUS; i < RADIUS; i++) {
+							int l = num + i;
+							if (l < lines.Length && l >= 0)
+								relevantLines.Add(l);
+						}
+					}
+
 					errorIndex++;
 				}
 			}
 			
 			sb.AppendLine("========== ERRORS END ==========");
-			string code = string.Join('\n', result.GetResult(fileName).Split('\n').Select((x, i) => $"{i + 1}. {x}"));
-			sb.AppendLine($"========== BAD FILE START ==========\n{code}\n========== BAD FILE END ==========");
+			if (relevantLines.Count > 0) {
+				sb.AppendLine("========== RELEVANT LINES ==========");
+				List<int> relevantLinesList = relevantLines.Order().ToList();
+				int lastPrintedLine = relevantLinesList[0];
 				
+
+				foreach (int i in relevantLinesList) {
+					sb.AppendLine($"{i}. {lines[i - 1]}");
+					if (i - lastPrintedLine > 1) {
+						sb.AppendLine($"--------------------------------");
+					}
+
+					lastPrintedLine = i;
+				}
+				sb.AppendLine("========== RELEVANT LINES END ==========");
+			}
+			
+
 
 			number += 1;
 		}
