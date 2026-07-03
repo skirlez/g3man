@@ -783,13 +783,11 @@ public class DatafilePatcher {
 				List<int> relevantLinesList = relevantLines.Order().ToList();
 				int lastPrintedLine = relevantLinesList[0];
 				
-
 				foreach (int i in relevantLinesList) {
-					sb.AppendLine($"{i}. {lines[i - 1]}");
 					if (i - lastPrintedLine > 1) {
 						sb.AppendLine($"--------------------------------");
 					}
-
+					sb.AppendLine($"{i}. {lines[i - 1]}");
 					lastPrintedLine = i;
 				}
 				sb.AppendLine("========== RELEVANT LINES END ==========");
