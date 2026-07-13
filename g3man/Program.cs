@@ -7,6 +7,7 @@ using DateTime = System.DateTime;
 using MainWindow = g3man.UI.Main.MainWindow;
 
 #if WINDOWS
+	using System.Reflection;
 	using System.Runtime.InteropServices;
 	using GdkWin32;
 	using Win32;
@@ -112,10 +113,11 @@ public static class Program {
 				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
 				// Doesn't happen to me anymore!
 				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo");
-
+				
+				string? executableDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 				string? schemaDir = Environment.GetEnvironmentVariable("GSETTINGS_SCHEMA_DIR");
-				if (schemaDir is null || schemaDir.Length == 0)
-					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", "./default-glib-schemas");
+				if (executableDir is not null && (schemaDir is null || schemaDir.Length == 0))
+					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", $"{executableDir}\\default-glib-schemas");
 				Environment.SetEnvironmentVariable("GTK_CSD", "0");
 			#endif
 			
