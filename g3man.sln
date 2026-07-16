@@ -19,6 +19,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PatchCommon", "PatchCommon\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gmlpv2.Tests", "gmlpv2.Tests\gmlpv2.Tests.csproj", "{EAFA0EEC-E825-40BE-9915-5BEC9D287AFE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "g3man.GTK", "g3man.GTK\g3man.GTK.csproj", "{84B635C7-7621-4B40-B68A-3CF498B3300D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "g3man.Core", "g3man.Core\g3man.Core.csproj", "{67734C37-5ABC-4C59-9E0C-8A0D40B0FFCC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,5 +72,13 @@ Global
 		{EAFA0EEC-E825-40BE-9915-5BEC9D287AFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EAFA0EEC-E825-40BE-9915-5BEC9D287AFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EAFA0EEC-E825-40BE-9915-5BEC9D287AFE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84B635C7-7621-4B40-B68A-3CF498B3300D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84B635C7-7621-4B40-B68A-3CF498B3300D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84B635C7-7621-4B40-B68A-3CF498B3300D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84B635C7-7621-4B40-B68A-3CF498B3300D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{67734C37-5ABC-4C59-9E0C-8A0D40B0FFCC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67734C37-5ABC-4C59-9E0C-8A0D40B0FFCC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67734C37-5ABC-4C59-9E0C-8A0D40B0FFCC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67734C37-5ABC-4C59-9E0C-8A0D40B0FFCC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

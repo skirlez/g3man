@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Library</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+	<ItemGroup>
+        <PackageReference Include="GirCore.Adw-1" Version="0.8.0" />
+        <PackageReference Include="GirCore.Gtk-4.0" Version="0.8.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\g3man.Core\g3man.Core.csproj" />
+	</ItemGroup>
+</Project>

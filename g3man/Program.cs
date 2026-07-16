@@ -1,72 +1,28 @@
-﻿using System.Diagnostics;
+﻿
 using System.Text.Json;
-using g3man.Models;
-using g3man.Util;
-using Gtk;
+using g3man.Core;
+using g3man.Core.Util;
 using DateTime = System.DateTime;
-using MainWindow = g3man.UI.Main.MainWindow;
 
 #if WINDOWS
 	using System.Reflection;
 	using System.Runtime.InteropServices;
-	using GdkWin32;
-	using Win32;
 #endif
 
 namespace g3man;
 
 public static class Program {
 	public const int Version = 9;
-
-	public static Logger Logger = null!;
-	public static DataLoader DataLoader = null!;
-	public static Config Config = null!;
-
-	public static Initializer InitializedUsing;
-
-	private static Game? game;
-	private static Profile? profile;
-
-	public static string LogFilename = null!;
-	private static TextWriter? Logfile = null;
-	public static GtkTextBufferWriter? GtkLogWriter = null;
 	
-	public static List<TextWriter> InfoWriters = new List<TextWriter>([Console.Out]);
-	public static List<TextWriter> ErrorWriters = new List<TextWriter>([Console.Error]);
+	public static TextWriter? Logfile = null;
 	
-	private static Application application = null!;
-
-	public static Profile? GetProfile() {
-		return profile;
-	}
-
-	public static void AddGameEntry(GameEntry entry) {
-		Config.GameEntries.Add(entry);
-		Config.Write();
-	}
 	
-	public static void RemoveGameEntry(GameEntry entry) {
-		Config.GameEntries.Remove(entry);
-		Config.Write();
-	}
-	
-	public static void SetGame(Game? newGame) {
-		game = newGame;
-	}
-	public static Game? GetGame() {
-		return game;
-	}
-	public static void SetProfile(Profile newProfile) {
-		profile = newProfile;
-	}
-	public static string CurrentProfileFolderPath() {
-		Debug.Assert(game is not null);
-		Debug.Assert(profile is not null);
-		return game.GetProfileFolderPath(profile);
-	}
 
 	public static Thread MainThread = null!;
 
+	public static List<TextWriter> InfoWriters = new List<TextWriter>([Console.Out]);
+	public static List<TextWriter> ErrorWriters = new List<TextWriter>([Console.Error]);
+	
 	#if WINDOWS
 		[DllImport("kernel32.dll")]
 		static extern bool AttachConsole(int dwProcessId);
@@ -78,13 +34,14 @@ public static class Program {
 			AttachConsole(ATTACH_PARENT_PROCESS);
 		#endif
 		MainThread = Thread.CurrentThread;
-		LogFilename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
+		string logFilename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
+		Logger.LoggerPipe pipe = new Logger.LoggerPipe(InfoWriters, ErrorWriters);
 		if (args.Length == 0) {
-			Logger = Logger.Make("");
+			Logger logger = Logger.Make("", pipe);
 			try {
 				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
 				Directory.CreateDirectory(logs);
-				StreamWriter logfile = new StreamWriter(Path.Combine(logs, LogFilename));
+				StreamWriter logfile = new StreamWriter(Path.Combine(logs, logFilename));
 				logfile.AutoFlush = true;
 				
 				Logfile = logfile;
@@ -92,128 +49,30 @@ public static class Program {
 				ErrorWriters.Add(Logfile);
 			}
 			catch (Exception e) {
-				Logger.Error("Failed to initialize logging to file: " + e);
-				Logger.Error("This session will not be logged to file.");
+				logger.Error("Failed to initialize logging to file: " + e);
+				logger.Info("This session will not be logged to file.");
 			}
 
+			Config config;
 			try {
-				Gtk.Module.Initialize();
+				JsonElement? configJson = Config.Read();
+				config = new Config(configJson.Value, logger);
+			}
+			catch (FileNotFoundException _) {
+				config = new Config();
 			}
 			catch (Exception e) {
-				Logger.Error($"GTK failed to initialize: {e}");
-				return 1;
+				logger.Error("Failed to read config file: " + e);
+				config = new Config();
 			}
 			
-			GtkLogWriter = new GtkTextBufferWriter();
-			InfoWriters.Add(GtkLogWriter);
-			ErrorWriters.Add(GtkLogWriter);
-	
-			
-			#if WINDOWS
-				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
-				// Doesn't happen to me anymore!
-				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo");
-				
-				string? executableDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-				string? schemaDir = Environment.GetEnvironmentVariable("GSETTINGS_SCHEMA_DIR");
-				if (executableDir is not null && (schemaDir is null || schemaDir.Length == 0))
-					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", $"{executableDir}\\default-glib-schemas");
-				Environment.SetEnvironmentVariable("GTK_CSD", "0");
-			#endif
-			
-			JsonElement? configJson = Config.Read();
-			if (configJson is null)
-				Config = new Config();
-			else
-				Config = new Config(configJson.Value);
-			InitializedUsing = Config.Initializer;
-			if (InitializedUsing == Initializer.Libadwaita) {
-				try {
-					application = Adw.Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
-				}
-				catch (Exception e) {
-					Logger.Error($"Failed to create Libadwaita application instance: {e}\nTrying GTK instead...");
-					InitializedUsing = Initializer.Gtk4;
-				}
+
+			switch (config.Initializer) {
+				default:
+					return g3man.GTK.UI.Run(logger, pipe, config);
 			}
-
-			if (InitializedUsing == Initializer.Gtk4) {
-				try {
-					application = Application.New("com.skirlez.g3man", Gio.ApplicationFlags.FlagsNone);
-				}
-				catch (Exception e) {
-					Logger.Error($"Failed to create GTK application instance: {e}");
-					return 1;
-				}
-			}
-			#if WINDOWS
-				GdkWin32.Module.Initialize();
-			#endif
-			
-			application.OnActivate += (_, _) => {
-				DataLoader = new DataLoader();
-				MainWindow window = new MainWindow();
-				application.AddWindow(window);
-				ApplyColorScheme(Config.ColorScheme);
-				
-				window.Show();
-			};
-			application.OnShutdown += (_, _) => {
-				//Config.Write();
-				Logfile?.Flush();
-			};
-			return application.RunWithSynchronizationContext([]);
 		}
-
-		Logger = Logger.Make("");
-		return CLI.Invoke(args);
+		
+		return CLI.Invoke(args, pipe);
 	}
-	
-
-	// TODO; I don't really know if this is correct.
-	public static void RunOnMainThreadEventually(Action action) {
-		GLib.MainContext.Default().InvokeFull((int)GLib.ThreadPriority.Low, () => {
-			action.Invoke();
-			return false;
-		});
-	}
-
-	public enum Initializer {
-		Gtk4,
-		Libadwaita
-	}
-	public enum ColorScheme {
-		SystemDefault,
-		Light,
-		Dark
-	}
-	
-	public enum Theme {
-		SystemDefault,
-		None,
-	}
-
-
-	public static void ApplyColorScheme(ColorScheme colorScheme) {
-		if (InitializedUsing == Initializer.Gtk4) {
-			Settings? settings = Settings.GetDefault();
-			if (settings is null)
-				return;
-			settings.GtkInterfaceColorScheme = colorScheme switch {
-				ColorScheme.SystemDefault => InterfaceColorScheme.Default,
-				ColorScheme.Light => InterfaceColorScheme.Light,
-				ColorScheme.Dark => InterfaceColorScheme.Dark,
-				_ => throw new UnreachableException()
-			};
-		}
-		else {
-			Adw.StyleManager.GetDefault().SetColorScheme(colorScheme switch {
-				ColorScheme.SystemDefault => Adw.ColorScheme.Default,
-				ColorScheme.Light => Adw.ColorScheme.ForceLight,
-				ColorScheme.Dark => Adw.ColorScheme.ForceDark,
-				_ => throw new UnreachableException()
-			});
-		}
-	}
-	
 }

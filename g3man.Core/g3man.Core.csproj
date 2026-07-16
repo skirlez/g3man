@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Library</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\gmlp\gmlp.csproj" />
+        <ProjectReference Include="..\gmlpv2\gmlpv2.csproj" />
+        <ProjectReference Include="..\UndertaleModLib\UndertaleModLib.csproj" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
+        <IsOSX Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</IsOSX>
+        <IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(IsWindows)'=='true'">
+        <DefineConstants>WINDOWS</DefineConstants>
+        <Lsuffix>dll</Lsuffix>
+        <BuildCLibsCommand>build.bat</BuildCLibsCommand>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(IsOSX)'=='true'">
+        <DefineConstants>OSX</DefineConstants>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(IsLinux)'=='true'">
+        <DefineConstants>LINUX</DefineConstants>
+        <Lsuffix>so</Lsuffix>
+        <BuildCLibsCommand>sh build.sh</BuildCLibsCommand>
+    </PropertyGroup>
+
+    <Target Condition="'$(DontHandleCLibs)'!='true'" Name="BuildCLibs" BeforeTargets="BeforeBuild">
+        <Exec WorkingDirectory="../c" Command="$(BuildCLibsCommand)" Condition="!Exists('../c/build/libxdelta3.$(Lsuffix)') Or !Exists('../c/build/libg3man.$(Lsuffix)')" />
+    </Target>
+
+    <ItemGroup Condition="'$(DontHandleCLibs)'!='true'">
+        <Content Include="../c/build/libxdelta3.$(Lsuffix)">
+            <Link>libxdelta3.$(Lsuffix)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Include="../c/build/libg3man.$(Lsuffix)">
+            <Link>libg3man.$(Lsuffix)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+    
+</Project>

@@ -1,16 +1,16 @@
 using System.CommandLine;
 using System.Diagnostics;
-using g3man.Models;
+using g3man.Core;
+using g3man.Core.Models;
 using g3man.Patching;
-using g3man.Util;
+using g3man.Core.Util;
 using UndertaleModLib;
 
 namespace g3man;
 
 public class CLI {
-	public static int Invoke(string[] args) {
-		Program.Config = new Config();
-		Program.Config.AllowModScripting = true;
+	public static int Invoke(string[] args, Logger.LoggerPipe pipe) {
+		Logger logger = Logger.Make("", pipe);
 		
 		RootCommand root = new("This program can apply g3man mods or g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
 		Command applyCommand = new("apply") {
@@ -86,13 +86,13 @@ public class CLI {
 					game = Game.Parse(stream, entry);
 				}
 				catch (Exception e) {
-					Program.Logger.Error($"Failed to parse game:\n{e.Message}");
+					logger.Error($"Failed to parse game:\n{e.Message}");
 					return 1;
 				}
 				
 				string profilePath = profileDirectoryInfo.FullName;
 		
-				Program.Logger.Info("Parsing profile and mods...");
+				logger.Info("Parsing profile and mods...");
 
 				Profile profile;
 				try {
@@ -100,7 +100,7 @@ public class CLI {
 					profile = Profile.Parse(stream, "");
 				}
 				catch (Exception e) {
-					Program.Logger.Error($"Failed to parse profile:\n{e.Message}");
+					logger.Error($"Failed to parse profile:\n{e.Message}");
 					return 1;
 				}
 
@@ -108,7 +108,7 @@ public class CLI {
 				
 				bool anyFailed = false;
 				List<Mod> mods = Mod.ParseAll(profileDirectoryInfo.FullName, (e, path) => {
-					Program.Logger.Info($"Mod at {path} failed to parse:\n{e.Message}");
+					logger.Info($"Mod at {path} failed to parse:\n{e.Message}");
 					Interlocked.Exchange(ref anyFailed, true);
 				}).Where(mod => !profile.ModsDisabled.Contains(mod.ModId)).ToList();
 
@@ -116,7 +116,7 @@ public class CLI {
 					return 1;
 				
 				if (mods.Count == 0) {
-					Program.Logger.Info("No mods found");
+					logger.Info("No mods found");
 					return 1;
 				}
 
@@ -128,14 +128,14 @@ public class CLI {
 				mods.Sort((mod1, mod2) => int.Sign(Array.IndexOf(modOrder, mod1.ModId) - Array.IndexOf(modOrder, mod2.ModId)));
 
 				FileInfo cleanData = parseResult.GetRequiredValue(cleanDataLocation);
-				Program.Logger.Info("Loading datafile...");
+				logger.Info("Loading datafile...");
 				UndertaleData data;
 				try {
 					using FileStream stream = new FileStream(cleanData.FullName, FileMode.Open, FileAccess.Read);
 					data = UndertaleIO.Read(stream);
 				}
 				catch (Exception e) {
-					Program.Logger.Error(e);
+					logger.Error(e);
 					return 1;
 				}
 				
@@ -150,14 +150,14 @@ public class CLI {
 									
 				DatafilePatcher datafilePatcher = new DatafilePatcher();
 				UndertaleData? output = datafilePatcher.Patch(mods, profile, 
-					profileDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, Program.Logger,
-					_ => {});
+					profileDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, logger,
+					_ => {}, allowModScripting: true);
 				if (output == null)
 					return 1;
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 				if (createOldSymlink)
 					IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
-				Program.Logger.Info("Writing...");
+				logger.Info("Writing...");
 
 				// theoretically could parse the game.json in this location to figure out what the input datafile name is
 				// and that's probably more correct, the whole point of this is to not screw up existing g3man setups
@@ -167,33 +167,33 @@ public class CLI {
 					IO.Apply(data, game.Directory, outputDatafileName, writeHash);
 				}
 				catch (Exception e) {
-					Program.Logger.Error("Failed to save output data.win");
-					Program.Logger.Error(e.ToString());
+					logger.Error("Failed to save output data.win");
+					logger.Error(e.ToString());
 				}
 
 				if (shouldLaunch) {
 					Config config = new Config();
 					if (game.ChosenExecutableType == Game.ExecutableType.Steam) {
 						if (steamPath is null) {
-							Program.Logger.Error(
+							logger.Error(
 								"Game is set to launch through Steam, but no Steam path was provided!");
 							return 1;
 						}
 						config.SteamExecutable = steamPath;
 					}
 				
-					Program.Logger.Info("Launching game...");
+					logger.Info("Launching game...");
 					try {
 						Process? p = game.Launch(config, profile);
 						if (p is null) {
-							Program.Logger.Error("Failed to launch game");
+							logger.Error("Failed to launch game");
 							return 1;
 						}
-						Program.Logger.Info("Launched, waiting for process to close...");
+						logger.Info("Launched, waiting for process to close...");
 						p.WaitForExit();
 					}
 					catch (Exception e) {
-						Program.Logger.Error($"Error occurred while trying to launch game:\n{e}");
+						logger.Error($"Error occurred while trying to launch game:\n{e}");
 					}
 				}
 				
