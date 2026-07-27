@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using g3man.Patching;
+using g3man.Core.Patching;
 using g3man.Core.Util;
 
 namespace g3man.Core.Models;
@@ -18,8 +18,7 @@ public class Game {
 	private string DatafileFolder;
 	
 	
-	public static string GetDefaultOutputDatafilePath(string inputDatafilePath)
-	{
+	public static string GetDefaultOutputDatafilePath(string inputDatafilePath) {
 		string folder = Path.GetDirectoryName(inputDatafilePath) ?? "";
 		string filename = $"g3man_{Path.GetFileName(inputDatafilePath)}";
 		if (folder == "")
@@ -37,13 +36,13 @@ public class Game {
 	public string ExecutablePath;
 	public int ExecutableSteamAppId;
 	
-	private string OutputDatafilePath;
-	
-	private const int LatestVersion = 2;
+	private const int LatestVersion = 3;
 	public int FormatVersion;
 
 	public string Directory => Entry.Path;
 	public GameEntry Entry;
+
+	public PatchParadigm Paradigm;
 	
 	public Game(GameEntry entry, string displayName, string internalName, string datafilePath, int executableType, string executablePath, int executableSteamAppId,
 		string outputDatafilePath) {
@@ -58,7 +57,6 @@ public class Game {
 		ChosenExecutableType = (ExecutableType)executableType;
 		ExecutablePath = executablePath;
 		ExecutableSteamAppId = executableSteamAppId;
-		OutputDatafilePath = outputDatafilePath;
 		FormatVersion = LatestVersion;
 	}
 	public Game(JsonElement root, GameEntry entry) {
@@ -80,7 +78,20 @@ public class Game {
 		ChosenExecutableType = (ExecutableType)executableType;
 		ExecutablePath = JsonUtil.GetOrDefaultClass(root, "executable_path", "");
 		ExecutableSteamAppId = JsonUtil.GetOrDefault(root, "executable_steam_app_id", -1);
-		OutputDatafilePath = JsonUtil.GetStringOrThrow(root, "output_datafile_name", GetDefaultOutputDatafilePath(DatafilePath));
+
+		if (FormatVersion <= 2) {
+			string outputDatafilePath = JsonUtil.GetStringOrThrow(root, "output_datafile_name", GetDefaultOutputDatafilePath(DatafilePath));
+			if (outputDatafilePath != DatafilePath)
+				Paradigm = PatchParadigm.Launch;
+			else
+				Paradigm = PatchParadigm.Modify;
+		}
+		else {
+			int paradigm = JsonUtil.GetOrDefault(root, "patch_paradigm", 0);
+			if (paradigm >= (int)PatchParadigm.Size || paradigm < 0)
+				paradigm = 0;
+			Paradigm = (PatchParadigm)paradigm;
+		}
 	}
 
 	public string GetCleanDatafilePath() {
@@ -112,19 +123,16 @@ public class Game {
 	public string GetInputDatafileRelativePath() {
 		return DatafilePath;
 	}
+	public string GetOutputDatafileRelativePath(Profile profile) {
+		return GetOutputDatafileRelativePath(profile.ID);
+	}
 	public string GetOutputDatafileRelativePath(string profileID) {
-		if (DatafileFolder != "")
-			return Path.Combine(DatafileFolder, $"{profileID}{DatafileExtension}");
-		return Path.Combine($"{profileID}{DatafileExtension}");
+		if (GetPatchParadigm() == PatchParadigm.Launch) {
+			return Path.Combine("g3man", "stages", profileID, GetInputDatafileRelativePath());
+		}
+		return GetInputDatafileRelativePath();
 	}
-	public string	GetOutputDatafileRelativePath(Profile profile) {
-		if (profile.EnableOutputOverride)
-			return GetOutputDatafileRelativePath(profile.ID);
-		return GetOutputDatafileRelativePath();
-	}
-	public string GetOutputDatafileRelativePath() {
-		return OutputDatafilePath;
-	}
+
 	
 	public Status ExecutableStatus(Config config) {
 		switch (ChosenExecutableType) {
@@ -187,7 +195,7 @@ public class Game {
 			["executable_type"] = (int)ChosenExecutableType,
 			["executable_path"] = ExecutablePath,
 			["executable_steam_app_id"] = ExecutableSteamAppId,
-			["output_datafile_name"] = OutputDatafilePath
+			["patch_paradigm"] = (int)Paradigm
 		};
 	}
 
@@ -224,12 +232,13 @@ public class Game {
 		File.WriteAllText(Path.Combine(folder, "game.json"), jsonText);
 	}
 
-	public LaunchParadigm GetLaunchParadigm() {
-		return (OutputDatafilePath == DatafilePath) ? LaunchParadigm.Modify : LaunchParadigm.Launch;
+	public PatchParadigm GetPatchParadigm() {
+		return Paradigm;
 	}
 	
-	public enum LaunchParadigm {
+	public enum PatchParadigm {
 		Launch,
-		Modify
+		Modify,
+		Size
 	}
 }

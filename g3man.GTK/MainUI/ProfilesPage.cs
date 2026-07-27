@@ -16,19 +16,19 @@ public partial class MainWindow {
 		
 		Button openProfilesFolder = Button.NewWithLabel("Open profiles folder");
 		openProfilesFolder.OnClicked += (_, _) => {
-			IO.OpenFileExplorer(Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"));
+			TryUtil.TryOpeningFileExplorer(this, Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"));
 		};
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
-		addNewProfile.OnClicked += (sender, args) => {
-			ManageProfileWindow window = new ManageProfileWindow(null, (newProfile, _) => {
+		addNewProfile.OnClicked += (_, _) => {
+			ManageProfileWindow window = new(null, (newProfile, _) => {
 				AddToProfilesList(newProfile, false);
 			});
 			window.Dialog(this);
 		};
 		
 		Button refreshProfiles = Button.NewWithLabel("Refresh");
-		refreshProfiles.OnClicked += (sender, args) => {
+		refreshProfiles.OnClicked += (_, _) => {
 			ParseProfilesAndUpdateMenu();
 		};
 		
@@ -172,12 +172,7 @@ public partial class MainWindow {
 		ParseModsAndUpdateMenu();
 		
 		UI.GetGame()!.Entry.ProfileFolderName = profile.ID;
-		try {
-			UI.Config.Write();
-		}
-		catch (Exception e) {
-			UI.Logger.Error("Failed to update game.json after selecting profile: " + e);
-		}
+		UI.TryWriteConfig();
 	}
 	
 }

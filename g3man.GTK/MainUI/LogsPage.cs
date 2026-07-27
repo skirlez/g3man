@@ -66,7 +66,7 @@ public partial class MainWindow {
 		openLogsFolderButton.SetMargin(10);
 		openLogsFolderButton.SetHalign(Align.Center);
 		openLogsFolderButton.OnClicked += (_, _) => {
-			IO.OpenFileExplorer(Path.Combine(ProgramPaths.GetDataDirectory(), "logs"));
+			TryUtil.TryOpeningFileExplorer(this, Path.Combine(ProgramPaths.GetDataDirectory(), "logs"));
 		};
 		
 		page.Append(logsLabel);

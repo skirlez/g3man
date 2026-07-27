@@ -25,14 +25,23 @@ public static class UI {
 		return profile;
 	}
 
+	public static void TryWriteConfig() {
+		try {
+			Config.Write();
+		}
+		catch (Exception e) {
+			Logger.Error("Failed to write config: " + e);
+		}
+	}
+	
 	public static void AddGameEntry(GameEntry entry) {
 		Config.GameEntries.Add(entry);
-		Config.Write();
+		TryWriteConfig();
 	}
 	
 	public static void RemoveGameEntry(GameEntry entry) {
 		Config.GameEntries.Remove(entry);
-		Config.Write();
+		TryWriteConfig();
 	}
 	
 	public static void SetGame(Game? newGame) {

@@ -14,9 +14,7 @@ using UndertaleModLib.Decompiler;
 using UndertaleModLib.Models;
 using UndertaleModLib.Util;
 
-namespace g3man.Patching;
-
-using PatchBlame = Dictionary<string, List<string>>;
+namespace g3man.Core.Patching;
 
 public class DatafilePatcher {
 	public const string CleanDataName = "clean_data.win";
@@ -37,16 +35,7 @@ public class DatafilePatcher {
 	private const string OVERRIDE_PREFIX = "g3man_override_";
 	private const string FAKE_PREFIX = "g3man_fake_";
 	private const string IGNORE_PREFIX = "g3man_ignore_";
-
-	/**
-	 * If mangling is enabled for some asset type, g3man prepends this string to its name.
-	 * It isn't actually an issue for two assets to have the same names. The point of mangling is
-	 * just to allow you to name your assets as generically as you want without worrying that it could
-	 * conflict with other names.
-	 */
-	private const string G3MAN_MANGLE_PREFIX = "g3man_mangled_";
-
-	// mostly the same as undertalemodcli
+	
 	private static readonly ScriptOptions scriptOptions = ScriptingUtil.CreateDefaultScriptOptions();
 	
 	/**
@@ -144,12 +133,46 @@ public class DatafilePatcher {
 			overridenAssets.Add(old);
 		}
 	}
+
+	private record struct MergeProduct(HashSet<string> groupsToUpdate, HashSet<string> groupsToCopy) {
+		public HashSet<string> GroupsToUpdate = groupsToUpdate;
+		public HashSet<string> GroupsToCopy = groupsToCopy;
+	}
+
+	private int mangledCount = 0;
+	const string MANGLE_STRING = "_g3man_mangled_";
+	// mangle the names of assets in accordance to manglingOptions
+	void mangle(UndertaleData data, ManglingOptions manglingOptions) {
+		bool shouldMangleScript(string name) {
+			if (name.Contains('@') || name.StartsWith("gml_GlobalScript_"))
+				return false;
+			const string SCRIPT_PREFIX = "gml_Script_";
+			if (name.StartsWith(SCRIPT_PREFIX))
+				name = name.Remove(0, SCRIPT_PREFIX.Length);
+			return shouldMangle(name);
+		}
+		bool shouldMangle(string name) {
+			return manglingOptions.Scheme.IsIncluded(name) ^ manglingOptions.Invert;
+		}
+		string getMangleSuffix() {
+			string result = MANGLE_STRING + mangledCount;
+			mangledCount++;
+			return result;
+		}
+		foreach (UndertaleScript script in data.Scripts) {
+			if (shouldMangleScript(script.Name.Content)) {
+				script.Name.Content += getMangleSuffix();
+			}
+		}
+	}
+	
 	/**
 	 * Merges (as in, copies all data) from `modData` into `data`.
 	 * 
 	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
 	 */
-	private void merge(UndertaleData data, UndertaleData modData, string modFolderPath) {
+	// TODO: There's several instances now where maps between an asset's name and the asset are made more than once. They should be made once.
+	private MergeProduct merge(UndertaleData data, UndertaleData modData, string modFolderPath) {
 		int stringListLength = data.Strings.Count;
 		uint addInstanceId = data.GeneralInfo.LastObj - 100000;
 		data.GeneralInfo.LastObj += modData.GeneralInfo.LastObj - 100000;
@@ -180,25 +203,52 @@ public class DatafilePatcher {
 			}
 			return true;
 		});
-	
+
+		
+		Dictionary<UndertaleAudioGroup, int> audioGroupLengths = data.Sounds.GroupBy(x => x.AudioGroup)
+			.ToDictionary(group => group.Key, group => group.Count());
+
+		Dictionary<string, UndertaleAudioGroup> audioGroupNameMap = data.AudioGroups.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
+
+		MergeLists(data.AudioGroups, modData.AudioGroups, canMimic: true);
+		MergeLists(data.EmbeddedAudio, modData.EmbeddedAudio, canMimic: false);
+		
+
+		// audiogroups to copy from the mod folder to the game folder
+		HashSet<string> groupsToCopy = new();
+		// audiogroups that must be updated to add modded audio over
+		HashSet<string> groupsToUpdate = new();
+		
 		MergeLists(data.Sounds, modData.Sounds, canMimic: true, (sound, _) => {
-			// This stuff is unfinished, I don't trust these flags. I'll write the intention with each of these...
-			if (sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsCompressed) || sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded)) {
-				// assign all embedded audio to audiogroup_default (assigning them to different ones would require
-				// us to manage audiogroup files, which seems like a pretty annoying thing to do)
+			if (sound.AudioGroup == modData.AudioGroups[0]) {
+				// streamed or embedded audio has go in the default audiogroup
 				sound.AudioGroup = data.AudioGroups[0];
-				data.EmbeddedAudio.Add(sound.AudioFile);
+				if (sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded)) {
+					// we don't need to do anything, embedded sound was already added
+				}
+				else
+					sound.File.Content = $"{modFolderPath}/{sound.File.Content}";
 			}
 			else {
-				// streamed audio has to go in the default audiogroup
-				sound.AudioGroup = data.AudioGroups[0];
-				sound.File.Content = $"{modFolderPath}/{sound.File.Content}";
+				UndertaleAudioGroup? groupFromGame = GetMimicedResource(audioGroupNameMap, sound.AudioGroup);
+				if (groupFromGame is not null) {
+					// this sound is supposed to belong to some base game group
+					sound.AudioGroup = groupFromGame;
+					// we will need to update the appropriate audiogroup file after this
+					sound.AudioID += audioGroupLengths[groupFromGame];
+					
+					groupsToUpdate.Add(sound.AudioGroup.Name.Content);
+				}
+				else {
+					// this sound belongs to an audiogroup of this mod
+					// we will need to copy this audiogroup to the game folder
+					groupsToCopy.Add(sound.AudioGroup.Name.Content);
+				}
 			}
-
 			return true;
 		});
 		
-		MergeLists(data.Code, modData.Code);
+		MergeLists(data.Code, modData.Code, canMimic: false);
 		
 		foreach (UndertaleFunction function in modData.Functions) {
 			data.Functions.Add(function);
@@ -214,9 +264,6 @@ public class DatafilePatcher {
 			variable.NameStringID += stringListLength;
 			
 		}
-		// These assignments may not be necessary
-		data.InstanceVarCount += modData.InstanceVarCount;
-		data.InstanceVarCountAgain += modData.InstanceVarCountAgain;
 		
 		data.MaxLocalVarCount = Math.Max(data.MaxLocalVarCount, modData.MaxLocalVarCount);
 
@@ -225,9 +272,8 @@ public class DatafilePatcher {
 				data.CodeLocals.Add(locals);
 		}
 
-		MergeLists(data.Scripts, modData.Scripts);
+		MergeLists(data.Scripts, modData.Scripts, canMimic: false);
 		
-		// TODO: I think there's several instances now where these maps are made more than once. They should be made once.
 		Dictionary<string, UndertaleGameObject> gameObjectNameMap = data.GameObjects.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
 
 		MergeLists(data.GameObjects,  modData.GameObjects, canMimic: true, (gameObject, nameMap) => {
@@ -299,11 +345,18 @@ public class DatafilePatcher {
 			data.Strings.Add(str);
 		
 		data.GeneralInfo.FunctionClassifications |= modData.GeneralInfo.FunctionClassifications;
+
+		return new MergeProduct(groupsToUpdate, groupsToCopy);
 	}
 
 	private const string CHECK_LOG = "Check the log for more details.";
+
+	public struct PatchProduct(UndertaleData data, List<AudioGroupTransfer> transfers) {
+		public UndertaleData Data = data;
+		public List<AudioGroupTransfer> AudioGroupTransfers = transfers;
+	}
 	
-	public UndertaleData? Patch(List<Mod> mods, Profile profile, 
+	public PatchProduct? Patch(List<Mod> mods, Profile profile, 
 			string profileLocation, string relativeProfilePath, string relativeProfileLivePath,
 			UndertaleData data, Logger logger, Action<string> statusCallback, bool allowModScripting) 
 	{
@@ -362,7 +415,12 @@ public class DatafilePatcher {
 			setStatusAndInfo(sb.ToString());
 			return null;
 		}
+
 		
+		// keep track of which audiogroups from mods need to be copied into the game folder
+		// when files actually need to be written
+		// TODO: For GameMaker 2024.14 we don't actually need to do this apparently, since audiogroups have a path variable
+		List<AudioGroupTransfer> audioGroupTransfers = new();
 		foreach (Mod mod in mods) {
 			if (mod.DatafilePath != "") {
 				setStatusAndInfo($"Merging: {mod.DisplayName}");
@@ -378,17 +436,32 @@ public class DatafilePatcher {
 				}
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
+				
+				mangle(modData, mod.ManglingOptions);
+				MergeProduct product;
 				try {
-					merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
+					product = merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
 				}
 				catch (Exception e) {
 					setStatusAndError($"Merging {mod.Identify()} failed!", e.ToString());
 					return null;
 				}
+				
+				// TODO: don't get audio group indices like this please
+				// and make this one loop somehow
+				foreach (string audioGroup in product.GroupsToCopy) {
+					int originalIndex = modData.AudioGroups.IndexOf(modData.AudioGroups.ByName(audioGroup));
+					int newIndex = data.AudioGroups.IndexOf(data.AudioGroups.ByName(audioGroup));
+					audioGroupTransfers.Add(new AudioGroupTransfer(mod, originalIndex, newIndex, false));
+				}
+				foreach (string audioGroup in product.GroupsToUpdate) {
+					int originalIndex = modData.AudioGroups.IndexOf(modData.AudioGroups.ByName(audioGroup));
+					int newIndex = data.AudioGroups.IndexOf(data.AudioGroups.ByName(audioGroup));
+					audioGroupTransfers.Add(new AudioGroupTransfer(mod, originalIndex, newIndex, true));
+				}
 				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 			}
-			
 		}
 
 
@@ -532,7 +605,7 @@ public class DatafilePatcher {
 		
 		
 		
-		return data;
+		return new PatchProduct(data, audioGroupTransfers);
 	}
 	
 	public static bool IsDataPatched(UndertaleData data) {
@@ -801,6 +874,8 @@ public class DatafilePatcher {
 		return sb.ToString();
 	}
 }
+
+
 
 public class ScriptGlobals(UndertaleData data, UndertaleData? modData = null) {
 	public UndertaleData Data = data;

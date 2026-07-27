@@ -3,7 +3,7 @@ using UndertaleModLib;
 using UndertaleModLib.Compiler;
 using UndertaleModLib.Models;
 
-namespace g3man.Patching;
+namespace g3man.Core.Patching;
 
 public static class GameAPI {
 	public const string ScriptName = "g3man_api";

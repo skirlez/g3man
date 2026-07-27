@@ -5,7 +5,6 @@ using System.Text.Json;
 namespace g3man.Core.Util;
 /*
  * Utility class for reading from a JsonDocument.
- * TODO: I started rewriting this in the json_new branch but it sucks so bad there.
  */
 public static class JsonUtil {
 	public static JsonElement GetPropertyOrThrow(JsonElement element, string field) {

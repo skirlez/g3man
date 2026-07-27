@@ -2,7 +2,7 @@ using System.CommandLine;
 using System.Diagnostics;
 using g3man.Core;
 using g3man.Core.Models;
-using g3man.Patching;
+using g3man.Core.Patching;
 using g3man.Core.Util;
 using UndertaleModLib;
 
@@ -138,22 +138,25 @@ public class CLI {
 					logger.Error(e);
 					return 1;
 				}
+
+				int vanillaAudioGroupsCount = data.AudioGroups.Count;
 				
 				IO.CreateLiveFolder(profilePath, profileLivePath);
 
 				IO.CreateXdeltaFoldersAndApply(gameDirectoryInfo.FullName, profilePath, profileLivePath, mods);
 
-				string outputDatafileName = game.GetOutputDatafileRelativePath();
+				string outputDatafileName = game.GetInputDatafileRelativePath();
 				
 				string relativeProfileLivePath = $"g3man/live/{profile.ID}";
 				string relativeProfilePath = $"g3man/live/{profile.ID}/profile";
 									
 				DatafilePatcher datafilePatcher = new DatafilePatcher();
-				UndertaleData? output = datafilePatcher.Patch(mods, profile, 
+				DatafilePatcher.PatchProduct? output = datafilePatcher.Patch(mods, profile, 
 					profileDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, logger,
 					_ => {}, allowModScripting: true);
-				if (output == null)
+				if (!output.HasValue)
 					return 1;
+				data = output.Value.Data;
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 				if (createOldSymlink)
 					IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
@@ -164,7 +167,7 @@ public class CLI {
 				bool writeHash = (IO.DatafileNames.Contains(Path.GetFileName(outputDatafileName)));
 				
 				try {
-					IO.Apply(data, game.Directory, outputDatafileName, writeHash);
+					IO.Apply(data, game.Directory, profileDirectoryInfo.FullName, outputDatafileName, writeHash, vanillaAudioGroupsCount, output.Value.AudioGroupTransfers);
 				}
 				catch (Exception e) {
 					logger.Error("Failed to save output data.win");

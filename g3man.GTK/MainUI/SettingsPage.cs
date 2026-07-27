@@ -139,7 +139,7 @@ public partial class MainWindow {
 		saveSettingsButton.SetValign(Align.End);
 		saveSettingsButton.SetVexpand(true);
 		saveSettingsButton.OnClicked += (sender, args) => {
-			UI.Config.Write();
+			UI.TryWriteConfig();
 			saveSettingsButton.SetLabel(saveSettingsLabel);
 		};
 		

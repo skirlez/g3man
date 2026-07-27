@@ -13,7 +13,7 @@ public class Profile {
 	public readonly bool SeparateModdedSave;
 	public readonly string ModdedSaveName;
 
-	public readonly bool EnableOutputOverride;
+
 	public readonly string Description;
 	public readonly string Version;
 	public readonly string[] Credits;
@@ -23,13 +23,12 @@ public class Profile {
 	public string[] ModsDisabled;
 	
 	
-	public Profile(string name, string id, bool separateModdedSave, string moddedSaveName, bool enableOutputOverride, string[] modOrder) {
+	public Profile(string name, string id, bool separateModdedSave, string moddedSaveName, string[] modOrder) {
 		Name = name;
 		ID = id;
 		SeparateModdedSave = separateModdedSave;
 		ModdedSaveName = moddedSaveName;
 		ModOrder = modOrder;
-		EnableOutputOverride = enableOutputOverride;
 
 		ModsDisabled = [];
 		Description = "";
@@ -49,8 +48,6 @@ public class Profile {
 		ModdedSaveName = JsonUtil.GetStringOrThrow(root, "modded_save_name");
 		if (SeparateModdedSave && ModdedSaveName == "")
 			throw new InvalidDataException($"Profile \"{Name}\" (ID \"{ID}\" has \"separate_modded_save\" set to true, but \"modded_save_name\" is blank");
-
-		EnableOutputOverride = JsonUtil.GetOrDefault(root, "enable_output_override", false);
 		
 		ModOrder = JsonUtil.GetOrDefaultClass(root, "mod_order", Array.Empty<string>());
 		ModsDisabled = JsonUtil.GetOrDefaultClass(root, "mods_disabled", Array.Empty<string>());
@@ -117,7 +114,6 @@ public class Profile {
 			["version"] = Version,
 			["credits"] = new JsonArray(Credits.Select(credit => JsonValue.Create(credit)).ToArray<JsonNode?>()),
 			["links"] = new JsonArray(Links.Select(link => JsonValue.Create(link)).ToArray<JsonNode?>()),
-			["enable_output_override"] = EnableOutputOverride,
 		};
 	}
 	
@@ -143,16 +139,6 @@ public class Profile {
 			// don't care
 		}
 
-		if (EnableOutputOverride) {
-			try {
-				string datafile = game.GetOutputDatafileRelativePath(this);
-				if (!ProgramPaths.FilePathsEqual(datafile, game.GetInputDatafileRelativePath()))
-					File.Delete(datafile);
-			}
-			catch {
-				// don't care
-			}
-		}
 	}
 
 	public void UpdateModsStatus(List<IMod> modsList, Dictionary<IMod, bool> enabledMods) {

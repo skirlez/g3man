@@ -72,7 +72,7 @@ public partial class MainWindow {
 
 
 		Button openModsFolderButton = Button.NewWithLabel("Open mods folder");
-		openModsFolderButton.OnClicked += (_, _) => { IO.OpenFileExplorer(UI.CurrentProfileFolderPath()); };
+		openModsFolderButton.OnClicked += (_, _) => { TryUtil.TryOpeningFileExplorer(this, UI.CurrentProfileFolderPath()); };
 
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += (_, _) => {

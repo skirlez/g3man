@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using g3man.Core.Models;
+using g3man.Core.Patching;
 using UndertaleModLib;
+using UndertaleModLib.Models;
 
 namespace g3man.Core.Util;
 
@@ -29,7 +32,7 @@ public static class IO {
 			Directory.Delete(profileLivePath, true);
 		}
 		Directory.CreateDirectory(profileLivePath);
-		SymlinkFolder(profilePath, profileLink);
+		LinkFolder(profilePath, profileLink);
 	}
 
 	private static void deleteLegacySymlink(string gameDirectory) {
@@ -40,26 +43,117 @@ public static class IO {
 	public static void CreateLegacySymlink(string gameDirectory, string profilePath) {
 		string appliedProfileSymlink = Path.Combine(gameDirectory, AppliedProfileSymlinkName);
 		deleteLegacySymlink(gameDirectory);
-		SymlinkFolder(profilePath, appliedProfileSymlink);
+		LinkFolder(profilePath, appliedProfileSymlink);
+	}
+
+	public static void CreateStage(UndertaleData data,
+									string gameDirectory,
+									string datafileRelativePath,
+									string modsFolder,
+									string profileId,
+									int vanillaAudioGroupCount,
+									List<AudioGroupTransfer> audioGroupTransfers) {
+		string g3manFolder = Path.Combine(gameDirectory, "g3man");
+		
+		string stageDirectory = Path.Combine(g3manFolder, "stages", profileId);
+		if (Directory.Exists(stageDirectory))
+			Directory.Delete(stageDirectory, true);
+		Directory.CreateDirectory(stageDirectory);
+		List<string> ignoreFiles = [datafileRelativePath];
+		ignoreFiles.AddRange(getAllAudioGroupDatFiles(gameDirectory));
+		
+		List<string> ignoreFolders = ["g3man"];
+		HashSet<string> files = [];
+		HashSet<string> folders = [];
+		GetRecursiveDirectoryInfo(gameDirectory, gameDirectory, ignoreFiles, ignoreFolders, files, folders);
+		
+		foreach (string folder in folders) {
+			Directory.CreateDirectory(Path.Combine(stageDirectory, folder));
+		}
+		LinkFolder(g3manFolder, Path.Combine(stageDirectory, "g3man"));
+		foreach (string file in files) {
+			LinkFileRelativelyIfPossible(Path.Combine(gameDirectory, file), Path.Combine(stageDirectory, file));
+		}
+		
+		foreach (AudioGroupTransfer transfer in audioGroupTransfers) {
+			string oldDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
+			if (!transfer.Merge) {
+				LinkFile(oldDatPath, Path.Combine(stageDirectory, $"audiogroup{transfer.NewIndex}.dat"));
+			}
+		}
+
+		foreach (IGrouping<int, AudioGroupTransfer> mergeTransfers in audioGroupTransfers.Where(t => t.Merge)
+					.GroupBy(t => t.NewIndex)) {
+			string audioGroupName = $"audiogroup{mergeTransfers.Key}.dat";
+			string targetDatPath = Path.Combine(gameDirectory, audioGroupName);
+			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: false);
+			using FileStream output = new(Path.Combine(stageDirectory, audioGroupName), FileMode.Create, FileAccess.Write);
+			UndertaleIO.Write(output, audiogroupDat);
+		}
+
+		{
+			using MemoryStream memoryStream = new MemoryStream();
+			UndertaleIO.Write(memoryStream, data);
+			memoryStream.Position = 0;
+			File.WriteAllBytes(Path.Combine(stageDirectory, datafileRelativePath), memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
+		}
+	}
+
+	private static void GetRecursiveDirectoryInfo(string basis, string path, List<string> ignoreFiles, List<string> ignoreFolders, HashSet<string> outputFiles, HashSet<string> outputFolders) {
+		foreach (string file in Directory.GetFiles(path).Select(x => Path.GetRelativePath(basis, x))) {
+			if (ignoreFiles.Any(x => ProgramPaths.FilePathsEqual(x, file)))
+				continue;
+			outputFiles.Add(file);
+		}
+		foreach (string directoryPath in Directory.GetDirectories(path)) {
+			string directory = Path.GetRelativePath(basis, directoryPath);
+			if (ignoreFolders.Any(x => ProgramPaths.FolderPathsEqual(x, directory)))
+				continue;
+			outputFolders.Add(directory);
+			GetRecursiveDirectoryInfo(basis, directoryPath, ignoreFiles, ignoreFolders, outputFiles, outputFolders);
+		}
 	}
 	
+	
 	public static void Apply(UndertaleData data, 
-							string gameDirectory, 
+							string gameDirectory, string modsFolder,
 							string outputDatafileRelativePath,
-							bool writeHash) 
-	{
-		
+							bool writeHash,
+							int vanillaAudioGroupCount,
+							List<AudioGroupTransfer> audioGroupTransfers) {
 		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
 		byte[] hashBytes = null!;
 		
-		using MemoryStream memoryStream = new MemoryStream();
-		UndertaleIO.Write(memoryStream, data);
-		memoryStream.Position = 0;
-		if (writeHash)
-			hashBytes = MD5.HashData(memoryStream);
-		File.WriteAllBytes(tempFilePath, memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
-	
+		DeleteModdedAudioGroups(gameDirectory, vanillaAudioGroupCount);
+		
+		foreach (AudioGroupTransfer transfer in audioGroupTransfers) {
+			string oldDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
+			string newDatPath = Path.Combine(gameDirectory, $"audiogroup{transfer.NewIndex}.dat");
+			if (!transfer.Merge) {
+				File.Copy(oldDatPath, newDatPath);
+			}
+		}
+		foreach (IGrouping<int, AudioGroupTransfer> mergeTransfers in audioGroupTransfers.Where(t => t.Merge).GroupBy(t => t.NewIndex)) {
+			string targetDatPath = Path.Combine(gameDirectory, $"audiogroup{mergeTransfers.Key}.dat");
+			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: true);
+			
+			using FileStream output = new(targetDatPath, FileMode.Create, FileAccess.Write);
+			UndertaleIO.Write(output, audiogroupDat);
+		}
 
+		{
+			using MemoryStream memoryStream = new MemoryStream();
+			UndertaleIO.Write(memoryStream, data);
+			memoryStream.Position = 0;
+			if (writeHash)
+				hashBytes = MD5.HashData(memoryStream);
+			File.WriteAllBytes(tempFilePath, memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
+		}
+
+		File.Move(tempFilePath, Path.Combine(gameDirectory, outputDatafileRelativePath), true);
+		File.Delete(tempFilePath);
+		
+		
 		string g3manFolder = Path.Combine(gameDirectory, "g3man");
 		if (!Directory.Exists(g3manFolder))
 			Directory.CreateDirectory(g3manFolder);
@@ -68,10 +162,58 @@ public static class IO {
 		if (writeHash) {
 			WriteGameLastOutputHash(gameDirectory, hashBytes);
 		}
-
-		File.Move(tempFilePath, Path.Combine(gameDirectory, outputDatafileRelativePath), true);
-		File.Delete(tempFilePath);
 	}
+	
+	private static UndertaleData MergeAudioGroups(string targetPath, IGrouping<int, AudioGroupTransfer> grouping, string modsFolder, bool createRecord) {
+		UndertaleData targetDat;
+		byte[] vanillaHash;
+		byte[] potentialHash; 
+		{
+			using FileStream s = new(targetPath, FileMode.Open, FileAccess.Read);
+			potentialHash = MD5.HashData(s);
+			targetDat = UndertaleIO.Read(s);
+		}
+			
+		// TODO: right now this system just assumes an error with finding the header just means the header doesn't exist...
+		// cause it's very convenient to do that
+		if (targetDat.EmbeddedAudio.Count > 0) {
+			UndertaleEmbeddedAudio last = targetDat.EmbeddedAudio.Last();
+			AudioRecord? record = AudioRecord.Read(last.Data);
+			if (record != null) {
+				while (record.OriginalEntriesCount != (uint)targetDat.EmbeddedAudio.Count)
+					targetDat.EmbeddedAudio.RemoveAt((int)record.OriginalEntriesCount);
+				vanillaHash = record.OriginalHash;
+			}
+			else
+				vanillaHash = potentialHash;
+		}
+		else
+			vanillaHash = potentialHash;
+
+		int vanillaCount = targetDat.EmbeddedAudio.Count;
+			
+		foreach (AudioGroupTransfer transfer in grouping) {
+			string modDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
+			UndertaleData modDat;
+			{
+				using FileStream s = new(modDatPath, FileMode.Open, FileAccess.Read);
+				modDat = UndertaleIO.Read(s);
+			}
+			foreach (UndertaleEmbeddedAudio audio in modDat.EmbeddedAudio)
+				targetDat.EmbeddedAudio.Add(audio);
+		}
+
+		if (createRecord) {
+			UndertaleEmbeddedAudio recordHolder = new UndertaleEmbeddedAudio();
+			recordHolder.Data = AudioRecord.Write((uint)vanillaCount, vanillaHash);
+			targetDat.EmbeddedAudio.Add(recordHolder);
+		}
+
+		return targetDat;
+	}
+
+
+
 
 	public static void WriteGameLastOutputHash(string gameDirectory, byte[] hashBytes) {
 		string hash = HashToString(hashBytes);
@@ -82,10 +224,23 @@ public static class IO {
 		File.WriteAllText(outputHashTextFilePath, hash);
 	}
 
+	private static List<string> getAllAudioGroupDatFiles(string gameDirectory) {
+		return Directory.GetFiles(gameDirectory)
+			.Select(x => Path.GetFileName(x)).Where(x => Regex.IsMatch(x, @"audiogroup\d\.dat")).ToList();
+	}
+	
+	public static void DeleteModdedAudioGroups(string gameDirectory, int vanillaAudioGroupsCount) {
+		List<string> audioGroupFiles = getAllAudioGroupDatFiles(gameDirectory);
+		foreach (string audioGroupFile in audioGroupFiles) {
+			int number = int.Parse(audioGroupFile.Remove(0, "audiogroup".Length).Replace(".dat", ""));
+			if (vanillaAudioGroupsCount <= number)
+				File.Delete(Path.Combine(gameDirectory, audioGroupFile));
+		}
+	}
 	
 	/* On normal operating systems, this makes a symlink.
 	 * On Windows, this makes a "Junction". */
-	private static void SymlinkFolder(string targetDirectory, string path) {
+	private static void LinkFolder(string targetDirectory, string path) {
 		#if LINUX || OSX
 			File.CreateSymbolicLink(path, targetDirectory);
 		#elif WINDOWS
@@ -100,7 +255,28 @@ public static class IO {
 			throw new Exception("Function not implemented for this OS");
 		#endif
 	}
-
+	
+	/* On normal operating systems, this makes a symlink.
+	* On Windows, this makes a hard link. */
+	private static void LinkFile(string targetFile, string path) {
+		#if LINUX || OSX
+			File.CreateSymbolicLink(path, targetFile);
+		#elif WINDOWS
+			File.CreateHardLink(path, targetFile);
+		#else
+			throw new Exception("Function not implemented for this OS");
+		#endif
+	}
+	
+	private static void LinkFileRelativelyIfPossible(string targetFile, string path) {
+		#if LINUX || OSX
+			if (Path.GetDirectoryName(path) is null || Path.GetDirectoryName(targetFile) is null)
+				LinkFile(targetFile, path);
+			LinkFile(Path.GetRelativePath(Path.GetDirectoryName(path)!, targetFile), path);
+		#else
+			LinkFile(targetFile, path);
+		#endif
+	}
 	private static void DeleteSymlink(string path) {
 		if (File.Exists(path))
 			File.Delete(path);
@@ -108,7 +284,7 @@ public static class IO {
 			Directory.Delete(path, false);
 	}
 
-	// TODO: catch
+
 	public static void OpenFileExplorer(string directory) {
 		#if LINUX
 			ProcessStartInfo info = new ProcessStartInfo() {
@@ -226,3 +402,5 @@ public static class IO {
 		return null;
 	}
 }
+
+public record AudioGroupTransfer(Mod Mod, int OriginalIndex, int NewIndex, bool Merge);

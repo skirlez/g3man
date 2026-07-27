@@ -80,55 +80,35 @@ public class ManageProfileWindow : G3manWindow {
 		}
 		
 		
-
 		
-		CheckButton outputOverrideCheck = CheckButton.New();
-		outputOverrideCheck.SetLabel("Save datafile with unique name for this profile");
-		outputOverrideCheck.SetTooltipText(
-			"This option makes it so this profile uses a unique name for the datafile this profile will save, rather than sharing the same name as all other profiles. The name is based on the profile's ID.");
-
-		Label outputOverridePreviewLabel = Label.New("Output datafile");
-		outputOverridePreviewLabel.SetHalign(Align.Start);
+		Label outputLocationPreviewLabel = Label.New("Output datafile location");
+		outputLocationPreviewLabel.SetHalign(Align.Start);
 		
-		Entry outputOverridePreviewEntry = Entry.New();
-		outputOverridePreviewEntry.SetEditable(false);
-		outputOverridePreviewEntry.SetHexpand(true);
+		Entry outputLocationPreviewEntry = Entry.New();
+		outputLocationPreviewEntry.SetEditable(false);
+		outputLocationPreviewEntry.SetHexpand(true);
+		outputLocationPreviewEntry.SetText(GetOutputDatafileName());
 		Button clipboardButton = Button.New();
 		clipboardButton.SetIconName("edit-copy");
-
-
-		outputOverrideCheck.OnToggled += (sender, _) => UpdateOutputOverrideEntry(sender.GetActive());
-		IDEntry.OnChanged += (_, _) => UpdateOutputOverrideEntry(outputOverrideCheck.GetActive());
-
-		string GetOutputDatafileName(bool active) {
-			if (active)
-				return UI.GetGame()!.GetOutputDatafileRelativePath(IDEntry.GetText());
-			return UI.GetGame()!.GetOutputDatafileRelativePath();
+		
+		IDEntry.OnChanged += (entry, _) => {
+			outputLocationPreviewEntry.SetText(GetOutputDatafileName());
+		};
+		string GetOutputDatafileName() {
+			return UI.GetGame()!.GetOutputDatafileRelativePath(IDEntry.GetText());
 		}
 		clipboardButton.OnClicked += (_, _) => {
-			GetClipboard().SetText(GetOutputDatafileName(outputOverrideCheck.GetActive()));
+			GetClipboard().SetText(GetOutputDatafileName());
 		};
-		void UpdateOutputOverrideEntry(bool active) {
-			if (active) {
-				outputOverridePreviewEntry.SetText(GetOutputDatafileName(active));
-			}
-			else {
-				outputOverridePreviewEntry.SetText(GetOutputDatafileName(active) + " (default)");
-			}
-		}
+
 		
 
 		
 		Box outputOverrideBox = Box.New(Orientation.Vertical, 5)
-			.With(outputOverrideCheck,
-				outputOverridePreviewLabel,
+			.With(outputLocationPreviewLabel,
 				Box.New(Orientation.Horizontal, 5).With(
-					clipboardButton, outputOverridePreviewEntry));
+					clipboardButton, outputLocationPreviewEntry));
 		
-
-		bool outputOverrideActive = profile?.EnableOutputOverride ?? false;
-		UpdateOutputOverrideEntry(outputOverrideActive);
-		outputOverrideCheck.SetActive(outputOverrideActive);
 		/*
 		Label descriptionLabel = Label.New("Description");
 		descriptionLabel.SetHalign(Align.Start);
@@ -162,7 +142,7 @@ public class ManageProfileWindow : G3manWindow {
 			
 
 			Profile newProfile = new Profile(nameEntry.GetText(), IDEntry.GetText(), 
-							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), outputOverrideCheck.GetActive(), []);
+							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), []);
 			if (newProfile.Name == "") {
 				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
 				popup.Dialog();

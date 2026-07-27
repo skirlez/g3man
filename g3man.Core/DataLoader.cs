@@ -5,7 +5,7 @@ using g3man.Core.Util;
 using UndertaleModLib;
 using Xdelta = g3man.Core.Util.Xdelta;
 
-namespace g3man;
+namespace g3man.Core;
 
 
 /** Responsible for the loading and preloading of the current game's clean data.win

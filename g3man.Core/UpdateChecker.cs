@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace g3man;
+namespace g3man.Core;
 
 public class UpdateChecker(Action OnStarted, Action<string?> OnCompletion) {
     private const string URL = "https://api.github.com/repos/skirlez/g3man/releases/latest";

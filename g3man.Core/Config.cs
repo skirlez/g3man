@@ -66,7 +66,7 @@ public class Config {
 			["mod_scripting_permissions"] = AllowModScripting ? 1 : 0,
 		};
 	}
-	// TODO: catch
+	
 	public void Write() {
 		JsonObject obj = ToJson();
 		string directory = ProgramPaths.GetConfigDirectory();
@@ -74,9 +74,8 @@ public class Config {
 		string jsonText = obj.ToJsonString();
 		Directory.CreateDirectory(directory);
 		File.WriteAllText(filePath, jsonText);
-
 	}
-	// TODO: catch
+	
 	public static JsonElement Read() {
 		string directory = ProgramPaths.GetConfigDirectory();
 		string filePath = Path.Combine(directory, "config.json");

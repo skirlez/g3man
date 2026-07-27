@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using g3man.Core;
 using g3man.GTK.MainUI;
 using g3man.Core.Models;
-using g3man.Patching;
+using g3man.Core.Patching;
 using g3man.Core.Util;
 using Gtk;
 using UndertaleModLib;
@@ -34,7 +34,7 @@ public class GameAdderWindow : G3manWindow {
 			return;
 		}
 		
-		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (Game.LaunchParadigm? choice) => {
+		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (Game.PatchParadigm? choice) => {
 			if (choice is null) {
 				Close();
 				return;
@@ -46,30 +46,26 @@ public class GameAdderWindow : G3manWindow {
 		});
 		SetChild(widget);
 	}
-	private record Success(Game Game);
-	private record Error(string Reason, Exception? Exception);
+	
+	
 
-
-	private Result<Success, Error> LoadAndSetupGame(Game.LaunchParadigm paradigm) {
+	private Game LoadAndSetupGame(Game.PatchParadigm paradigm) {
 		Debug.Assert(datafileInfo is not null);
 		(string datafileRelativePath, string datafilePath) = datafileInfo.Value;
-		string outputDatafileName = Game.GetDefaultOutputDatafilePath(datafileRelativePath);
-		
+
+		string outputDatafileName;
+		if (paradigm == Game.PatchParadigm.Launch)
+			outputDatafileName = Game.GetDefaultOutputDatafilePath(datafileRelativePath);
+		else
+			outputDatafileName = datafileRelativePath;
 		
 		UndertaleData data;
 		byte[] hash;
-		try {
-			using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
-			hash = MD5.HashData(stream);
-			stream.Seek(0, SeekOrigin.Begin);
-			data = UndertaleIO.Read(stream, ((warning, important) => { if (important ) UI.Logger.Info(warning); }));
-		}
-		catch (Exception e) {
-			return new Result<Success, Error>(new Error("An error occurred while reading the game's datafile", e));
-		}
-
-
-
+		using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
+		hash = MD5.HashData(stream);
+		stream.Seek(0, SeekOrigin.Begin);
+		data = UndertaleIO.Read(stream, ((warning, important) => { if (important ) UI.Logger.Info(warning); }));
+		
 		string defaultProfileID = "default";
 
 		GameEntry entry = new GameEntry(directory, defaultProfileID);
@@ -84,61 +80,35 @@ public class GameAdderWindow : G3manWindow {
 
 		bool cleanDataExists = Path.Exists(game.GetCleanDatafilePath());
 		if (!cleanDataExists && DatafilePatcher.IsDataPatched(data))
-			return new Result<Success, Error>(new Error($"This game is already patched by g3man.\nPlease make sure the game's \"{datafileRelativePath}\" file is not modified so g3man can copy it.", null));
-
-
-
+			throw new Gexception($"This game is already patched by g3man.\nPlease make sure the game's \"{datafileRelativePath}\" file is not modified so g3man can copy it.");
 		if (!cleanDataExists) {
-			Profile profile = new Profile("Default", defaultProfileID, false, "", false, []);
-			try {
-				profile.Write(game);
-			}
-			catch (Exception e) {
-				return new Result<Success, Error>(new Error("Failed to create default profile folders", e));
-			}
+			Profile profile = new Profile("Default", defaultProfileID, false, "", []);
+			profile.Write(game);
 		}
-
-		try {
-			game.Write();
-		}
-		catch (Exception e) {
-			return new Result<Success, Error>(new Error("Failed to create game.json", e));
-		}
-
-		
-		try {
-			if (!cleanDataExists)
-				File.Copy(datafilePath, game.GetCleanDatafilePath(), true);
-			
-			IO.WriteGameLastOutputHash(game.Directory, hash);
-		}
-		catch (Exception e) {
-			return new Result<Success, Error>(new Error("Failed to create clean copy of datafile", e));
-		}
-		
-
-
-		return new Result<Success, Error>(new Success(game));
-
+		game.Write();
+		if (!cleanDataExists)
+			File.Copy(datafilePath, game.GetCleanDatafilePath(), true);
+		IO.WriteGameLastOutputHash(game.Directory, hash);
+		return game;
 	}
 
-	private void ThreadRoutine(Game.LaunchParadigm paradigm) {
-		Result<Success, Error> result = LoadAndSetupGame(paradigm);
+	private void ThreadRoutine(Game.PatchParadigm paradigm) {
+		Game game;
+		try {
+			game = LoadAndSetupGame(paradigm);
+		}
+		catch (Exception e) {
+			UI.RunOnMainThreadEventually(() => {
+				string error = $"Game couldn't be added:\n{e}";
+				UI.Logger.Error(error);
+				label.SetText(error);
+			});
+			return;
+		}
 		UI.RunOnMainThreadEventually(() => {
-			if (result.IsOk()) {
-				Success s = result.GetValue();
-				UI.AddGameEntry(s.Game.Entry);
-				mainWindow.AddToGamesList(s.Game, false);	
-				Close();
-			}
-			else
-			{
-				Error err = result.GetError();
-				UI.Logger.Error(err.Reason);
-				if (err.Exception is not null)
-					UI.Logger.Error(err.Exception.ToString());
-				label.SetText("Game couldn't be added:\n" + err.Reason);
-			}
+			UI.AddGameEntry(game.Entry);
+			mainWindow.AddToGamesList(game, false);	
+			Close();
 		});
 	}
 	

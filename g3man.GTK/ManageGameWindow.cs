@@ -105,10 +105,10 @@ public class ManageGameWindow : G3manWindow {
 			p.SetHalign(Align.Start);
 		}
 
-		Game.LaunchParadigm currentParadigm = game.GetLaunchParadigm();
-		void UpdateParadigmChoice(Game.LaunchParadigm launchParadigm) {
-			paradigmDisplayStack.SetVisibleChild(paradigms[(int)launchParadigm]);
-			currentParadigm = launchParadigm;
+		Game.PatchParadigm currentParadigm = game.GetPatchParadigm();
+		void UpdateParadigmChoice(Game.PatchParadigm patchParadigm) {
+			paradigmDisplayStack.SetVisibleChild(paradigms[(int)patchParadigm]);
+			currentParadigm = patchParadigm;
 		}
 		UpdateParadigmChoice(currentParadigm);
 		
@@ -131,7 +131,6 @@ public class ManageGameWindow : G3manWindow {
 				changeLaunchParadigm
 			);
 		paradigmBox.SetMarginTop(5);
-;
 		paradigmBox.SetHexpand(true);
 		
 		
@@ -148,7 +147,9 @@ public class ManageGameWindow : G3manWindow {
 		
 		
 		Button openGameFolderButton = Button.NewWithLabel("Open game folder");
-		openGameFolderButton.OnClicked += (_, _) => { IO.OpenFileExplorer(game.Directory); };
+		openGameFolderButton.OnClicked += (_, _) => {
+			TryUtil.TryOpeningFileExplorer(this, game.Directory);
+		};
 		openGameFolderButton.SetHalign(Align.Start);
 		
 		Button cleanToInput = Button.NewWithLabel($"(1) Copy {game.GetCleanDatafileRelativePath()} -> {game.GetInputDatafileRelativePath()}");
@@ -214,7 +215,7 @@ public class ManageGameWindow : G3manWindow {
 
 
 			string outputDatafileName;
-			if (currentParadigm == Game.LaunchParadigm.Launch) {
+			if (currentParadigm == Game.PatchParadigm.Launch) {
 				outputDatafileName = Game.GetDefaultOutputDatafilePath(game.DatafilePath);
 			}
 			else {

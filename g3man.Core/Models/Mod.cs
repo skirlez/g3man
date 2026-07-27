@@ -25,6 +25,7 @@ public class Mod : IMod {
 	public PatchLocation[] Patches;
 	
 	public string DatafilePath;
+	public ManglingOptions ManglingOptions;
 	
 	// right now, this only supports one patch per file. TODO: support consecutive patches, and TODO: support hashes alongside filenames.
 	// the extremely contrived scenario where I imagine that's helpful is a case where a mod wants to use g3man
@@ -46,25 +47,7 @@ public class Mod : IMod {
 	
 	public Import[] Imports;
 	public string[] Exports;
-	
-	
-	/*
-	public Mod(string modId, string displayName, string description, string[] credits, string version, string targetGameVersion, 
-	string targetPatcherVersion, string patchesPath, string datafilePath,  RelatedMod[] depends, RelatedMod[] breaks) {
-		ModId = modId;
-		DisplayName = displayName;
-		Description = description;
-		Credits = credits;
-		Version = version;
-		TargetGameVersion = targetGameVersion;
-		TargetPatcherVersion = targetPatcherVersion;
-		PatchesPath = patchesPath;
-		DatafilePath = datafilePath;
-		
-		Depends = depends;
-		Breaks = breaks;
-	}
-	*/
+
 
 	
 	private Mod(JsonElement root) {
@@ -120,17 +103,29 @@ public class Mod : IMod {
 			.Select(x => new RelatedMod(x)).ToArray();
 		Breaks = JsonUtil.GetObjectArrayOrThrow(root, "breaks", [])
 			.Select(x => new RelatedMod(x)).ToArray();
+
 		
 		Imports = JsonUtil.GetObjectArrayOrThrow(root, "imports", [])
 			.Select(x => new Import(x)).ToArray();
 		Exports = JsonUtil.GetStringArrayOrThrow(root, "exports", []);
+		if (TargetPatcherVersion < 10) {
+			ManglingOptions = ManglingOptions.None;
+		}
+		else {
+			if (root.TryGetProperty("mangling", out JsonElement mangling))
+				ManglingOptions = new ManglingOptions(mangling);
+			else
+				ManglingOptions = ManglingOptions.All;
+		}
 	}
 
 	public bool HasAnyScripts() {
 		return PreMergeScriptPath != "" || PostMergeScriptPath != "" || PrePatchScriptPath != "" || PostPatchScriptPath != "";
 	}
-	
-	
+
+	public string FullPath(Game game, Profile profile) {
+		return Path.Combine(game.GetProfileFolderPath(profile), ModId);
+	}
 	public static List<Mod> ParseAll(string directory, Action<Exception, string> errorHandler) {
 		ConcurrentBag<Mod> mods = new ConcurrentBag<Mod>();
 		string[] modFolders;
@@ -505,7 +500,6 @@ public interface Contingency { }
 public readonly struct GiveUpContingency : Contingency {
 	public GiveUpContingency() {}
 }
-
 // i have a feeling it isn't optimal to do it like this and i'm getting tired
 public readonly struct RecommendContingency : Contingency {
 	public readonly string Name;
@@ -517,5 +511,77 @@ public readonly struct RecommendContingency : Contingency {
 }
 
 
+public enum ManglingType {
+	LIST,
+	PREFIX,
+	SUFFIX
+}
 
-public class InvalidContingencyException(string message) : InvalidImportException(message);
+
+public class InvalidManglingOptionsException(string message) : InvalidModException(message);
+
+
+
+
+public readonly struct ManglingOptions {
+	public readonly bool Invert;
+	public readonly MangleScheme Scheme;
+
+	private ManglingOptions(bool invert, MangleScheme scheme) {
+		Invert = invert;
+		Scheme = scheme;
+	}
+	public static ManglingOptions None = new ManglingOptions(false, new NoneMangleScheme());
+	public static ManglingOptions All = new ManglingOptions(false, new AllMangleScheme());
+	public ManglingOptions(JsonElement root) {
+		string type = JsonUtil.GetStringOrThrow(root, "type");
+		switch (type) {
+			case "include":
+				string[] includeList = JsonUtil.GetStringArrayOrThrow(root, "data");
+				Scheme = new ListMangleScheme(includeList);
+				break;
+			case "exclude":
+				string[] excludeList = JsonUtil.GetStringArrayOrThrow(root, "data");
+				Scheme = new ListMangleScheme(excludeList);
+				Invert = true;
+				break;
+			case "prefix":
+				string[] prefixList = JsonUtil.GetStringArrayOrThrow(root, "data");
+				Scheme = new PrefixMangleScheme(prefixList);
+				Invert = true;
+				break;
+			default:
+				throw new InvalidManglingOptionsException($"Invalid mangling scheme type \"{type}\". Supported types: include, exclude, prefix");
+		}
+	}
+}
+
+
+
+public interface MangleScheme {
+	public bool IsIncluded(string name);
+}
+
+public class NoneMangleScheme : MangleScheme {
+	public bool IsIncluded(string name) {
+		return false;
+	}
+}
+public class AllMangleScheme : MangleScheme {
+	public bool IsIncluded(string name) {
+		return true;
+	}
+}
+
+
+public class ListMangleScheme(string[] list) : MangleScheme {
+	public bool IsIncluded(string name) {
+		return list.Contains(name);
+	}
+}
+
+public class PrefixMangleScheme(string[] prefixes) : MangleScheme {
+	public bool IsIncluded(string name) {
+		return prefixes.Any(name.StartsWith);
+	}
+}

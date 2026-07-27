@@ -125,11 +125,21 @@ public static class ProgramPaths {
 	}
 
 	public static bool FolderPathsEqual(string path1, string path2) {
+		if (path1 == "" ||  path2 == "")
+			return path1 == path2;
 		return Path.GetRelativePath(path1, path2) == ".";
 	}
 	
 	public static bool FilePathsEqual(string filePath1, string filePath2) {
 		return FolderPathsEqual(Path.GetDirectoryName(filePath1) ?? "/", Path.GetDirectoryName(filePath2) ?? "/")
 			&& Path.GetFileName(filePath1) == Path.GetFileName(filePath2);
+	}
+	
+	// the big overflow still useful in 2026
+	// https://stackoverflow.com/questions/1266674/how-can-one-get-an-absolute-or-normalized-file-path-in-net
+	public static string NormalizePath(string path) {
+		return Path.GetFullPath(new Uri(path).LocalPath)
+			.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+			.ToUpperInvariant();
 	}
 }

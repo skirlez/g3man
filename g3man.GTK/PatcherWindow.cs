@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using g3man.Core.Models;
-using g3man.Patching;
+using g3man.Core.Patching;
 using g3man.Core.Util;
 using g3man.GTK.Util;
 using Gtk;
@@ -219,7 +219,8 @@ public class PatcherWindow : G3manWindow {
 
 
 		string relativeProfilePath = $"g3man/profiles/{profile.ID}";
-		UndertaleData? output;
+		int vanillaAudioGroupCount = data.AudioGroups.Count;
+		DatafilePatcher.PatchProduct? output;
 		try {
 			output = datafilePatcher.Patch(noXdeltas, profile, profilePath,
 				relativeProfilePath, profile.ID,
@@ -231,16 +232,24 @@ public class PatcherWindow : G3manWindow {
 			return false;
 		}
 
-		if (output is null)
+		if (!output.HasValue)
 			return false;
 		
 		
 		bool overwritingInput = (game.DatafilePath == game.GetOutputDatafileRelativePath(profile));
 		
 		setStatus("Writing...");
+		
 		try {
-			IO.Apply(output, game.Directory, game.GetOutputDatafileRelativePath(profile), 
-				writeHash: overwritingInput);
+			if (game.GetPatchParadigm() == Game.PatchParadigm.Launch) {
+				IO.CreateStage(data, game.Directory, game.DatafilePath,game.GetProfileFolderPath(profile), profile.ID, vanillaAudioGroupCount,
+					output.Value.AudioGroupTransfers);
+			}
+			else {
+				IO.Apply(output.Value.Data, game.Directory, game.GetProfileFolderPath(profile),
+					game.GetOutputDatafileRelativePath(profile),
+					writeHash: overwritingInput, vanillaAudioGroupCount, output.Value.AudioGroupTransfers);
+			}
 		}
 		catch (Exception e) {
 			UI.Logger.Error(e);

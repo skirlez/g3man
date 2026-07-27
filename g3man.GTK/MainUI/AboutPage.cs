@@ -1,3 +1,4 @@
+using g3man.Core;
 using g3man.Core.Util;
 using g3man.GTK.Util;
 using Gtk;

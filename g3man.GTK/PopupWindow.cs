@@ -52,6 +52,16 @@ public class PopupWindow : G3manWindow {
         }
     }
 
+    public static void PopupIfError(Window window, Action action) {
+        try {
+            action();
+        }
+        catch (Exception e) {
+            PopupWindow popup = new PopupWindow(window,  "Error!" ,"", "Close");
+            popup.Dialog();
+        }
+    }
+
     public void Dialog() {
         SetTransientFor(owner);
         SetModal(true);
