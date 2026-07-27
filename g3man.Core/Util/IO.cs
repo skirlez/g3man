@@ -262,7 +262,10 @@ public static class IO {
 		#if LINUX || OSX
 			File.CreateSymbolicLink(path, targetFile);
 		#elif WINDOWS
-			File.CreateHardLink(path, targetFile);
+			// TODO this requires admin (i think)
+			File.CreateSymbolicLink(path, targetFile);
+			// TODO this function is dotnet 11 
+			//File.CreateHardLink(path, targetFile);
 		#else
 			throw new Exception("Function not implemented for this OS");
 		#endif
