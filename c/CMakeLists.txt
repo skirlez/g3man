@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(xdelta3 VERSION 3.1.0)
+project(xdelta3 VERSION 3.2.0)
 
 include(CheckTypeSize)
 check_type_size(size_t XD3_SIZEOF_SIZE_T)

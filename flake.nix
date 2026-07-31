@@ -32,7 +32,7 @@
 
       libxdelta = mkG3manLib {
         pname = "libxdelta";
-        version = "3.1.0";
+        version = "3.2.0";
         soname = "libxdelta3.so";
         flags = [ "-DG3MAN_SKIP_LIBG3MAN=ON" ];
       };
@@ -78,9 +78,14 @@
           "gmlpv2.Tests"
         ];
 
-        # We build the c libraries the Nix way
-        dotnetFlags = [ "/p:DontHandleCLibs=true" ];
+        dotnetFlags = [
+        	# We build the c libraries the Nix way
+	        "/p:DontHandleCLibs=true" 
+					# consistently getting a "used by another process" error unless i set this (weird)
+	        "-m:1" 
+        ];
 
+        strictDeps = true;
         dotnet-sdk = pkgs.dotnetCorePackages.sdk_10_0;
         dotnet-runtime = pkgs.dotnetCorePackages.runtime_10_0;
         executables = [ "g3man" ];

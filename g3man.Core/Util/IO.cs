@@ -71,19 +71,27 @@ public static class IO {
 			Directory.CreateDirectory(Path.Combine(stageDirectory, folder));
 		}
 		LinkFolder(g3manFolder, Path.Combine(stageDirectory, "g3man"));
-		foreach (string file in files) {
+		foreach (string file in files)
+		{
 			LinkFileRelativelyIfPossible(Path.Combine(gameDirectory, file), Path.Combine(stageDirectory, file));
 		}
 		
+		// we can link any audiogroups that belong to mods (non-merges)
 		foreach (AudioGroupTransfer transfer in audioGroupTransfers) {
 			string oldDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
 			if (!transfer.Merge) {
 				LinkFile(oldDatPath, Path.Combine(stageDirectory, $"audiogroup{transfer.NewIndex}.dat"));
 			}
 		}
+		// we can also link any audiogroup that isn't involved in any merges (can be used as-is from the game's folder)
+		foreach (int index in Enumerable.Range(1, vanillaAudioGroupCount - 1).Where(i => !audioGroupTransfers.Any(t => t.Merge && t.NewIndex == i))) {
+			LinkFile(Path.Combine(gameDirectory, $"audiogroup{index}.dat"),
+				Path.Combine(stageDirectory, $"audiogroup{index}.dat"));
+		}
 
 		foreach (IGrouping<int, AudioGroupTransfer> mergeTransfers in audioGroupTransfers.Where(t => t.Merge)
-					.GroupBy(t => t.NewIndex)) {
+				.GroupBy(t => t.NewIndex))
+		{
 			string audioGroupName = $"audiogroup{mergeTransfers.Key}.dat";
 			string targetDatPath = Path.Combine(gameDirectory, audioGroupName);
 			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: false);
@@ -91,12 +99,10 @@ public static class IO {
 			UndertaleIO.Write(output, audiogroupDat);
 		}
 
-		{
-			using MemoryStream memoryStream = new MemoryStream();
-			UndertaleIO.Write(memoryStream, data);
-			memoryStream.Position = 0;
-			File.WriteAllBytes(Path.Combine(stageDirectory, datafileRelativePath), memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
-		}
+
+		using MemoryStream memoryStream = new();
+		UndertaleIO.Write(memoryStream, data);
+		File.WriteAllBytes(Path.Combine(stageDirectory, datafileRelativePath), memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
 	}
 
 	private static void GetRecursiveDirectoryInfo(string basis, string path, List<string> ignoreFiles, List<string> ignoreFolders, HashSet<string> outputFiles, HashSet<string> outputFolders) {
@@ -144,7 +150,6 @@ public static class IO {
 		{
 			using MemoryStream memoryStream = new MemoryStream();
 			UndertaleIO.Write(memoryStream, data);
-			memoryStream.Position = 0;
 			if (writeHash)
 				hashBytes = MD5.HashData(memoryStream);
 			File.WriteAllBytes(tempFilePath, memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
