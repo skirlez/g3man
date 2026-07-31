@@ -33,9 +33,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.3.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.6.0" />
     <PackageReference Include="PeNet" Version="6.1.2" />
-    <PackageReference Include="System.CommandLine" Version="2.0.9" />
+    <PackageReference Include="System.CommandLine" Version="2.0.10" />
     <ProjectReference Include="..\g3man.GTK\g3man.GTK.csproj" />
     <ProjectReference Include="..\g3man.Core\g3man.Core.csproj" />
   </ItemGroup>
