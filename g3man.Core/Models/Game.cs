@@ -87,7 +87,7 @@ public class Game {
 				Paradigm = PatchParadigm.Modify;
 		}
 		else {
-			int paradigm = JsonUtil.GetOrDefault(root, "patch_paradigm", 0);
+			int paradigm = JsonUtil.GetOrDefault(root, "patching_paradigm", 0);
 			if (paradigm >= (int)PatchParadigm.Size || paradigm < 0)
 				paradigm = 0;
 			Paradigm = (PatchParadigm)paradigm;
@@ -155,7 +155,7 @@ public class Game {
 		Debug.Assert(ExecutableStatus(config).ok);
 		
 		List<string> gameArguments = ["-game", GetOutputDatafilePath(profile)];
-		
+
 		// at least one version of the linux runner always appended "-game game.unx" at the end of its arguments, overriding
 		// our choice of datafile. including a single " character (appears to) make the runner listen to us,
 		// so i'm assuming it breaks the argument parser. it doesn't seem to break anything else so it is always included.
@@ -195,7 +195,7 @@ public class Game {
 			["executable_type"] = (int)ChosenExecutableType,
 			["executable_path"] = ExecutablePath,
 			["executable_steam_app_id"] = ExecutableSteamAppId,
-			["patch_paradigm"] = (int)Paradigm
+			["patching_paradigm"] = (int)Paradigm
 		};
 	}
 
