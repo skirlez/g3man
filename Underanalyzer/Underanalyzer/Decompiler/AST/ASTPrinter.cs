@@ -50,11 +50,6 @@ public sealed class ASTPrinter(DecompileContext context)
     internal ASTFragmentContext? TopFragmentContext { get; private set; }
 
     /// <summary>
-    /// If true, semicolon output is manually disabled.
-    /// </summary>
-    internal bool OverrideDisableSemicolons { get; set; } = false;
-
-    /// <summary>
     /// The first warning index that has not yet been printed by this printer.
     /// </summary>
     internal int FirstUnprintedWarningIndex { get; private set; } = 0;

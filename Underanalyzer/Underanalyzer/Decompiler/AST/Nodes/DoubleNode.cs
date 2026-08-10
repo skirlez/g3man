@@ -135,7 +135,7 @@ public class DoubleNode(double value) : IConstantNode<double>, IConditionalValue
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }

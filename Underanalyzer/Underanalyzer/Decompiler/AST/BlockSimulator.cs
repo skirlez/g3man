@@ -271,7 +271,22 @@ internal sealed class BlockSimulator
         // Update left side of the variable
         IExpressionNode left;
         List<IExpressionNode>? arrayIndices = null;
-        if (instr.InstType == InstanceType.StackTop || instr.ReferenceVarType == VariableType.StackTop)
+        if (instr.InstType == InstanceType.StackTop)
+        {
+            // Left side is just on the top of the stack
+            left = builder.ExpressionStack.Pop();
+            
+            // With this code generation, the left side should be grouped if it's a simple function call
+            if (left is FunctionCallNode or VariableCallNode 
+                { 
+                    Instance: FunctionCallNode { FunctionName: VMConstants.SelfFunction } or null, 
+                    Function: VariableNode { Left: InstanceTypeNode or null } 
+                })
+            {
+                left.Group = true;
+            }
+        }
+        else if (instr.ReferenceVarType == VariableType.StackTop)
         {
             // Left side is just on the top of the stack
             left = builder.ExpressionStack.Pop();

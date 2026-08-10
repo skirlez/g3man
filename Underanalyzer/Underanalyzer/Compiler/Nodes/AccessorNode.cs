@@ -132,8 +132,9 @@ internal sealed class AccessorNode : IAssignableASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // Compiler quirk with rewriting constants in dot nodes earlier in some cases
+        IGameContext gameContext = context.CompileContext.GameContext;
         if (Expression is DotVariableNode { LeftExpression: NumberNode numberNode } dotVariableNode &&
-            (context.CompileContext.GameContext.UsingSelfToBuiltin || numberNode.ConstantName == "global"))
+            (!gameContext.UsingGlobalConstantFunction || gameContext.UsingSelfToBuiltin || numberNode.ConstantName == "global"))
         {
             dotVariableNode.LeftExpression = numberNode.PostProcess(context);
         }
@@ -142,7 +143,7 @@ internal sealed class AccessorNode : IAssignableASTNode
         if (Expression is SimpleVariableNode { CollapsedFromDot: false, HasExplicitInstanceType: false } simpleVariableNode &&
             SimpleVariableNode.BuiltinArgumentVariables.Contains(simpleVariableNode.VariableName) &&
             context.CurrentScope == context.RootScope &&
-            !context.CompileContext.GameContext.UsingSelfToBuiltin)
+            !gameContext.UsingSelfToBuiltin)
         {
             simpleVariableNode.SetExplicitInstanceType(InstanceType.Argument);
         }
@@ -201,8 +202,8 @@ internal sealed class AccessorNode : IAssignableASTNode
             // Use variable's instance type
             instanceType = simpleVariable.ExplicitInstanceType;
             
-            // Prior to GMLv2, Other becomes Self for arrays in particular
-            if (instanceType == InstanceType.Other && !context.CompileContext.GameContext.UsingGMLv2)
+            // Other becomes Self for arrays in particular
+            if (instanceType == InstanceType.Other)
             {
                 instanceType = InstanceType.Self;
             }
@@ -213,8 +214,15 @@ internal sealed class AccessorNode : IAssignableASTNode
             dotVariable.LeftExpression.GenerateCode(context);
             instanceConversionType = context.ConvertToInstanceId();
 
-            // Self instance type is always used for stacktop
-            instanceType = InstanceType.Self;
+            // Self instance type is always used for stacktop, unless it's a global variable
+            if (dotVariable.LeftExpression is SimpleFunctionCallNode { FunctionName: VMConstants.GlobalFunction })
+            {
+                instanceType = InstanceType.Global;
+            }
+            else
+            {
+                instanceType = InstanceType.Self;
+            }
         }
         else
         {

@@ -109,10 +109,12 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
         return this;
     }
 
-    /// <inheritdoc/>
-    public void Print(ASTPrinter printer)
+    /// <summary>
+    /// Returns whether <see cref="Instance"/> should be printed before <see cref="Function"/>.
+    /// </summary>
+    /// <returns></returns>
+    private bool ShouldPrintInstance(ASTPrinter printer)
     {
-        bool canGenerateParentheses = true;
         if (Instance is not null)
         {
             if (Function is VariableNode variable && variable is { Left: InstanceTypeNode instType } &&
@@ -124,13 +126,37 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
                     printer.LocalVariableNames.Contains(variable.Variable.Name.Content) ||
                     printer.TopFragmentContext!.NamedArguments.Contains(variable.Variable.Name.Content))
                 {
-                    Instance.Print(printer);
-                    printer.Write('.');
-                    canGenerateParentheses = false;
+                    return true;
                 }
             }
         }
-        if (canGenerateParentheses && Function is IMultiExpressionNode)
+        return false;
+    }
+
+    /// <summary>
+    /// If not printing <see cref="Instance"/>, returns whether <see cref="Function"/> should be grouped within parentheses.
+    /// </summary>
+    /// <returns></returns>
+    private bool ShouldGroupFunctionIfNotPrintingInstance()
+    {
+        return Function is IMultiExpressionNode or UnaryNode;
+    }
+
+    /// <inheritdoc/>
+    public void Print(ASTPrinter printer)
+    {
+        if (Group)
+        {
+            printer.Write('(');
+        }
+        bool canGenerateParentheses = true;
+        if (ShouldPrintInstance(printer))
+        {
+            Instance!.Print(printer);
+            printer.Write('.');
+            canGenerateParentheses = false;
+        }
+        if (canGenerateParentheses && ShouldGroupFunctionIfNotPrintingInstance())
         {
             printer.Write('(');
             Function.Print(printer);
@@ -150,26 +176,39 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
             }
         }
         printer.Write(')');
+        if (Group)
+        {
+            printer.Write(')');
+        }
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
+        if (isStatementLHS && Group)
+        {
+            return true;
+        }
+        bool printingInstance = false;
         if (Instance is not null)
         {
-            // TODO: need to check this
-            if (Instance.RequiresMultipleLines(printer))
+            printingInstance = ShouldPrintInstance(printer);
+            if (Instance.RequiresMultipleLines(printer, isStatementLHS && printingInstance))
             {
                 return true;
             }
         }
-        if (Function.RequiresMultipleLines(printer))
+        if (isStatementLHS && !printingInstance && ShouldGroupFunctionIfNotPrintingInstance())
+        {
+            return true;
+        }
+        if (Function.RequiresMultipleLines(printer, isStatementLHS && !printingInstance))
         {
             return true;
         }
         foreach (IExpressionNode arg in Arguments)
         {
-            if (arg.RequiresMultipleLines(printer))
+            if (arg.RequiresMultipleLines(printer, false))
             {
                 return true;
             }

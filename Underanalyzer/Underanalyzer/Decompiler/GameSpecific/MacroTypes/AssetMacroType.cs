@@ -20,7 +20,7 @@ public class AssetMacroType(AssetType type) : IMacroTypeInt32
         // Ensure we don't resolve this on newer GameMaker versions where this is unnecessary
         if (cleaner.Context.GameContext.UsingAssetReferences)
         {
-            if (cleaner.Context.GameContext.UsingRoomInstanceReferences || Type != AssetType.RoomInstance)
+            if (Type != AssetType.AudioGroup && (cleaner.Context.GameContext.UsingRoomInstanceReferences || Type != AssetType.RoomInstance))
             {
                 return null;
             }

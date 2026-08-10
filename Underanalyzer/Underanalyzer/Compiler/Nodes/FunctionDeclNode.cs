@@ -287,6 +287,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         // Read assignments from struct literal
         while (!context.EndOfCode && !context.IsCurrentToken(SeparatorKind.BlockClose, KeywordKind.End))
         {
+            bool parsedStringName = false;
             if (context.Tokens[context.Position] is not TokenVariable variable)
             {
                 // Failed to find a variable here... check if a constant/asset reference, string, or keyword
@@ -301,10 +302,15 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
                 else if (context.Tokens[context.Position] is TokenString str)
                 {
                     variable = new TokenVariable(str);
+                    parsedStringName = true;
                 }
                 else if (context.Tokens[context.Position] is TokenKeyword keyword)
                 {
                     variable = new TokenVariable(keyword);
+                }
+                else if (context.Tokens[context.Position] is TokenBoolean boolean)
+                {
+                    variable = new TokenVariable(boolean);
                 }
                 else
                 {
@@ -338,7 +344,10 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             // Non-constant values get hoisted outside of the struct function itself
             if (value is not (IConstantASTNode or FunctionDeclNode))
             {
-                if (value is SimpleFunctionCallNode { FunctionName: VMConstants.NewArrayFunction or VMConstants.NewObjectFunction } func)
+                bool externalArrays = context.CompileContext.GameContext.UsingExternalStructArrays;
+                if (value is SimpleFunctionCallNode func &&
+                    (func.FunctionName is VMConstants.NewObjectFunction ||
+                     !externalArrays && func.FunctionName is VMConstants.NewArrayFunction))
                 {
                     // Hoist individual elements of array/struct, rather than entire array/struct
                     for (int i = 0; i < func.Arguments.Count; i++)
@@ -357,12 +366,60 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
                 }
             }
 
-            // Create assignment statement
-            SimpleVariableNode destination = new(variable)
+            // Create assignment statement (or a function call to "variable_struct_set" in some cases)
+            string variableName = variable.Text;
+            bool modernSpecialCaseNames = context.CompileContext.GameContext.UsingStructSpecialCaseNames;
+            if (string.IsNullOrEmpty(variableName))
             {
-                StructVariable = true
-            };
-            block.Children.Add(new AssignNode(AssignNode.AssignKind.Normal, destination, value));
+                context.CompileContext.PushError("Struct field name cannot be empty", variable);
+            }
+            else if (variableName[0] is not ((>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or '_'))
+            {
+                if (context.CompileContext.GameContext.UsingStructAnyNonemptyString)
+                {
+                    List<IASTNode> callArgs =
+                    [
+                        new SimpleFunctionCallNode(VMConstants.SelfFunction, null, []),
+                        new StringNode(variable.Text, variable),
+                        value
+                    ];
+                    SimpleFunctionCallNode callNode = new(VMConstants.StructSetFunction, null, callArgs)
+                    {
+                        IsStatement = true
+                    };
+                    block.Children.Add(callNode);
+                }
+                else
+                {
+                    context.CompileContext.PushError("Struct field name must start with a-z, A-Z, or _ in this GameMaker version", variable);
+                }
+            }
+            else if (modernSpecialCaseNames && !parsedStringName && VMConstants.ModernDisallowedStructKeywords.Contains(variableName))
+            {
+                context.CompileContext.PushError("Invalid keyword used for struct field name, must surround with quotes", variable);
+            }
+            else if (modernSpecialCaseNames && (variableName == "self" || variableName == "other"))
+            {
+                DotVariableNode destination = new(
+                    new SimpleFunctionCallNode(VMConstants.SelfFunction, 
+                                               context.CompileContext.GameContext.Builtins.LookupBuiltinFunction(VMConstants.SelfFunction), 
+                                               []),
+                    false,
+                    variable);
+                block.Children.Add(new AssignNode(AssignNode.AssignKind.Normal, destination, value));
+            }
+            else if (!modernSpecialCaseNames && !parsedStringName && VMConstants.OldDisallowedStructKeywords.Contains(variableName))
+            {
+                context.CompileContext.PushError("Invalid keyword used for struct field name in this GameMaker version, must surround with quotes", variable);
+            }
+            else
+            {
+                SimpleVariableNode destination = new(variable)
+                {
+                    StructVariable = true
+                };
+                block.Children.Add(new AssignNode(AssignNode.AssignKind.Normal, destination, value));
+            }
 
             // Expect "," or "}"
             if (context.IsCurrentToken(SeparatorKind.Comma))
@@ -450,9 +507,12 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         context.CurrentScope = Scope;
 
         // Update array owner IDs if necessary
+        long prevArrayOwnerId = -1;
         if (context.CompileContext.GameContext.UsingArrayCopyOnWrite)
         {
             Scope.ArrayOwnerID = ++context.LastFunctionID;
+            prevArrayOwnerId = context.LastArrayOwnerID;
+            context.LastArrayOwnerID = -1;
         }
 
         // Skip past function body
@@ -471,7 +531,6 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             oldScope.StaticVariableName,
             IsStruct ? FunctionEntryKind.StructInstantiation : FunctionEntryKind.FunctionDeclaration
         );
-        context.CurrentFunctionEntry = entry;
         context.FunctionEntries.Add(entry);
 
         // Assign function entry in the current scope if named
@@ -486,8 +545,21 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         // Mark scope as generating a function declaration header
         Scope.GeneratingFunctionDeclHeader = true;
 
+        // If using new code generation, assign current function entry for default arguments
+        bool assignEntryBeforeDefaultArgs = context.CompileContext.GameContext.UsingFixedDefaultArgumentFunctionDecls;
+        if (assignEntryBeforeDefaultArgs)
+        {
+            context.CurrentFunctionEntry = entry;
+        }
+
         // Generate default argument assignments, before main body
         DefaultValueBlock?.GenerateCode(context);
+
+        // Inheritance call seems to always use parent entry...
+        if (assignEntryBeforeDefaultArgs)
+        {
+            context.CurrentFunctionEntry = parentEntry;
+        }
 
         // Inheritance call, before main body
         if (InheritanceCall is SimpleFunctionCallNode inheritCall)
@@ -502,6 +574,9 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             context.EmitCall(FunctionPatch.FromBuiltin(context, VMConstants.CopyStaticFunction), 1);
         }
 
+        // No matter what version, current function entry should be assigned from now on
+        context.CurrentFunctionEntry = entry;
+
         // Mark scope as no longer generating a function declaration header
         Scope.GeneratingFunctionDeclHeader = false;
 
@@ -512,6 +587,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         }
 
         // Static block, before main body
+        long beforeStaticBlockArrayOwnerId = context.LastArrayOwnerID;
         if (Scope.StaticInitializerBlock is BlockNode staticBlock)
         {
             // If static has already initialized, branch past this block
@@ -535,6 +611,12 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             if (allowReentrantStatic)
             {
                 context.Emit(ExtendedOpcode.SetStaticInitialized);
+            }
+
+            // Reset array owner ID if needed
+            if (context.LastArrayOwnerID != beforeStaticBlockArrayOwnerId)
+            {
+                context.LastArrayOwnerID = -1;
             }
         }
 
@@ -619,6 +701,9 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             // This is not a statement, so result from method() is still on the stack
             context.PushDataType(DataType.Variable);
         }
+
+        // Reset the array owner ID to what it was beforehand
+        context.LastArrayOwnerID = prevArrayOwnerId;
     }
 
     /// <inheritdoc/>

@@ -72,7 +72,7 @@ public class IfNode(IExpressionNode condition, BlockNode trueBlock, BlockNode? e
     /// </summary>
     private bool CanPrintWithoutBraces(ASTPrinter printer)
     {
-        if (TrueBlock.RequiresMultipleLines(printer))
+        if (TrueBlock.RequiresMultipleLines(printer, false))
         {
             return false;
         }
@@ -87,7 +87,7 @@ public class IfNode(IExpressionNode condition, BlockNode trueBlock, BlockNode? e
             }
             else
             {
-                if (ElseBlock.RequiresMultipleLines(printer))
+                if (ElseBlock.RequiresMultipleLines(printer, false))
                 {
                     return false;
                 }
@@ -227,7 +227,7 @@ public class IfNode(IExpressionNode condition, BlockNode trueBlock, BlockNode? e
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return true;
     }

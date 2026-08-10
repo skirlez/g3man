@@ -45,5 +45,5 @@ public interface IASTNode<T> : IBaseASTNode
     /// <summary>
     /// Calculates and returns whether the node will require multiple lines when printed.
     /// </summary>
-    public bool RequiresMultipleLines(ASTPrinter printer);
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS);
 }

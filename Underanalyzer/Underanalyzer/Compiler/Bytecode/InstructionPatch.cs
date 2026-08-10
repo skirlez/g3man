@@ -35,6 +35,11 @@ internal readonly struct InstructionPatches
     public List<StructVariablePatch>? StructVariablePatches { get; init; }
 
     /// <summary>
+    /// List of variable hash patches generated during code generation.
+    /// </summary>
+    public List<VariableHashPatch>? VariableHashPatches { get; init; }
+
+    /// <summary>
     /// List of string patches generated during code generation.
     /// </summary>
     public List<StringPatch>? StringPatches { get; init; }
@@ -50,6 +55,7 @@ internal readonly struct InstructionPatches
             FunctionPatches = new(32),
             LocalFunctionPatches = new(4),
             StructVariablePatches = new(4),
+            VariableHashPatches = new(4),
             StringPatches = new(16)
         };
     }
@@ -97,6 +103,15 @@ internal record struct StructVariablePatch(FunctionEntry FunctionEntry, Instance
     /// Instance type to use for instruction. Sometimes differs from <see cref="InstanceType"/>, due to compiler quirks.
     /// </summary>
     public InstanceType InstructionInstanceType { get; set; } = InstanceType;
+}
+
+/// <summary>
+/// A variable patch used during bytecode generation, to assign variables to instructions that push variable hashes.
+/// </summary>
+internal record struct VariableHashPatch(string Name, bool IsBuiltin) : IInstructionPatch
+{
+    /// <inheritdoc/>
+    public IGMInstruction? Instruction { get; set; }
 }
 
 /// <summary>

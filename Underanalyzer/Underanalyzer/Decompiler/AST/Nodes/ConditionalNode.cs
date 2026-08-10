@@ -99,11 +99,15 @@ public class ConditionalNode(IExpressionNode condition, IExpressionNode trueExpr
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return Condition.RequiresMultipleLines(printer) || 
-               True.RequiresMultipleLines(printer) || 
-               False.RequiresMultipleLines(printer);
+        if (isStatementLHS && Group)
+        {
+            return true;
+        }
+        return Condition.RequiresMultipleLines(printer, isStatementLHS) || 
+               True.RequiresMultipleLines(printer, false) || 
+               False.RequiresMultipleLines(printer, false);
     }
 
     /// <inheritdoc/>

@@ -79,6 +79,7 @@ public class GameSpecificRegistry
         RegisterType("Asset.AnimationCurve", new AssetMacroType(AssetType.AnimCurve));
         RegisterType("Asset.ParticleSystem", new AssetMacroType(AssetType.ParticleSystem));
         RegisterType("Asset.RoomInstance", new AssetMacroType(AssetType.RoomInstance));
+        RegisterType("Asset.AudioGroup", new AssetMacroType(AssetType.AudioGroup));
         RegisterType("Constant.Color", new ColorMacroType());
         RegisterType("Constant.VirtualKey", new VirtualKeyMacroType());
     }

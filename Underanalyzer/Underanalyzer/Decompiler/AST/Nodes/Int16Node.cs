@@ -57,7 +57,7 @@ public class Int16Node(short value, bool regularPush) : IConstantNode<short>, IM
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }

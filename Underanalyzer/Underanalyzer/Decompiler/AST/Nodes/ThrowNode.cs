@@ -100,9 +100,13 @@ public class ThrowNode(IExpressionNode value) : IExpressionNode, IStatementNode,
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return Value.RequiresMultipleLines(printer);
+        if (isStatementLHS && Group)
+        {
+            return true;
+        }
+        return Value.RequiresMultipleLines(printer, false);
     }
 
     /// <inheritdoc/>

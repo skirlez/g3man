@@ -78,9 +78,9 @@ public class SwitchCaseNode(IExpressionNode? expression) : IStatementNode, IBloc
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return Expression?.RequiresMultipleLines(printer) ?? false;
+        return Expression?.RequiresMultipleLines(printer, false) ?? false;
     }
 
     /// <inheritdoc/>

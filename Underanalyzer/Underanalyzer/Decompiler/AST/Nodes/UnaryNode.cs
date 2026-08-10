@@ -51,6 +51,12 @@ public class UnaryNode(IExpressionNode value, IGMInstruction instruction) : IExp
             Value.Group = true;
         }
 
+        // Ensure this isn't confused for the decrement operator
+        if (Instruction.Kind is Opcode.Negate && Value is UnaryNode { Instruction.Kind: Opcode.Negate })
+        {
+            Value.Group = true;
+        }
+
         return this;
     }
 
@@ -87,9 +93,13 @@ public class UnaryNode(IExpressionNode value, IGMInstruction instruction) : IExp
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return Value.RequiresMultipleLines(printer);
+        if (isStatementLHS && (Group || Instruction.Kind is Opcode.Negate))
+        {
+            return true;
+        }
+        return Value.RequiresMultipleLines(printer, false);
     }
 
     /// <inheritdoc/>

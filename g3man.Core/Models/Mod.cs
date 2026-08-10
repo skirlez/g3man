@@ -25,7 +25,7 @@ public class Mod : IMod {
 	public PatchLocation[] Patches;
 	
 	public string DatafilePath;
-	public ManglingOptions ManglingOptions;
+	public NamespacingOptions NamespacingOptions;
 	
 	// right now, this only supports one patch per file. TODO: support consecutive patches, and TODO: support hashes alongside filenames.
 	// the extremely contrived scenario where I imagine that's helpful is a case where a mod wants to use g3man
@@ -109,13 +109,13 @@ public class Mod : IMod {
 			.Select(x => new Import(x)).ToArray();
 		Exports = JsonUtil.GetStringArrayOrThrow(root, "exports", []);
 		if (TargetPatcherVersion < 10) {
-			ManglingOptions = ManglingOptions.None;
+			NamespacingOptions = NamespacingOptions.None;
 		}
 		else {
-			if (root.TryGetProperty("mangling", out JsonElement mangling))
-				ManglingOptions = new ManglingOptions(mangling);
+			if (root.TryGetProperty("namespacing", out JsonElement namespacing))
+				NamespacingOptions = new NamespacingOptions(namespacing);
 			else
-				ManglingOptions = ManglingOptions.All;
+				NamespacingOptions = NamespacingOptions.All;
 		}
 	}
 
@@ -511,77 +511,60 @@ public readonly struct RecommendContingency : Contingency {
 }
 
 
-public enum ManglingType {
-	LIST,
-	PREFIX,
-	SUFFIX
-}
+public class InvalidNamespacingOptionsException(string message) : InvalidModException(message);
 
 
-public class InvalidManglingOptionsException(string message) : InvalidModException(message);
+public readonly struct NamespacingOptions {
+	public readonly SuffixingScheme Scheme;
 
-
-
-
-public readonly struct ManglingOptions {
-	public readonly bool Invert;
-	public readonly MangleScheme Scheme;
-
-	private ManglingOptions(bool invert, MangleScheme scheme) {
-		Invert = invert;
+	private NamespacingOptions(bool invert, SuffixingScheme scheme) {
 		Scheme = scheme;
 	}
-	public static ManglingOptions None = new ManglingOptions(false, new NoneMangleScheme());
-	public static ManglingOptions All = new ManglingOptions(false, new AllMangleScheme());
-	public ManglingOptions(JsonElement root) {
+	public static NamespacingOptions None = new(false, new NoneNamespacingScheme());
+	public static NamespacingOptions All = new(false, new AllNamespacingScheme());
+	public NamespacingOptions(JsonElement root) {
 		string type = JsonUtil.GetStringOrThrow(root, "type");
 		switch (type) {
-			case "include":
-				string[] includeList = JsonUtil.GetStringArrayOrThrow(root, "data");
-				Scheme = new ListMangleScheme(includeList);
+			case "exclude_prefix":
+				string[] includeList = JsonUtil.GetStringArrayOrThrow(root, "list");
+				Scheme = new PrefixNamespacingScheme(includeList);
 				break;
 			case "exclude":
-				string[] excludeList = JsonUtil.GetStringArrayOrThrow(root, "data");
-				Scheme = new ListMangleScheme(excludeList);
-				Invert = true;
-				break;
-			case "prefix":
-				string[] prefixList = JsonUtil.GetStringArrayOrThrow(root, "data");
-				Scheme = new PrefixMangleScheme(prefixList);
-				Invert = true;
+				string[] excludeList = JsonUtil.GetStringArrayOrThrow(root, "list");
+				Scheme = new ListNamespacingScheme(excludeList);
 				break;
 			default:
-				throw new InvalidManglingOptionsException($"Invalid mangling scheme type \"{type}\". Supported types: include, exclude, prefix");
+				throw new InvalidNamespacingOptionsException($"Invalid namespacing scheme type \"{type}\". Supported types: include, exclude, prefix");
 		}
 	}
 }
 
 
 
-public interface MangleScheme {
-	public bool IsIncluded(string name);
+public interface SuffixingScheme {
+	public bool IsExcluded(string name);
 }
 
-public class NoneMangleScheme : MangleScheme {
-	public bool IsIncluded(string name) {
-		return false;
-	}
-}
-public class AllMangleScheme : MangleScheme {
-	public bool IsIncluded(string name) {
+public class NoneNamespacingScheme : SuffixingScheme {
+	public bool IsExcluded(string name) {
 		return true;
 	}
 }
+public class AllNamespacingScheme : SuffixingScheme {
+	public bool IsExcluded(string name) {
+		return false;
+	}
+}
 
 
-public class ListMangleScheme(string[] list) : MangleScheme {
-	public bool IsIncluded(string name) {
+public class ListNamespacingScheme(string[] list) : SuffixingScheme {
+	public bool IsExcluded(string name) {
 		return list.Contains(name);
 	}
 }
 
-public class PrefixMangleScheme(string[] prefixes) : MangleScheme {
-	public bool IsIncluded(string name) {
+public class PrefixNamespacingScheme(string[] prefixes) : SuffixingScheme {
+	public bool IsExcluded(string name) {
 		return prefixes.Any(name.StartsWith);
 	}
 }

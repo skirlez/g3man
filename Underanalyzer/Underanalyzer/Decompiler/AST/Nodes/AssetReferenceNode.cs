@@ -52,7 +52,7 @@ public class AssetReferenceNode(int assetId, AssetType assetType) : IExpressionN
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }
@@ -86,6 +86,10 @@ public class AssetReferenceNode(int assetId, AssetType assetType) : IExpressionN
         if (type is IMacroTypeConditional conditional)
         {
             return conditional.Resolve(cleaner, this);
+        }
+        if (type is AssetMacroType { Type: AssetType.AudioGroup } typeAudioGroup && AssetType == AssetType.Sound)
+        {
+            return typeAudioGroup.Resolve(cleaner, this, AssetId);
         }
         return null;
     }

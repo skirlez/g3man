@@ -8,6 +8,7 @@ using gmlpv2;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using PatchCommon;
+using Underanalyzer.Decompiler;
 using UndertaleModLib;
 using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
@@ -83,16 +84,18 @@ public class DatafilePatcher {
 	private void MergeLists<T>(IList<T?>? to, IList<T?>? from, bool canMimic = true, Func<T, Dictionary<string, T>, bool>? process = null) where T : UndertaleNamedResource {
 		if (to is null || from is null)
 			return;
-		Dictionary<string, T> nameMap = to.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
+		Dictionary<string, T>? nameMap = null;
+		if (canMimic || process != null)
+			nameMap = to.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
 		foreach (T? resource in from) {
 			if (resource is null) 
 				continue;
 			if (resource.Name.Content.StartsWith(IGNORE_PREFIX))
 				continue;
-			if (canMimic && GetMimicedResource(nameMap, resource) is not null)
+			if (canMimic && GetMimicedResource(nameMap!, resource) is not null)
 				continue;
 			if (process is not null) {
-				if (!process(resource, nameMap))
+				if (!process(resource, nameMap!))
 					continue;
 			}
 			to.Add(resource);
@@ -139,29 +142,25 @@ public class DatafilePatcher {
 		public HashSet<string> GroupsToCopy = groupsToCopy;
 	}
 
-	private int mangledCount = 0;
-	const string MANGLE_STRING = "_g3man_mangled_";
-	// mangle the names of assets in accordance to manglingOptions
-	void mangle(UndertaleData data, ManglingOptions manglingOptions) {
-		bool shouldMangleScript(string name) {
+
+	// namespace the names of functions in accordance to NamespacingOptions
+	private void autoNamespace(UndertaleData data, string modId, NamespacingOptions namespacingOptions) {
+	    const string SCRIPT_PREFIX = "gml_Script_";
+		bool shouldNamespaceScript(UndertaleScript script) {
+			string name = script.Name.Content;
 			if (name.Contains('@') || name.StartsWith("gml_GlobalScript_"))
 				return false;
-			const string SCRIPT_PREFIX = "gml_Script_";
-			if (name.StartsWith(SCRIPT_PREFIX))
-				name = name.Remove(0, SCRIPT_PREFIX.Length);
-			return shouldMangle(name);
-		}
-		bool shouldMangle(string name) {
-			return manglingOptions.Scheme.IsIncluded(name) ^ manglingOptions.Invert;
-		}
-		string getMangleSuffix() {
-			string result = MANGLE_STRING + mangledCount;
-			mangledCount++;
-			return result;
+			if (!name.StartsWith(SCRIPT_PREFIX))
+				return false;
+			string functionName = name.Remove(0, SCRIPT_PREFIX.Length);
+			return !namespacingOptions.Scheme.IsExcluded(functionName);
 		}
 		foreach (UndertaleScript script in data.Scripts) {
-			if (shouldMangleScript(script.Name.Content)) {
-				script.Name.Content += getMangleSuffix();
+			if (shouldNamespaceScript(script)) {
+				string name = script.Name.Content.Remove(0, SCRIPT_PREFIX.Length);
+				UndertaleVariable? variable = data.Variables.ByName(name);
+				variable?.Name.Content = $"@{modId}@{name}";
+				script.Name.Content = $"{SCRIPT_PREFIX}@{modId}@{name}";
 			}
 		}
 	}
@@ -251,6 +250,8 @@ public class DatafilePatcher {
 		MergeLists(data.Code, modData.Code, canMimic: false);
 		
 		foreach (UndertaleFunction function in modData.Functions) {
+			if (isBuiltinFunction(modData, function))
+				continue;
 			data.Functions.Add(function);
 			function.NameStringID += stringListLength;
 		}
@@ -292,7 +293,6 @@ public class DatafilePatcher {
 
 			// This is probably always true.
 			if (gameObject.Events.Count >= 5) {
-				
 				// If there are any collision events, we have to either correct the index used
 				// or if it's a fake object switch to that one
 				UndertalePointerList<UndertaleGameObject.Event>? collisionEvents = gameObject.Events[4];
@@ -308,25 +308,28 @@ public class DatafilePatcher {
 			}
 		}
 
-		{
-			Dictionary<string, UndertaleRoom> nameMap = data.Rooms.ToDictionary(t => t.Name.Content);
-			foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in modData.GeneralInfo.RoomOrder) {
-				if (GetMimicedResource(nameMap, room.Resource) is not null)
-					continue;
-				data.GeneralInfo.RoomOrder.Add(room);
+		if (!(modData.Rooms.Count == 1 && modData.Rooms[0].Name.Content == "g3man_must_exist")) {
+			{
+				Dictionary<string, UndertaleRoom> nameMap = data.Rooms.ToDictionary(t => t.Name.Content);
+				foreach (UndertaleResourceById<UndertaleRoom, UndertaleChunkROOM> room in
+						modData.GeneralInfo.RoomOrder) {
+					if (GetMimicedResource(nameMap, room.Resource) is not null)
+						continue;
+					data.GeneralInfo.RoomOrder.Add(room);
+				}
 			}
+			MergeLists(data.Rooms, modData.Rooms, canMimic: true, (room, _) => {
+				foreach (UndertaleRoom.Layer layer in room.Layers) {
+					if (layer.LayerType != UndertaleRoom.LayerType.Instances)
+						continue;
+					foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
+						gameObject.InstanceID += addInstanceId;
+				}
+
+				return true;
+			});
 		}
 
-		MergeLists(data.Rooms, modData.Rooms, canMimic: true,(room, _) => {
-			foreach (UndertaleRoom.Layer layer in room.Layers) {
-				if (layer.LayerType != UndertaleRoom.LayerType.Instances) 
-					continue;
-				foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
-					gameObject.InstanceID += addInstanceId;
-			}
-			return true;
-		});
-		
 		MergeLists(data.AnimationCurves, modData.AnimationCurves);
 
 		
@@ -406,7 +409,7 @@ public class DatafilePatcher {
 
 		List<string> issues = CheckModApplicationIssues(mods, allowModScripting);
 		if (issues.Count > 0) {
-			StringBuilder sb = new StringBuilder("Encountered issues that are preventing mod application!");
+			StringBuilder sb = new("Encountered issues that are preventing mod application!");
 			for (int i = 0; i < issues.Count; i++) {
 				var issue = issues[i];
 				sb.Append($"\n{i + 1}. {issue}");
@@ -425,9 +428,9 @@ public class DatafilePatcher {
 			if (mod.DatafilePath != "") {
 				setStatusAndInfo($"Merging: {mod.DisplayName}");
 				string fullDatafilePath = Path.Combine(profileLocation, mod.ModId, mod.DatafilePath);
-				UndertaleData? modData = null;
+				UndertaleData modData;
 				try {
-					using FileStream stream = new FileStream(fullDatafilePath, FileMode.Open, FileAccess.Read);
+					using FileStream stream = new(fullDatafilePath, FileMode.Open, FileAccess.Read);
 					modData = UndertaleIO.Read(stream);
 				}
 				catch (Exception e) {
@@ -437,7 +440,7 @@ public class DatafilePatcher {
 				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 					return null;
 				
-				mangle(modData, mod.ManglingOptions);
+				autoNamespace(modData, mod.ModId, mod.NamespacingOptions);
 				MergeProduct product;
 				try {
 					product = merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
@@ -470,13 +473,14 @@ public class DatafilePatcher {
 				return null;
 		}
 		
-		GlobalDecompileContext context = new GlobalDecompileContext(data);
-		CompileGroup group = new CompileGroup(data, context);
-		GameMakerCodeSource source = new GameMakerCodeSource(group);
+
+		GlobalDecompileContext mainContext = new GlobalDecompileContext(data);
+		CompileGroup mainGroup = new CompileGroup(data, mainContext);
+		GameMakerCodeSource source = new GameMakerCodeSource(mainGroup);
 		
 		if (mods.Any(mod => mod.Imports.Any(GameAPI.IsImportAskingForMe))) {
-			GameAPI.Inject(data, profile, relativeProfilePath, relativeProfileLivePath, group);
-			CompileResult gameAPIResult = group.Compile();
+			GameAPI.Inject(data, profile, relativeProfilePath, relativeProfileLivePath, mainGroup);
+			CompileResult gameAPIResult = mainGroup.Compile();
 			if (!gameAPIResult.Successful) {
 				setStatusAndError("Failed to insert g3man Game API!", 
 					gameAPIResult.PrintAllErrors(false));
@@ -487,7 +491,6 @@ public class DatafilePatcher {
 		
 		List<PatchStep<Mod>> firstPatchSteps = [];
 		List<PatchStep<Mod>> lastPatchSteps = [];
-
 		
 		foreach (Mod mod in mods) {
 			if (mod.Patches.Length != 0)
@@ -495,7 +498,6 @@ public class DatafilePatcher {
 			
 			PatchIntentionAggregate<UnitOperations> gmlpIntentionAggregate = new();
 			PatchIntentionAggregate<FileRecord> gmlpv2IntentionAggregate = new();
-			
 			
 			foreach (PatchLocation patchLocation in mod.Patches) {
 				string modFolder = Path.Combine(profileLocation, mod.ModId);
@@ -547,7 +549,6 @@ public class DatafilePatcher {
 				foreach (string error in intentionErrors) {
 					total += error + "\n";
 				}
-
 				setStatusAndError("Patch intention errors occurred!", total);
 				return null;
 			}
@@ -563,8 +564,12 @@ public class DatafilePatcher {
 		int steps = patchSteps.Count;
 
 		int currentStep = 1;
-
+		
 		foreach (PatchStep<Mod> step in patchSteps) {
+			NamespacedGlobalFunctions namespacedGlobalFunctions = new(data.GlobalFunctions, getModIdsRelevantToMod(step.Owner));
+			GlobalDecompileContext context = new(data, namespacedGlobalFunctions);
+			CompileGroup group = new(data, context);
+			
 			setStatusAndInfo($"Applying patches... (step {currentStep}/{steps})");
 			PatchResults patchResults = step.Apply();
 		
@@ -572,7 +577,6 @@ public class DatafilePatcher {
 				setStatusAndError("Some patches failed to execute!", string.Join('\n', patchResults.GetAllErrors()));
 				return null;
 			}
-			
 			foreach (KeyValuePair<string, string> pair in patchResults.GetAllResults()) {
 				group.QueueCodeReplace(data.Code.ByName(pair.Key), pair.Value);
 				source.RemoveFromCache(pair.Key);
@@ -873,6 +877,25 @@ public class DatafilePatcher {
 
 		return sb.ToString();
 	}
+
+	private static List<string> getModIdsRelevantToMod(Mod mod) {
+		List<string> ids = [mod.ModId];
+		foreach (RelatedMod relatedMod in mod.Depends) {
+			ids.Add(relatedMod.ModId);
+		}
+		foreach (RelatedMod relatedMod in mod.Suggests) {
+			ids.Add(relatedMod.ModId);
+		}
+
+		return ids;
+	}
+
+	private static bool isBuiltinFunction(UndertaleData data, UndertaleFunction function) {
+		// TODO: this causes issues
+		//return data.BuiltinList.LookupBuiltinFunction(function.Name.Content) is not null;
+		return false;
+	}
+	
 }
 
 

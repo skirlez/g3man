@@ -60,7 +60,7 @@ public class DoUntilLoopNode(BlockNode body, IExpressionNode condition) : IState
     public void Print(ASTPrinter printer)
     {
         printer.Write("do");
-        if (printer.Context.Settings.RemoveSingleLineBlockBraces && !Body.RequiresMultipleLines(printer))
+        if (printer.Context.Settings.RemoveSingleLineBlockBraces && !Body.RequiresMultipleLines(printer, false))
         {
             Body.PrintSingleLine(printer);
             printer.EndLine();
@@ -87,7 +87,7 @@ public class DoUntilLoopNode(BlockNode body, IExpressionNode condition) : IState
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return true;
     }

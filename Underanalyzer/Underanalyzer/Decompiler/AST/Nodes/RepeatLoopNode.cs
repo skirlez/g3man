@@ -62,7 +62,7 @@ public class RepeatLoopNode(IExpressionNode timesToRepeat, BlockNode body) : ISt
         printer.Write("repeat (");
         TimesToRepeat.Print(printer);
         printer.Write(')');
-        if (printer.Context.Settings.RemoveSingleLineBlockBraces && !Body.RequiresMultipleLines(printer))
+        if (printer.Context.Settings.RemoveSingleLineBlockBraces && !Body.RequiresMultipleLines(printer, false))
         {
             Body.PrintSingleLine(printer);
         }
@@ -77,7 +77,7 @@ public class RepeatLoopNode(IExpressionNode timesToRepeat, BlockNode body) : ISt
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return true;
     }

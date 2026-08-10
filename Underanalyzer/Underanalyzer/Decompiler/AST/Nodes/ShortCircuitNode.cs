@@ -85,14 +85,19 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
+        if (isStatementLHS && Group)
+        {
+            return true;
+        }
         foreach (IExpressionNode condition in Conditions)
         {
-            if (condition.RequiresMultipleLines(printer))
+            if (condition.RequiresMultipleLines(printer, isStatementLHS))
             {
                 return true;
             }
+            isStatementLHS = false;
         }
         return false;
     }

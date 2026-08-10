@@ -556,6 +556,10 @@ internal static class Expressions
     /// </summary>
     public static IASTNode? ParseChainExpression(ParseContext context, bool stopAtFunctionCall = false)
     {
+        // Before checking leftmost expression, check if it's grouped
+        bool lhsGrouped = context.IsCurrentToken(SeparatorKind.GroupOpen);
+
+        // Parse leftmost expression
         IASTNode? lhs = ParseLeftmostExpression(context);
         if (lhs is null)
         {
@@ -608,6 +612,7 @@ internal static class Expressions
 
                 // This accessor is now the left side of the chain
                 lhs = accessor;
+                lhsGrouped = false;
                 continue;
             }
 
@@ -617,6 +622,7 @@ internal static class Expressions
             {
                 // Parse function call, which becomes left side of chain
                 lhs = new FunctionCallNode(context, tokenOpen, lhs);
+                lhsGrouped = false;
                 continue;
             }
 
@@ -636,22 +642,22 @@ internal static class Expressions
                 if (nextToken is TokenVariable tokenVariable)
                 {
                     context.Position++;
-                    lhs = new DotVariableNode(lhs, tokenVariable);
+                    lhs = new DotVariableNode(lhs, lhsGrouped, tokenVariable);
                 }
                 else if (nextToken is TokenAssetReference tokenAssetReference)
                 {
                     context.Position++;
-                    lhs = new DotVariableNode(lhs, new TokenVariable(tokenAssetReference));
+                    lhs = new DotVariableNode(lhs, lhsGrouped, new TokenVariable(tokenAssetReference));
                 }
                 else if (nextToken is TokenNumber { IsConstant: true } tokenNumber)
                 {
                     context.Position++;
-                    lhs = new DotVariableNode(lhs, new TokenVariable(tokenNumber));
+                    lhs = new DotVariableNode(lhs, lhsGrouped, new TokenVariable(tokenNumber));
                 }
                 else if (nextToken is TokenFunction tokenFunction)
                 {
                     context.Position++;
-                    lhs = new DotVariableNode(lhs, tokenFunction);
+                    lhs = new DotVariableNode(lhs, lhsGrouped, tokenFunction);
 
                     if (!stopAtFunctionCall)
                     {
@@ -672,6 +678,8 @@ internal static class Expressions
                     context.CompileContext.PushError("Expected variable or function call after dot", tokenDot);
                     break;
                 }
+
+                lhsGrouped = false;
                 continue;
             }
 
@@ -729,6 +737,14 @@ internal static class Expressions
             case TokenString tokenString:
                 context.Position++;
                 return new StringNode(tokenString);
+            case TokenTemplateStringStart:
+                context.Position++;
+                if (context.CompileContext.GameContext.UsingTemplateStrings)
+                {
+                    return SimpleFunctionCallNode.ParseTemplateString(context);
+                }
+                context.CompileContext.PushError("Cannot use template strings in this GameMaker version", token);
+                return null;
             case TokenBoolean tokenBoolean:
                 context.Position++;
                 return new BooleanNode(tokenBoolean);

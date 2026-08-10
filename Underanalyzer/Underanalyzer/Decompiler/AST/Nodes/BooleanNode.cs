@@ -51,7 +51,7 @@ public class BooleanNode(bool value) : IConstantNode<bool>, IConditionalValueNod
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }

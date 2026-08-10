@@ -66,7 +66,7 @@ public class InstanceTypeNode(IGMInstruction.InstanceType instType, bool fromBui
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }

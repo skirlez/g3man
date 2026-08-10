@@ -257,6 +257,27 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
     }
 
     /// <inheritdoc/>
+    public void PatchVariableHashInstruction(IGMInstruction instruction, string variableName, bool isBuiltin)
+    {
+        if (instruction is GMInstruction mockInstruction)
+        {
+            if (gameContext.MockVariables.TryGetValue((variableName, InstanceType.Self), out GMVariable? existingVariable))
+            {
+                mockInstruction.ResolvedVariable = existingVariable;
+            }
+            else
+            {
+                GMVariable newVariable = new(new GMString(variableName))
+                {
+                    InstanceType = InstanceType.Self
+                };
+                mockInstruction.ResolvedVariable = newVariable;
+                gameContext.MockVariables.Add((variableName, InstanceType.Self), newVariable);
+            }
+        }
+    }
+
+    /// <inheritdoc/>
     public void PatchInstruction(IGMInstruction instruction, FunctionScope scope, string functionName, IBuiltinFunction? builtinFunction)
     {
         if (instruction is GMInstruction mockInstruction)

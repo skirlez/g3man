@@ -5,7 +5,6 @@
 */
 
 using System;
-using System.Xml.Linq;
 using Underanalyzer.Compiler.Lexer;
 using Underanalyzer.Compiler.Nodes;
 

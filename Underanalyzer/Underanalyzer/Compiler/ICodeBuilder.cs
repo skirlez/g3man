@@ -123,6 +123,11 @@ public interface ICodeBuilder
     public void PatchInstruction(IGMInstruction instruction, string variableName, InstanceType variableInstanceType, InstanceType instructionInstanceType, VariableType variableType, bool isBuiltin, bool keepInstanceType);
 
     /// <summary>
+    /// Patches an existing variable hash instruction with a variable reference.
+    /// </summary>
+    public void PatchVariableHashInstruction(IGMInstruction instruction, string variableName, bool isBuiltin);
+
+    /// <summary>
     /// Patches an existing instruction with a function reference.
     /// </summary>
     public void PatchInstruction(IGMInstruction instruction, FunctionScope scope, string functionName, IBuiltinFunction? builtinFunction);

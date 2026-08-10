@@ -4,6 +4,7 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
+using System.Diagnostics.CodeAnalysis;
 using Underanalyzer.Compiler;
 using Underanalyzer.Decompiler;
 using Underanalyzer.Decompiler.GameSpecific;
@@ -28,7 +29,13 @@ public enum AssetType
     Sequence,
     AnimCurve,
     ParticleSystem,
-    RoomInstance
+    RoomInstance,
+
+    /// <remarks>
+    /// This asset type overlaps with <see cref="Sound"/> in official GameMaker.
+    /// It is distinguished here, as it can be useful for decompilation purposes.
+    /// </remarks>
+    AudioGroup
 }
 
 /// <summary>
@@ -90,6 +97,11 @@ public interface IGameContext
     public bool UsingNewFunctionResolution { get; }
 
     /// <summary>
+    /// <see langword="true"/> if the game uses special variable name cases for structs introduced in GameMaker 2024.13; <see langword="false"/> otherwise.
+    /// </summary>
+    public bool UsingStructSpecialCaseNames { get; }
+
+    /// <summary>
     /// <see langword="true"/> if the game uses bytecode 14 or lower; <see langword="true"/> otherwise.
     /// </summary>
     public bool Bytecode14OrLower { get; }
@@ -122,6 +134,11 @@ public interface IGameContext
     /// <see langword="true"/> if this game uses the new code generation for constructors, as introduced in GameMaker version 2024.11; <see langword="false"/> otherwise.
     /// </summary>
     public bool UsingConstructorSetStatic { get; }
+
+    /// <summary>
+    /// <see langword="true"/> if this game uses the new code generation for arrays embedded within structs, as observed starting in GameMaker version 2024.11; <see langword="false"/> otherwise.
+    /// </summary>
+    public bool UsingExternalStructArrays { get; }
 
     /// <summary>
     /// <see langword="true"/> if this game uses array copy-on-write behavior (only relevant for GMLv2); <see langword="false"/> otherwise.
@@ -160,6 +177,11 @@ public interface IGameContext
     /// Before GameMaker 2024.2, this is observed to be <see langword="false"/>. Afterwards, it is <see langword="true"/>.
     /// </remarks>
     public bool UsingSelfToBuiltin { get; }
+
+    /// <summary>
+    /// <see langword="true"/> if struct variable functions exist as introduced in GameMaker 2024.2; <see langword="false"/> otherwise.
+    /// </summary>
+    public bool UsingVariableHashFunctions { get; }
 
     /// <summary>
     /// <see langword="true"/> if the "global" constant should become a function call during code generation; <see langword="false"/> otherwise.
@@ -203,6 +225,35 @@ public interface IGameContext
     /// <see langword="true"/> if the game uses the new chained function argument evaluation order introduced in GameMaker 2024.14.4; <see langword="false"/> otherwise.
     /// </summary>
     public bool UsingNewChainedFunctionArgumentOrder { get; }
+
+    /// <summary>
+    /// <see langword="true"/> if the game uses template strings; <see langword="false"/> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// This alone signifies support added in GameMaker 2023.4. Modern code generation introduced in 2024.14 is different.
+    /// </remarks>
+    public bool UsingTemplateStrings { get; }
+
+    /// <summary>
+    /// <see langword="true"/> if the game uses the modern code generation for template strings; <see langword="false"/> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// This changes the code generation for template strings to match what is observed in GameMaker 2024.14 and above.
+    /// </remarks>
+    public bool UsingModernTemplateStrings { get; }
+
+    /// <summary>
+    /// <see langword="true"/> if the game supports any non-empty string as a struct variable, introduced in GameMaker 2024.14; <see langword="false"/> otherwise.
+    /// </summary>
+    public bool UsingStructAnyNonemptyString { get; }
+
+    /// <summary>
+    /// <see langword="true"/> if the game uses the fixed names for default argument values which are function declarations; <see langword="false"/> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// This changes the code generation to match what is observed in GameMaker 2024.14 and above.
+    /// </remarks>
+    public bool UsingFixedDefaultArgumentFunctionDecls { get; }
 
     /// <summary>
     /// Interface for getting global functions.
@@ -271,4 +322,15 @@ public interface IGameContext
     /// <param name="assetId">Outputs the asset ID, or is undefined if this method returns <see langword="false"/>.</param>
     /// <returns><see langword="true"/> if an asset ID for the script name was found; <see langword="false"/> otherwise.</returns>
     public bool GetScriptIdByFunctionName(string functionName, out int assetId);
+
+    /// <summary>
+    /// Looks up a commonly-used constant by its negative integer value (as in, the constant must have a negative integer value).
+    /// </summary>
+    /// <remarks>
+    /// This is mainly intended for constants such as "all" (-3) or "noone" (-4), when used inside of structs, when decompiling.
+    /// </remarks>
+    /// <param name="value">Negative integer value of the constant to look up.</param>
+    /// <param name="name">Outputs the constant name if lookup was successful; otherwise <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> if a constant name was found; <see langword="false"/> otherwise.</returns>
+    public bool LookupCommonNegativeConstant(int value, [NotNullWhen(true)] out string? name);
 }

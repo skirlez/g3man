@@ -57,9 +57,9 @@ public class StaticInitNode(BlockNode body) : IStatementNode
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return Body.RequiresMultipleLines(printer);
+        return Body.RequiresMultipleLines(printer, false);
     }
 
     /// <inheritdoc/>

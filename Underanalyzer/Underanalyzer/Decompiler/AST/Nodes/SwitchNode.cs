@@ -79,7 +79,7 @@ public class SwitchNode(IExpressionNode expression, BlockNode body) : IStatement
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return true;
     }

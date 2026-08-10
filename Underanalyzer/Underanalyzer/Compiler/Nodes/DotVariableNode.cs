@@ -24,6 +24,11 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
     /// </summary>
     public IASTNode LeftExpression { get; set; }
 
+    /// <summary>
+    /// Whether <see cref="LeftExpression"/> was grouped within parentheses when parsing.
+    /// </summary>
+    public bool LeftExpressionGrouped { get; }
+
     /// <inheritdoc/>
     public string VariableName { get; }
 
@@ -36,9 +41,10 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
     /// <summary>
     /// Creates a dot variable reference node, given the provided left side expression, and variable token.
     /// </summary>
-    public DotVariableNode(IASTNode leftExpression, TokenVariable token)
+    public DotVariableNode(IASTNode leftExpression, bool leftExpressionGrouped, TokenVariable token)
     {
         LeftExpression = leftExpression;
+        LeftExpressionGrouped = leftExpressionGrouped;
         NearbyToken = token;
         VariableName = token.Text;
         BuiltinVariable = token.BuiltinVariable;
@@ -47,16 +53,18 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
     /// <summary>
     /// Creates a dot variable reference node, given the provided left side expression, and function token.
     /// </summary>
-    public DotVariableNode(IASTNode leftExpression, TokenFunction token)
+    public DotVariableNode(IASTNode leftExpression, bool leftExpressionGrouped, TokenFunction token)
     {
         LeftExpression = leftExpression;
+        LeftExpressionGrouped = leftExpressionGrouped;
         NearbyToken = token;
         VariableName = token.Text;
     }
 
-    private DotVariableNode(IASTNode leftExpression, string variableName, IBuiltinVariable? builtinVariable, IToken? nearbyToken)
+    private DotVariableNode(IASTNode leftExpression, bool leftExpressionGrouped, string variableName, IBuiltinVariable? builtinVariable, IToken? nearbyToken)
     {
         LeftExpression = leftExpression;
+        LeftExpressionGrouped = leftExpressionGrouped;
         VariableName = variableName;
         BuiltinVariable = builtinVariable;
         NearbyToken = nearbyToken;
@@ -138,6 +146,7 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
     {
         return new DotVariableNode(
             LeftExpression.Duplicate(context),
+            LeftExpressionGrouped,
             VariableName,
             BuiltinVariable,
             NearbyToken

@@ -48,7 +48,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// Meant for tracking obscure compiler quirks.
     /// </summary>
     public bool ForceSelf { get; set; } = false;
-
+    
     /// <inheritdoc/>
     public bool Duplicated { get; set; } = false;
 
@@ -240,7 +240,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         }
 
         // Determine if Left needs to be grouped
-        if (Left is IMultiExpressionNode)
+        if (Left is IMultiExpressionNode or UnaryNode)
         {
             Left.Group = true;
         }
@@ -479,9 +479,42 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        if (Left.RequiresMultipleLines(printer))
+        if (isStatementLHS)
+        {
+            // Check if left side has parentheses...
+            Int16Node? leftI16 = Left as Int16Node;
+            InstanceTypeNode? leftInstType = Left as InstanceTypeNode;
+            if (leftI16 is not null || leftInstType is not null)
+            {
+                // Basic numerical instance type
+                int value = leftI16?.Value ?? (int)leftInstType!.InstanceType;
+                if (ReferenceType == VariableType.Instance)
+                {
+                    return true;
+                }
+                else if (value >= 0)
+                {    
+                    // Check if we have an object asset name to use
+                    string? objectName = printer.Context.GameContext.GetAssetName(AssetType.Object, value);
+                    if (objectName is null)
+                    {
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                // Some expression on the left
+                if (Left is Int32Node)
+                {
+                    // Room instance IDs, in certain cases on some versions
+                    return true;
+                }
+            }
+        }
+        if (Left.RequiresMultipleLines(printer, isStatementLHS))
         {
             return true;
         }
@@ -489,7 +522,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         {
             foreach (IExpressionNode index in ArrayIndices)
             {
-                if (index.RequiresMultipleLines(printer))
+                if (index.RequiresMultipleLines(printer, false))
                 {
                     return true;
                 }

@@ -12,7 +12,7 @@ namespace Underanalyzer.Decompiler.AST;
 /// <summary>
 /// An empty struct declaration/instantiation within the AST.
 /// </summary>
-public class EmptyStructNode() : IExpressionNode, IConditionalValueNode
+public class EmptyStructNode() : IExpressionNode, IStatementNode, IConditionalValueNode
 {
     /// <inheritdoc/>
     public bool Duplicated { get; set; } = false;
@@ -24,13 +24,37 @@ public class EmptyStructNode() : IExpressionNode, IConditionalValueNode
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
 
     /// <inheritdoc/>
+    public bool SemicolonAfter => Group;
+
+    /// <inheritdoc/>
+    public bool EmptyLineBefore { get; set; }
+
+    /// <inheritdoc/>
+    public bool EmptyLineAfter { get; set; }
+
+    /// <inheritdoc/>
     public string ConditionalTypeName => "Struct";
 
     /// <inheritdoc/>
     public string ConditionalValue => "";
 
     /// <inheritdoc/>
+    IStatementNode IASTNode<IStatementNode>.Clean(ASTCleaner cleaner)
+    {
+        // When a standalone statement, make sure this is grouped
+        Group = true;
+
+        return this;
+    }
+
+    /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
+    {
+        return this;
+    }
+
+    /// <inheritdoc/>
+    IStatementNode IASTNode<IStatementNode>.PostClean(ASTCleaner cleaner)
     {
         return this;
     }
@@ -44,13 +68,21 @@ public class EmptyStructNode() : IExpressionNode, IConditionalValueNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        if (Group)
+        {
+            printer.Write('(');
+        }
         printer.Write("{}");
+        if (Group)
+        {
+            printer.Write(')');
+        }
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return false;
+        return isStatementLHS && Group;
     }
 
     /// <inheritdoc/>

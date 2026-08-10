@@ -145,15 +145,19 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        if (Function.RequiresMultipleLines(printer))
+        if (isStatementLHS && Group)
+        {
+            return true;
+        }
+        if (Function.RequiresMultipleLines(printer, false))
         {
             return true;
         }
         foreach (IExpressionNode arg in Arguments)
         {
-            if (arg.RequiresMultipleLines(printer))
+            if (arg.RequiresMultipleLines(printer, false))
             {
                 return true;
             }

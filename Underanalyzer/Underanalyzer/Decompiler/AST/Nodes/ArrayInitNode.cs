@@ -70,11 +70,11 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IExpressionNode, IM
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         for (int i = 0; i < Elements.Count; i++)
         {
-            if (Elements[i].RequiresMultipleLines(printer))
+            if (Elements[i].RequiresMultipleLines(printer, false))
             {
                 return true;
             }

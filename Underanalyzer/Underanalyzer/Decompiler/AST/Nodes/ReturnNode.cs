@@ -65,9 +65,9 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return Value.RequiresMultipleLines(printer);
+        return Value.RequiresMultipleLines(printer, false);
     }
 
     /// <inheritdoc/>

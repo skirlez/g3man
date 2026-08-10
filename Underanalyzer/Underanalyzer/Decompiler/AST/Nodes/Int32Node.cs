@@ -51,7 +51,7 @@ public class Int32Node(int value) : IConstantNode<int>, IMacroResolvableNode, IC
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }

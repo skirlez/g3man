@@ -205,7 +205,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return true;
     }
@@ -313,7 +313,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
         }
 
         /// <inheritdoc/>
-        public bool RequiresMultipleLines(ASTPrinter printer)
+        public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
         {
             return false;
         }

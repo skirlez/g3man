@@ -155,15 +155,31 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
                 }
 
                 // Ensure we actually are a compound operation (Push vs. specialized Push instruction, as well as
-                // quirk with division converting to double when NOT a compound assignment)
-                if ((cleaner.Context.OlderThanBytecode15 || binVariable.RegularPush || binVariable.Variable.InstanceType == InstanceType.Self) &&
-                    (binary.Instruction.Kind != Opcode.Divide || binary.Right is DoubleNode || binary.Right.StackType != DataType.Double))
+                // a few special case quirks with code generation)
+                if (cleaner.Context.OlderThanBytecode15 || binVariable.RegularPush || binVariable.Variable.InstanceType == InstanceType.Self)
                 {
-                    AssignKind = AssignType.Compound;
-                    BinaryInstruction = binary.Instruction;
-                    Value = binary.Right;
+                    bool canBeCompound = true;
+                    if (binary is { Instruction.Kind: Opcode.Divide, Right: not DoubleNode, Right.StackType: DataType.Double })
+                    {
+                        canBeCompound = false;
+                    }
+                    else if (binary is 
+                             { 
+                                 Instruction.Kind: Opcode.And or Opcode.Or or Opcode.Xor, 
+                                 Instruction.Type2: DataType.Int64
+                             })
+                    {
+                        canBeCompound = false;
+                    }
 
-                    return this;
+                    if (canBeCompound)
+                    {
+                        AssignKind = AssignType.Compound;
+                        BinaryInstruction = binary.Instruction;
+                        Value = binary.Right;
+
+                        return this;
+                    }
                 }
             }
         }
@@ -296,10 +312,21 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     /// <summary>
     /// Returns whether a variable name is a valid GML identifier or not.
     /// </summary>
-    private static bool VariableNameIsValidIdentifier(string name)
+    private static bool VariableNameIsValidIdentifier(IGameContext context, string name)
     {
         // If name is empty, it's clearly not valid
         if (name.Length == 0)
+        {
+            return false;
+        }
+
+        // If using a disallowed keyword, that's also not valid
+        bool modernSpecialCaseNames = context.UsingStructSpecialCaseNames;
+        if (modernSpecialCaseNames && VMConstants.ModernDisallowedStructKeywords.Contains(name))
+        {
+            return false;
+        }
+        if (!modernSpecialCaseNames && VMConstants.OldDisallowedStructKeywords.Contains(name))
         {
             return false;
         }
@@ -342,7 +369,7 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
                     if (Variable is VariableNode { Variable.Name.Content: string variableName })
                     {
                         // Write just the variable name if possible
-                        if (VariableNameIsValidIdentifier(variableName))
+                        if (VariableNameIsValidIdentifier(printer.Context.GameContext, variableName))
                         {
                             printer.Write(variableName);
                         }
@@ -422,13 +449,13 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        if (Variable.RequiresMultipleLines(printer))
+        if (Variable.RequiresMultipleLines(printer, true))
         {
             return true;
         }
-        if (Value is not null && Value.RequiresMultipleLines(printer))
+        if (Value is not null && Value.RequiresMultipleLines(printer, false))
         {
             return true;
         }

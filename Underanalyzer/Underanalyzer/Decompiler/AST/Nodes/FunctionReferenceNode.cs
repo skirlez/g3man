@@ -53,7 +53,7 @@ public class FunctionReferenceNode(IGMFunction function) : IExpressionNode, ICon
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }

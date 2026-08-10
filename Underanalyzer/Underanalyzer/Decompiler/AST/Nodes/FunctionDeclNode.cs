@@ -292,7 +292,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return true;
     }

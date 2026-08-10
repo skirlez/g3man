@@ -79,7 +79,7 @@ public class EnumValueNode(string enumName, string enumValueName, long enumValue
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         return false;
     }

@@ -167,6 +167,12 @@ internal sealed class BytecodeContext : ISubCompileContext
                                          variablePatch.InstanceType, variablePatch.InstructionInstanceType, variablePatch.VariableType, false, true);
         }
 
+        // Resolve variable hash patches
+        foreach (VariableHashPatch variableHashPatch in patches.VariableHashPatches!)
+        {
+            codeBuilder.PatchVariableHashInstruction(variableHashPatch.Instruction!, variableHashPatch.Name, variableHashPatch.IsBuiltin);
+        }
+
         // Resolve string patches
         foreach (StringPatch stringPatch in patches.StringPatches!)
         {
@@ -422,6 +428,21 @@ internal sealed class BytecodeContext : ISubCompileContext
 
         function.Instruction = instr;
         Patches.LocalFunctionPatches!.Add(function);
+
+        return instr;
+    }
+
+    /// <summary>
+    /// Emits a <see cref="Opcode.Push"/> instruction with the given variable hash (reference), at the current position.
+    /// </summary>
+    public IGMInstruction EmitPushVariableHash(VariableHashPatch variableHash)
+    {
+        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, Opcode.Push, DataType.Int32);
+        Instructions.Add(instr);
+        Position += 8;
+
+        variableHash.Instruction = instr;
+        Patches.VariableHashPatches!.Add(variableHash);
 
         return instr;
     }

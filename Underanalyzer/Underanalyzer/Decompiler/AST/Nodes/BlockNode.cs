@@ -112,14 +112,15 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
         bool newFragment = FragmentContext != cleaner.TopFragmentContext;
         if (newFragment)
         {
-            if (isStruct && cleaner.Context.Settings.CleanupLocalVarDeclarations)
+            if (isStruct && cleaner.Context.Settings.CleanupLocalVarDeclarations &&
+                cleaner.TopFragmentContext!.CurrentLocalScope is not null)
             {
                 // Connect the struct's local scope to the parent local scope tree.
                 // This allows struct local variable reads to hoist locals outside of the struct.
-                ASTFragmentContext parentContext = cleaner.TopFragmentContext!;
+                ASTFragmentContext parentContext = cleaner.TopFragmentContext;
                 cleaner.PushFragmentContext(FragmentContext);
-                cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, this, this);
-                cleaner.TopFragmentContext!.CurrentLocalScope!.InsertAsChildOf(parentContext.CurrentLocalScope!);
+                cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, this, this);
+                cleaner.TopFragmentContext.CurrentLocalScope.InsertAsChildOf(parentContext.CurrentLocalScope);
             }
             else
             {
@@ -452,7 +453,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     }
 
     /// <inheritdoc/>
-    public bool RequiresMultipleLines(ASTPrinter printer)
+    public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
         // If we have more than one child node, or zero child nodes, we need multiple lines
         if (Children.Count > 1 || Children.Count == 0)
@@ -461,7 +462,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
         }
 
         // If our single child needs multiple lines, so do we
-        if (Children[0].RequiresMultipleLines(printer))
+        if (Children[0].RequiresMultipleLines(printer, true))
         {
             return true;
         }

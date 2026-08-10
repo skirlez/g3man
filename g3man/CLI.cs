@@ -1,10 +1,12 @@
 using System.CommandLine;
 using System.Diagnostics;
+using System.Text;
 using g3man.Core;
 using g3man.Core.Models;
 using g3man.Core.Patching;
 using g3man.Core.Util;
 using UndertaleModLib;
+using UndertaleModLib.Models;
 
 namespace g3man;
 
@@ -16,7 +18,11 @@ public class CLI {
 		Command applyCommand = new("apply") {
 			Description = "Apply a g3man profile to a game"
 		};
+		Command headerCommand = new("header") {
+			Description = "Generate a header for a datafile"
+		};
 		root.Subcommands.Add(applyCommand);
+		root.Subcommands.Add(headerCommand);
 		
 		{
 			Option<bool> launch = new("--launch", "-l") {
@@ -54,12 +60,12 @@ public class CLI {
 			applyCommand.Options.Add(profileJson);
 
 			
-			Option<DirectoryInfo> profileLocation = new("--mods-folder", "-pf") {
+			Option<DirectoryInfo> modsLocation = new("--mods-folder", "-pf") {
 				Description = "Path to the mods folder",
 				Required = true,
 				Arity = ArgumentArity.ExactlyOne
 			};
-			applyCommand.Options.Add(profileLocation);
+			applyCommand.Options.Add(modsLocation);
 			
 			Option<FileInfo> cleanDataLocation = new("--clean_data", "-d") {
 				Description = "Path to the clean datafile of the game",
@@ -74,7 +80,7 @@ public class CLI {
 				DirectoryInfo gameDirectoryInfo = parseResult.GetRequiredValue(gameLocation);
 				
 				FileInfo profileJsonInfo = parseResult.GetRequiredValue(profileJson);
-				DirectoryInfo profileDirectoryInfo = parseResult.GetRequiredValue(profileLocation);
+				DirectoryInfo modsDirectoryInfo = parseResult.GetRequiredValue(modsLocation);
 
 				bool shouldLaunch = parseResult.GetValue(launch);
 				string? steamPath = parseResult.GetValue(steamExe);
@@ -90,7 +96,7 @@ public class CLI {
 					return 1;
 				}
 				
-				string profilePath = profileDirectoryInfo.FullName;
+				string profilePath = modsDirectoryInfo.FullName;
 		
 				logger.Info("Parsing profile and mods...");
 
@@ -107,7 +113,7 @@ public class CLI {
 				string profileLivePath = game.GetProfileLiveFolderPath(profile);  
 				
 				bool anyFailed = false;
-				List<Mod> mods = Mod.ParseAll(profileDirectoryInfo.FullName, (e, path) => {
+				List<Mod> mods = Mod.ParseAll(modsDirectoryInfo.FullName, (e, path) => {
 					logger.Info($"Mod at {path} failed to parse:\n{e.Message}");
 					Interlocked.Exchange(ref anyFailed, true);
 				}).Where(mod => !profile.ModsDisabled.Contains(mod.ModId)).ToList();
@@ -131,7 +137,7 @@ public class CLI {
 				logger.Info("Loading datafile...");
 				UndertaleData data;
 				try {
-					using FileStream stream = new FileStream(cleanData.FullName, FileMode.Open, FileAccess.Read);
+					using FileStream stream = new(cleanData.FullName, FileMode.Open, FileAccess.Read);
 					data = UndertaleIO.Read(stream);
 				}
 				catch (Exception e) {
@@ -145,14 +151,14 @@ public class CLI {
 
 				IO.CreateXdeltaFoldersAndApply(gameDirectoryInfo.FullName, profilePath, profileLivePath, mods);
 
-				string outputDatafileName = game.GetInputDatafileRelativePath();
+				string datafileName = game.GetInputDatafileRelativePath();
 				
 				string relativeProfileLivePath = $"g3man/live/{profile.ID}";
 				string relativeProfilePath = $"g3man/live/{profile.ID}/profile";
 									
 				DatafilePatcher datafilePatcher = new DatafilePatcher();
 				DatafilePatcher.PatchProduct? output = datafilePatcher.Patch(mods, profile, 
-					profileDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, logger,
+					modsDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, logger,
 					_ => {}, allowModScripting: true);
 				if (!output.HasValue)
 					return 1;
@@ -164,13 +170,19 @@ public class CLI {
 
 				// theoretically could parse the game.json in this location to figure out what the input datafile name is
 				// and that's probably more correct, the whole point of this is to not screw up existing g3man setups
-				bool writeHash = (IO.DatafileNames.Contains(Path.GetFileName(outputDatafileName)));
+				bool writeHash = (IO.DatafileNames.Contains(Path.GetFileName(datafileName)));
 				
 				try {
-					IO.Apply(data, game.Directory, profileDirectoryInfo.FullName, outputDatafileName, writeHash, vanillaAudioGroupsCount, output.Value.AudioGroupTransfers);
+					if (game.GetPatchParadigm() == Game.PatchParadigm.Modify) {
+						IO.Apply(data, game.Directory, modsDirectoryInfo.FullName, datafileName, writeHash,
+							vanillaAudioGroupsCount, output.Value.AudioGroupTransfers);
+					}
+					else {
+						IO.CreateStage(data, game.Directory, datafileName, modsDirectoryInfo.FullName, profile.ID, vanillaAudioGroupsCount, output.Value.AudioGroupTransfers);
+					}
 				}
 				catch (Exception e) {
-					logger.Error("Failed to save output data.win");
+					logger.Error("Failed to save output");
 					logger.Error(e.ToString());
 				}
 
@@ -202,6 +214,103 @@ public class CLI {
 				
 				return 0;
 			}); 
+		}
+
+		{
+			Argument<FileInfo> datafile = new("datafile") {
+				Description = "Path to a game's datafile",
+			};
+			Option<bool> allowPatched = new("--allow-modded") {
+				Description = "Proceed with generating a header for datafiles which are already patched by g3man",
+				Required = false,
+				Arity = ArgumentArity.Zero
+			};
+			headerCommand.Arguments.Add(datafile);
+			headerCommand.Options.Add(allowPatched);
+			headerCommand.SetAction(parseResult => {
+				FileInfo datafileInfo = parseResult.GetRequiredValue(datafile);
+				string datafilePath = datafileInfo.FullName;
+				logger.Info("Loading game...");
+				UndertaleData data;
+				try {
+					using FileStream stream = new(datafilePath, FileMode.Open, FileAccess.Read);
+					data = UndertaleIO.Read(stream);
+				}
+				catch (Exception e)
+				{
+					logger.Error($"Failed to load datafile: {e}");
+					return 1;
+				}
+
+				bool allowModded = parseResult.GetValue(allowPatched);
+				if (DatafilePatcher.IsDataPatched(data) && !allowModded) {
+					logger.Error("The datafile provided has already been patched by g3man. (You probably want to generate a header for the vanilla/clean datafile). If you'd like to generate a header for this file anyway, pass in --allow-modded.");
+					return 1;
+				}
+
+				StringBuilder header = new();
+				header.AppendLine(
+"""
+/* This header is generated by g3man.
+Make sure to update it when the game updates too. */
+""");
+
+				void addListToHeader<T>(IList<T?>? list) where T : UndertaleNamedResource {
+					if (list is null)
+						return;
+					for (int i = 0; i < list.Count; i++) {
+						if (list[i] is null)
+							continue;
+						header.AppendLine($"#macro {list[i]!.Name.Content} {i}");
+					}
+				}
+
+				header.AppendLine("// SPRITES");
+				addListToHeader(data.Sprites);
+				header.AppendLine("// OBJECTS");
+				addListToHeader(data.GameObjects);
+				header.AppendLine("// ROOMS");
+				addListToHeader(data.Rooms);
+				header.AppendLine("// SOUNDS");
+				addListToHeader(data.Sounds);
+				header.AppendLine("// AUDIOGROUPS");
+				addListToHeader(data.AudioGroups);
+				header.AppendLine("// ANIMATION CURVES");
+				addListToHeader(data.AnimationCurves);
+				header.AppendLine("// FONTS");
+				addListToHeader(data.Fonts);
+				header.AppendLine("// PARTICLE SYSTEMS");
+				addListToHeader(data.ParticleSystems);
+				header.AppendLine("// PATHS");
+				addListToHeader(data.Paths);
+				header.AppendLine("// SHADERS");
+				addListToHeader(data.Shaders);
+				header.AppendLine("// SEQUENCES");
+				addListToHeader(data.Sequences);
+				header.AppendLine("// TIMELINES");
+				addListToHeader(data.Timelines); // no one using this
+				
+				header.AppendLine("// FUNCTIONS");
+				foreach (UndertaleScript script in data.Scripts) {
+					string scriptPrefix = "gml_Script_";
+					if (!script.Name.Content.StartsWith(scriptPrefix)) 
+						continue;
+					if (script.Name.Content.Contains("@"))
+						continue;
+					string nameWithout = script.Name.Content.Remove(0,scriptPrefix.Length);
+					header.AppendLine($"#macro {nameWithout} asset_get_index(\"{nameWithout}\")");
+				}
+
+				
+				try {
+					File.WriteAllText("header.gml", header.ToString());
+				}
+				catch (Exception e) {
+					logger.Error($"Failed to write header file: {e}");
+				}
+				logger.Info("Header file written out as header.gml!");
+				return 0;
+			});
 		}
 
 		ParseResult result = root.Parse(args);
