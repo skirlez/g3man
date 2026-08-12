@@ -105,46 +105,14 @@ public class ManageGameWindow : G3manWindow {
 			p.SetHalign(Align.Start);
 		}
 
-		Game.PatchParadigm currentParadigm = game.GetPatchParadigm();
-		void UpdateParadigmChoice(Game.PatchParadigm patchParadigm) {
-			paradigmDisplayStack.SetVisibleChild(paradigms[(int)patchParadigm]);
-			currentParadigm = patchParadigm;
-		}
-		UpdateParadigmChoice(currentParadigm);
-		
-		Button changeLaunchParadigm = Button.NewWithLabel("Change patching paradigm");
-		changeLaunchParadigm.SetValign(Align.Center);
-		changeLaunchParadigm.SetHalign(Align.End);
+		CheckButton writeDirectlyCheck = CheckButton.NewWithLabel("Overwrite game files");
+		writeDirectlyCheck.SetTooltipText(
+			"If this is set, g3man will overwrite the game's file directly."
+			+ " This means you can launch the game without g3man and still have mods applied.");
 
 		Box paradigmSpacer = Box.New(Orientation.Horizontal, 0);
 		paradigmSpacer.SetHexpand(true);
-		
-		Box paradigmBox = 
-			Box.New(Orientation.Horizontal, 10)
-			.With(
-				Box.New(Orientation.Vertical, 6)
-					.With(
-						launchParadigmLabel,
-						paradigmDisplayStack
-					),
-				paradigmSpacer,
-				changeLaunchParadigm
-			);
-		paradigmBox.SetMarginTop(5);
-		paradigmBox.SetHexpand(true);
-		
-		
-		
-		changeLaunchParadigm.OnClicked += (_, _) => {
-			LaunchParadigmWindow paradigmWindow = new LaunchParadigmWindow(showRegretLabel: false, (choice) => {
-				if (choice is null)
-					return;
-				UpdateParadigmChoice(choice.Value);
-			});
-			paradigmWindow.Dialog(this);
-		};
-		
-		
+
 		
 		Button openGameFolderButton = Button.NewWithLabel("Open game folder");
 		openGameFolderButton.OnClicked += (_, _) => {
@@ -214,15 +182,9 @@ public class ManageGameWindow : G3manWindow {
 			}
 
 
-			string outputDatafileName;
-			if (currentParadigm == Game.PatchParadigm.Launch) {
-				outputDatafileName = Game.GetDefaultOutputDatafilePath(game.DatafilePath);
-			}
-			else {
-				outputDatafileName = game.DatafilePath;
-			}
-			Game newGame = new Game(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafilePath,
-					launchMethod.Active, fileExeEntry.GetText(), newAppId, outputDatafileName);
+
+			Game newGame = new(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafilePath,
+					launchMethod.Active, fileExeEntry.GetText(), newAppId, writeDirectlyCheck.Active);
 			if (saveCallback(newGame)) {
 				Close();
 			}
@@ -248,9 +210,6 @@ public class ManageGameWindow : G3manWindow {
 		Label optionsLabel = Label.New("");
 		optionsLabel.SetMarkup("<u>Options</u>");
 		optionsLabel.SetHalign(Align.Start);
-		Label paradigmLabel = Label.New("");
-		paradigmLabel.SetMarkup("<u>Patching Paradigm</u>");
-		paradigmLabel.SetHalign(Align.Start);
 		Label fileLabel = Label.New("");
 		fileLabel.SetMarkup("<u>File Management</u>");
 		fileLabel.SetHalign(Align.Start);
@@ -259,9 +218,7 @@ public class ManageGameWindow : G3manWindow {
 		box.Append(optionsLabel);
 		box.Append(nameBox);
 		box.Append(launchMethodBox);
-		box.Append(Separator.New(Orientation.Horizontal));
-		box.Append(paradigmLabel);
-		box.Append(paradigmBox);
+		box.Append(writeDirectlyCheck);
 		box.Append(Separator.New(Orientation.Horizontal));
 		box.Append(fileLabel);
 		box.Append(openGameFolderButton);

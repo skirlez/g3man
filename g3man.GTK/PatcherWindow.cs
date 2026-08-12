@@ -241,7 +241,7 @@ public class PatcherWindow : G3manWindow {
 		setStatus("Writing...");
 		
 		try {
-			if (game.GetPatchParadigm() == Game.PatchParadigm.Launch) {
+			if (!game.OverwriteGameFiles) {
 				IO.CreateStage(data, game.Directory, game.DatafilePath,game.GetProfileFolderPath(profile), profile.ID, vanillaAudioGroupCount,
 					output.Value.AudioGroupTransfers);
 			}

@@ -26,57 +26,41 @@ public class GameAdderWindow : G3manWindow {
 		label.SetHalign(Align.Center);
 		label.SetValign(Align.Center);
 		label.SetJustify(Justification.Center);
-		
+		SetChild(label);
 		datafileInfo = ProgramPaths.GetDatafileFromDirectory(directory);
 		if (datafileInfo is null) {
 			label.SetText($"This folder does not have a datafile.\n(One of: {IO.CommaSeparatedDatafilePaths()})");
-			SetChild(label);
 			return;
 		}
-		
-		Widget widget = LaunchParadigmWindow.CreateLaunchParadigmWidgets(showRegretLabel: true, (Game.PatchParadigm? choice) => {
-			if (choice is null) {
-				Close();
-				return;
-			}
-			label.SetText("Adding game...");
-			SetChild(label);
-			Thread thread = new Thread(() => ThreadRoutine(choice.Value));
-			thread.Start();
-		});
-		SetChild(widget);
+		label.SetText("Adding game...");
+		Thread thread = new Thread(ThreadRoutine);
+		thread.Start();
 	}
 	
 	
 
-	private Game LoadAndSetupGame(Game.PatchParadigm paradigm) {
+	private Game LoadAndSetupGame() {
 		Debug.Assert(datafileInfo is not null);
 		(string datafileRelativePath, string datafilePath) = datafileInfo.Value;
-
-		string outputDatafileName;
-		if (paradigm == Game.PatchParadigm.Launch)
-			outputDatafileName = Game.GetDefaultOutputDatafilePath(datafileRelativePath);
-		else
-			outputDatafileName = datafileRelativePath;
 		
 		UndertaleData data;
 		byte[] hash;
-		using FileStream stream = new FileStream(datafilePath, FileMode.Open, FileAccess.Read);
+		using FileStream stream = new(datafilePath, FileMode.Open, FileAccess.Read);
 		hash = MD5.HashData(stream);
 		stream.Seek(0, SeekOrigin.Begin);
 		data = UndertaleIO.Read(stream, ((warning, important) => { if (important ) UI.Logger.Info(warning); }));
 		
 		string defaultProfileID = "default";
 
-		GameEntry entry = new GameEntry(directory, defaultProfileID);
+		GameEntry entry = new(directory, defaultProfileID);
 
-		Game game = new Game(entry,
+		Game game = new(entry,
 			data.GeneralInfo.DisplayName.Content,
 			data.GeneralInfo.FileName.Content,
 			datafileRelativePath,
 			0,
 			ProgramPaths.GuessExecutablePath(directory),
-			-1, outputDatafileName);
+			-1, overwriteGameFiles: false);
 
 		bool cleanDataExists = Path.Exists(game.GetCleanDatafilePath());
 		if (!cleanDataExists && DatafilePatcher.IsDataPatched(data))
@@ -92,10 +76,10 @@ public class GameAdderWindow : G3manWindow {
 		return game;
 	}
 
-	private void ThreadRoutine(Game.PatchParadigm paradigm) {
+	private void ThreadRoutine() {
 		Game game;
 		try {
-			game = LoadAndSetupGame(paradigm);
+			game = LoadAndSetupGame();
 		}
 		catch (Exception e) {
 			UI.RunOnMainThreadEventually(() => {

@@ -42,10 +42,10 @@ public class Game {
 	public string Directory => Entry.Path;
 	public GameEntry Entry;
 
-	public PatchParadigm Paradigm;
+	public bool OverwriteGameFiles;
 	
 	public Game(GameEntry entry, string displayName, string internalName, string datafilePath, int executableType, string executablePath, int executableSteamAppId,
-		string outputDatafilePath) {
+		bool overwriteGameFiles) {
 		Entry = entry;
 		DisplayName = displayName;
 		InternalName = internalName;
@@ -57,6 +57,7 @@ public class Game {
 		ChosenExecutableType = (ExecutableType)executableType;
 		ExecutablePath = executablePath;
 		ExecutableSteamAppId = executableSteamAppId;
+		OverwriteGameFiles = overwriteGameFiles;
 		FormatVersion = LatestVersion;
 	}
 	public Game(JsonElement root, GameEntry entry) {
@@ -82,15 +83,12 @@ public class Game {
 		if (FormatVersion <= 2) {
 			string outputDatafilePath = JsonUtil.GetStringOrThrow(root, "output_datafile_name", GetDefaultOutputDatafilePath(DatafilePath));
 			if (outputDatafilePath != DatafilePath)
-				Paradigm = PatchParadigm.Launch;
+				OverwriteGameFiles = false;
 			else
-				Paradigm = PatchParadigm.Modify;
+				OverwriteGameFiles = true;
 		}
 		else {
-			int paradigm = JsonUtil.GetOrDefault(root, "patching_paradigm", 0);
-			if (paradigm >= (int)PatchParadigm.Size || paradigm < 0)
-				paradigm = 0;
-			Paradigm = (PatchParadigm)paradigm;
+			OverwriteGameFiles = JsonUtil.GetOrDefault(root, "overwrite_game_files", false);
 		}
 	}
 
@@ -127,7 +125,7 @@ public class Game {
 		return GetOutputDatafileRelativePath(profile.ID);
 	}
 	public string GetOutputDatafileRelativePath(string profileID) {
-		if (GetPatchParadigm() == PatchParadigm.Launch) {
+		if (!OverwriteGameFiles) {
 			return Path.Combine("g3man", "stages", profileID, GetInputDatafileRelativePath());
 		}
 		return GetInputDatafileRelativePath();
@@ -195,7 +193,7 @@ public class Game {
 			["executable_type"] = (int)ChosenExecutableType,
 			["executable_path"] = ExecutablePath,
 			["executable_steam_app_id"] = ExecutableSteamAppId,
-			["patching_paradigm"] = (int)Paradigm
+			["overwrite_game_files"] = OverwriteGameFiles
 		};
 	}
 
@@ -230,15 +228,5 @@ public class Game {
 		System.IO.Directory.CreateDirectory(folder);
 		string jsonText = ToJson().ToJsonString();
 		File.WriteAllText(Path.Combine(folder, "game.json"), jsonText);
-	}
-
-	public PatchParadigm GetPatchParadigm() {
-		return Paradigm;
-	}
-	
-	public enum PatchParadigm {
-		Launch,
-		Modify,
-		Size
 	}
 }

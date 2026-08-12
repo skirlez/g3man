@@ -10,7 +10,7 @@ using UndertaleModLib.Models;
 
 namespace g3man;
 
-public class CLI {
+public static class CLI {
 	public static int Invoke(string[] args, Logger.LoggerPipe pipe) {
 		Logger logger = Logger.Make("", pipe);
 		
@@ -173,7 +173,7 @@ public class CLI {
 				bool writeHash = (IO.DatafileNames.Contains(Path.GetFileName(datafileName)));
 				
 				try {
-					if (game.GetPatchParadigm() == Game.PatchParadigm.Modify) {
+					if (game.OverwriteGameFiles) {
 						IO.Apply(data, game.Directory, modsDirectoryInfo.FullName, datafileName, writeHash,
 							vanillaAudioGroupsCount, output.Value.AudioGroupTransfers);
 					}
