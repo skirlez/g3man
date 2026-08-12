@@ -30,7 +30,7 @@ if os.path.isdir("./package"):
 	print("Deleting previous package folder...")
 	shutil.rmtree("./package")
 status = subprocess.run(
-	["dotnet", "publish", "g3man.csproj", "-c", "Release", "-o", "Publishing/package/g3man", "--runtime", runtime],
+	["dotnet", "publish", "g3man.csproj", "-c", "Release", "-o", "Publishing/package/g3man", "--runtime", runtime, "-m:1"],
 	cwd = os.path.abspath("..")
 )
 if status.returncode != 0:
