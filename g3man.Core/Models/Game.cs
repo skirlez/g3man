@@ -17,15 +17,6 @@ public class Game {
 	private string DatafileExtension;
 	private string DatafileFolder;
 	
-	
-	public static string GetDefaultOutputDatafilePath(string inputDatafilePath) {
-		string folder = Path.GetDirectoryName(inputDatafilePath) ?? "";
-		string filename = $"g3man_{Path.GetFileName(inputDatafilePath)}";
-		if (folder == "")
-			return filename;
-		return Path.Combine(folder, filename);
-	}
-
 	public enum ExecutableType {
 		File,
 		Steam,
@@ -81,7 +72,7 @@ public class Game {
 		ExecutableSteamAppId = JsonUtil.GetOrDefault(root, "executable_steam_app_id", -1);
 
 		if (FormatVersion <= 2) {
-			string outputDatafilePath = JsonUtil.GetStringOrThrow(root, "output_datafile_name", GetDefaultOutputDatafilePath(DatafilePath));
+			string outputDatafilePath = JsonUtil.GetStringOrThrow(root, "output_datafile_name", "");
 			if (outputDatafilePath != DatafilePath)
 				OverwriteGameFiles = false;
 			else

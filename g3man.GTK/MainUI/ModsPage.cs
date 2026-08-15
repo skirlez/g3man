@@ -142,7 +142,7 @@ public partial class MainWindow {
 					ParseModsAndUpdateMenu();
 				}
 				else {
-					UnzipperWindow window = new UnzipperWindow(UnzipperWindow.ZipType.Mod);
+					UnzipperWindow window = new(UnzipperWindow.ZipType.Mod);
 					window.Dialog(this, file, ParseModsAndUpdateMenu);
 				}
 			});

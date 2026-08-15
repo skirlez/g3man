@@ -132,7 +132,14 @@ public class UnzipperWindow : G3manWindow {
 				return [];
 			}
 			if (modJsonEntries.Length == 0) {
-				ShowTextAndLeave("No mod folders found in this zip.");
+				ZipArchiveEntry[] xdeltaEntries = archive.Entries.Where(entry => entry.FullName.EndsWith(".xdelta")).ToArray();
+				if (xdeltaEntries.Length == 1) {
+					return xdeltaEntries;
+				}
+				if (xdeltaEntries.Length > 1)
+					ShowTextAndLeave("Found several .xdelta files in this zip, but don't know which one to apply. Please extract them manually, and install the one you want.");
+				else
+					ShowTextAndLeave("No mod folders found in this zip.");
 				return [];
 			}
 		}
@@ -228,6 +235,10 @@ public class UnzipperWindow : G3manWindow {
 
 	public void TryExtractingZip(Gio.File file, ZipArchive archive, ZipArchiveEntry[] jsonEntries) {
 		foreach (ZipArchiveEntry jsonEntry in jsonEntries) {
+			if (jsonEntry.FullName.EndsWith(".xdelta")) {
+				jsonEntry.ExtractToFile($"{basePath}/{jsonEntry.Name}");
+				continue;
+			}
 			string precedingPath = Path.GetDirectoryName(jsonEntry.FullName) ?? "";
 			string folderName = 
 				precedingPath != "" ? Path.GetFileName(precedingPath)
