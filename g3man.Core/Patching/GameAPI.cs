@@ -43,7 +43,7 @@ global.g3man_7 = {
 				
 			UndertaleGlobalInit ginit = new UndertaleGlobalInit();
 			ginit.Code = g3manAPIScript.Code;
-			data.GlobalInitScripts.Add(ginit);
+			data.GlobalInitScripts.Insert(0, ginit);
 			data.Strings.Add(g3manAPIScript.Code.Name);
 			data.Strings.Add(g3manAPIScript.Name);
 		}
