@@ -111,13 +111,21 @@ public class UnzipperWindow : G3manWindow {
 			doneButton.SetSensitive(true);
 		});
 	}
+
+	private static string GetDirectoryNameWithSlash(string path) {
+		string? directoryName = Path.GetDirectoryName(path);
+		if (directoryName is null)
+			return "";
+		return $"{directoryName}/";
+	}
+	
 	public ZipArchiveEntry[] ReadZipJsonEntries(ZipArchive archive, Gio.File file) {
 		ZipArchiveEntry[] profileJsonEntries = archive.Entries.Where(entry => entry.FullName.EndsWith("/profile.json") || entry.FullName == "profile.json").ToArray();
 		ZipArchiveEntry[] modJsonEntries = archive.Entries.Where(entry => entry.FullName.EndsWith("/mod.json") || entry.FullName == "mod.json").ToArray();
 		
 		ZipArchiveEntry[] filterSubentries(ZipArchiveEntry[] entries) {
 			return entries.Where(entry => entries.Count(entry2 => entry2 != entry 
-				&& entry.FullName.StartsWith(Path.GetDirectoryName(entry2.FullName) ?? "")) == 0).ToArray();
+				&& entry.FullName.StartsWith(GetDirectoryNameWithSlash(entry2.FullName))) == 0).ToArray();
 				
 		}
 		// filter out mod/profile.jsons who are contained inside folders of other ones

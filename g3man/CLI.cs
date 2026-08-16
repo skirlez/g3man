@@ -148,15 +148,12 @@ public static class CLI {
 				int vanillaAudioGroupsCount = data.AudioGroups.Count;
 				
 				IO.CreateLiveFolder(profilePath, profileLivePath);
-
 				IO.CreateXdeltaFoldersAndApply(gameDirectoryInfo.FullName, profilePath, profileLivePath, mods);
-
-				string datafileName = game.GetInputDatafileRelativePath();
 				
 				string relativeProfileLivePath = $"g3man/live/{profile.ID}";
 				string relativeProfilePath = $"g3man/live/{profile.ID}/profile";
 									
-				DatafilePatcher datafilePatcher = new DatafilePatcher();
+				DatafilePatcher datafilePatcher = new();
 				DatafilePatcher.PatchProduct? output = datafilePatcher.Patch(mods, profile, 
 					modsDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, logger,
 					_ => {}, allowModScripting: true);
@@ -167,19 +164,9 @@ public static class CLI {
 				if (createOldSymlink)
 					IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
 				logger.Info("Writing...");
-
-				// theoretically could parse the game.json in this location to figure out what the input datafile name is
-				// and that's probably more correct, the whole point of this is to not screw up existing g3man setups
-				bool writeHash = (IO.DatafileNames.Contains(Path.GetFileName(datafileName)));
 				
 				try {
-					if (game.OverwriteGameFiles) {
-						IO.Apply(data, game.Directory, modsDirectoryInfo.FullName, datafileName, writeHash,
-							vanillaAudioGroupsCount, output.Value.AudioGroupTransfers);
-					}
-					else {
-						IO.CreateStage(data, game.Directory, datafileName, modsDirectoryInfo.FullName, profile.ID, vanillaAudioGroupsCount, output.Value.AudioGroupTransfers);
-					}
+					IO.Apply(data, vanillaAudioGroupsCount, output.Value.AudioGroupTransfers, game, profile);
 				}
 				catch (Exception e) {
 					logger.Error("Failed to save output");

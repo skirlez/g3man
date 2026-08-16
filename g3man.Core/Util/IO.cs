@@ -46,65 +46,89 @@ public static class IO {
 		LinkFolder(profilePath, appliedProfileSymlink);
 	}
 
-	public static void CreateStage(UndertaleData data,
-									string gameDirectory,
-									string datafileRelativePath,
-									string modsFolder,
-									string profileId,
-									int vanillaAudioGroupCount,
-									List<AudioGroupTransfer> audioGroupTransfers) {
-		string g3manFolder = Path.Combine(gameDirectory, "g3man");
+	public static void Apply(UndertaleData data, 
+			int vanillaAudioGroupCount, 
+			List<AudioGroupTransfer> audioGroupTransfers,
+			Game game,
+			Profile profile) {
+
+		string tempFolder = Directory.CreateTempSubdirectory("g3man").FullName;
 		
-		string stageDirectory = Path.Combine(g3manFolder, "stages", profileId);
-		if (Directory.Exists(stageDirectory))
-			Directory.Delete(stageDirectory, true);
-		Directory.CreateDirectory(stageDirectory);
-		List<string> ignoreFiles = [datafileRelativePath];
-		ignoreFiles.AddRange(getAllAudioGroupDatFiles(gameDirectory));
+		string g3manFolder = Path.Combine(game.Directory, "g3man");
+		if (!Directory.Exists(g3manFolder))
+			Directory.CreateDirectory(g3manFolder);
+
+		DeleteModdedAudioGroups(game.Directory, vanillaAudioGroupCount);
 		
-		List<string> ignoreFolders = ["g3man"];
-		HashSet<string> files = [];
-		HashSet<string> folders = [];
-		GetRecursiveDirectoryInfo(gameDirectory, gameDirectory, ignoreFiles, ignoreFolders, files, folders);
-		
-		foreach (string folder in folders) {
-			Directory.CreateDirectory(Path.Combine(stageDirectory, folder));
+		string outFolder;
+		Action<string, string> copyFunction;
+		if (game.OverwriteGameFiles) {
+			outFolder = game.Directory;
 		}
-		LinkFolder(g3manFolder, Path.Combine(stageDirectory, "g3man"));
-		foreach (string file in files)
-		{
-			LinkFileRelativelyIfPossible(Path.Combine(gameDirectory, file), Path.Combine(stageDirectory, file));
-		}
-		
-		// we can link any audiogroups that belong to mods (non-merges)
-		foreach (AudioGroupTransfer transfer in audioGroupTransfers) {
-			string oldDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
-			if (!transfer.Merge) {
-				LinkFile(oldDatPath, Path.Combine(stageDirectory, $"audiogroup{transfer.NewIndex}.dat"));
+		else {
+			string stageDirectory = Path.Combine(g3manFolder, "stages", profile.ID);
+			if (Directory.Exists(stageDirectory))
+				Directory.Delete(stageDirectory, true);
+			Directory.CreateDirectory(stageDirectory);
+			List<string> ignoreFiles = [
+				game.GetInputDatafileRelativePath(), .. getAllAudioGroupDatFiles(game.Directory)
+			];
+			List<string> ignoreFolders = ["g3man"];
+			HashSet<string> files = [];
+			HashSet<string> folders = [];
+			GetRecursiveDirectoryInfo(game.Directory, game.Directory, ignoreFiles, ignoreFolders, files, folders);
+			foreach (string folder in folders)
+				Directory.CreateDirectory(Path.Combine(stageDirectory, folder));
+			LinkFolder(g3manFolder, Path.Combine(stageDirectory, "g3man"));
+			foreach (string file in files)
+				LinkFileRelativelyIfPossible(Path.Combine(game.Directory, file), Path.Combine(stageDirectory, file));
+
+			// we can link any audiogroup that isn't involved in any merges (can be used as-is from the game's folder)
+			foreach (int index in Enumerable.Range(1, vanillaAudioGroupCount - 1).Where(i => !audioGroupTransfers.Any(t => t.Merge && t.NewIndex == i))) {
+				LinkFileRelativelyIfPossible(Path.Combine(game.Directory, $"audiogroup{index}.dat"), Path.Combine(stageDirectory, $"audiogroup{index}.dat"));
 			}
-		}
-		// we can also link any audiogroup that isn't involved in any merges (can be used as-is from the game's folder)
-		foreach (int index in Enumerable.Range(1, vanillaAudioGroupCount - 1).Where(i => !audioGroupTransfers.Any(t => t.Merge && t.NewIndex == i))) {
-			LinkFile(Path.Combine(gameDirectory, $"audiogroup{index}.dat"),
-				Path.Combine(stageDirectory, $"audiogroup{index}.dat"));
+			
+			outFolder = stageDirectory;
 		}
 
+		string modsFolder = game.GetProfileFolderPath(profile);
+		
+		// link to mod audiogroup files
+		foreach (AudioGroupTransfer transfer in audioGroupTransfers) {
+			string oldDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
+			string newDatPath = Path.Combine(outFolder, $"audiogroup{transfer.NewIndex}.dat");
+			if (!transfer.Merge) {
+				LinkFileRelativelyIfPossible(oldDatPath, newDatPath);
+			}
+		}
+		
 		foreach (IGrouping<int, AudioGroupTransfer> mergeTransfers in audioGroupTransfers.Where(t => t.Merge)
-				.GroupBy(t => t.NewIndex))
+					.GroupBy(t => t.NewIndex))
 		{
 			string audioGroupName = $"audiogroup{mergeTransfers.Key}.dat";
-			string targetDatPath = Path.Combine(gameDirectory, audioGroupName);
+			string targetDatPath = Path.Combine(game.Directory, audioGroupName);
 			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: false);
-			using FileStream output = new(Path.Combine(stageDirectory, audioGroupName), FileMode.Create, FileAccess.Write);
+			using FileStream output = new(Path.Combine(outFolder, audioGroupName), FileMode.Create, FileAccess.Write);
 			UndertaleIO.Write(output, audiogroupDat);
 		}
 
+		byte[] hash = null!;
+		{
+			using MemoryStream memoryStream = new();
+			UndertaleIO.Write(memoryStream, data);
+			if (game.OverwriteGameFiles) {
+				memoryStream.Seek(0, SeekOrigin.Begin);
+				hash = MD5.HashData(memoryStream);
+			}
 
-		using MemoryStream memoryStream = new();
-		UndertaleIO.Write(memoryStream, data);
-		File.WriteAllBytes(Path.Combine(stageDirectory, datafileRelativePath), memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
+			File.WriteAllBytes($"{tempFolder}/datafile", memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
+		}
+		
+		File.Move($"{tempFolder}/datafile", Path.Combine(outFolder, game.GetInputDatafileRelativePath()), overwrite: true);
+		if (game.OverwriteGameFiles)
+			WriteGameLastOutputHash(outFolder, hash);
 	}
-
+	
 	private static void GetRecursiveDirectoryInfo(string basis, string path, List<string> ignoreFiles, List<string> ignoreFolders, HashSet<string> outputFiles, HashSet<string> outputFolders) {
 		foreach (string file in Directory.GetFiles(path).Select(x => Path.GetRelativePath(basis, x))) {
 			if (ignoreFiles.Any(x => ProgramPaths.FilePathsEqual(x, file)))
@@ -117,55 +141,6 @@ public static class IO {
 				continue;
 			outputFolders.Add(directory);
 			GetRecursiveDirectoryInfo(basis, directoryPath, ignoreFiles, ignoreFolders, outputFiles, outputFolders);
-		}
-	}
-	
-	
-	public static void Apply(UndertaleData data, 
-							string gameDirectory, string modsFolder,
-							string outputDatafileRelativePath,
-							bool writeHash,
-							int vanillaAudioGroupCount,
-							List<AudioGroupTransfer> audioGroupTransfers) {
-		string tempFilePath = Path.Combine(gameDirectory, TempDataName);
-		byte[] hashBytes = null!;
-		
-		DeleteModdedAudioGroups(gameDirectory, vanillaAudioGroupCount);
-		
-		foreach (AudioGroupTransfer transfer in audioGroupTransfers) {
-			string oldDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
-			string newDatPath = Path.Combine(gameDirectory, $"audiogroup{transfer.NewIndex}.dat");
-			if (!transfer.Merge) {
-				File.Copy(oldDatPath, newDatPath);
-			}
-		}
-		foreach (IGrouping<int, AudioGroupTransfer> mergeTransfers in audioGroupTransfers.Where(t => t.Merge).GroupBy(t => t.NewIndex)) {
-			string targetDatPath = Path.Combine(gameDirectory, $"audiogroup{mergeTransfers.Key}.dat");
-			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: true);
-			
-			using FileStream output = new(targetDatPath, FileMode.Create, FileAccess.Write);
-			UndertaleIO.Write(output, audiogroupDat);
-		}
-
-		{
-			using MemoryStream memoryStream = new MemoryStream();
-			UndertaleIO.Write(memoryStream, data);
-			if (writeHash)
-				hashBytes = MD5.HashData(memoryStream);
-			File.WriteAllBytes(tempFilePath, memoryStream.GetBuffer().AsSpan(0, (int)memoryStream.Length));
-		}
-
-		File.Move(tempFilePath, Path.Combine(gameDirectory, outputDatafileRelativePath), true);
-		File.Delete(tempFilePath);
-		
-		
-		string g3manFolder = Path.Combine(gameDirectory, "g3man");
-		if (!Directory.Exists(g3manFolder))
-			Directory.CreateDirectory(g3manFolder);
-		
-		deleteLegacySymlink(gameDirectory);
-		if (writeHash) {
-			WriteGameLastOutputHash(gameDirectory, hashBytes);
 		}
 	}
 	
@@ -209,7 +184,7 @@ public static class IO {
 		}
 
 		if (createRecord) {
-			UndertaleEmbeddedAudio recordHolder = new UndertaleEmbeddedAudio();
+			UndertaleEmbeddedAudio recordHolder = new();
 			recordHolder.Data = AudioRecord.Write((uint)vanillaCount, vanillaHash);
 			targetDat.EmbeddedAudio.Add(recordHolder);
 		}

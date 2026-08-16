@@ -127,8 +127,10 @@ public partial class MainWindow {
 			}, () => {
 				bool prevSelected = UI.GetProfile() == profile;
 				UpdateProfilesList(null, index, prevSelected);
-				EnableExtraCategories(ExtraCategories.Profiles);
-				currentProfileLabel.SetText("No profile selected");
+				if (prevSelected) {
+					EnableExtraCategories(ExtraCategories.Profiles);
+					currentProfileLabel.SetText("No profile selected");
+				}
 			});
 			
 			window.Dialog(this);

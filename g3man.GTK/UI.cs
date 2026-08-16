@@ -125,7 +125,7 @@ public static class UI {
 			//Config.Write();
 			//Program.Logfile?.Flush(); TODO
 		};
-		return application.RunWithSynchronizationContext([]);
+		return application.RunWithSynchronizationContext(null);
 
 	}
 	public static void ApplyColorScheme(ColorScheme colorScheme) {

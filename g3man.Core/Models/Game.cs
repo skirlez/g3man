@@ -27,7 +27,7 @@ public class Game {
 	public string ExecutablePath;
 	public int ExecutableSteamAppId;
 	
-	private const int LatestVersion = 3;
+	private const int LatestFormatVersion = 3;
 	public int FormatVersion;
 
 	public string Directory => Entry.Path;
@@ -49,13 +49,13 @@ public class Game {
 		ExecutablePath = executablePath;
 		ExecutableSteamAppId = executableSteamAppId;
 		OverwriteGameFiles = overwriteGameFiles;
-		FormatVersion = LatestVersion;
+		FormatVersion = LatestFormatVersion;
 	}
 	public Game(JsonElement root, GameEntry entry) {
 		Entry = entry;
 		FormatVersion = JsonUtil.GetNumberOrThrow(root, "format_version");
-		if (FormatVersion > LatestVersion)
-			throw new InvalidDataException($"Game in {entry.Path} has a format version too new: {FormatVersion} > {LatestVersion}.");
+		if (FormatVersion > LatestFormatVersion)
+			throw new InvalidDataException($"Game in {entry.Path} has a format version too new: {FormatVersion} > {LatestFormatVersion}.");
 		
 		DisplayName = JsonUtil.GetStringOrThrow(root, "display_name");
 		InternalName = JsonUtil.GetStringOrThrow(root, "internal_name");
@@ -138,17 +138,25 @@ public class Game {
 		}
 		throw new UnreachableException();
 	}
-	
 
-	public Process? Launch(Config config, Profile profile) {
-		Debug.Assert(ExecutableStatus(config).ok);
+	public List<string> GetBaseLaunchArguments(string profileId) {
+		List<string> gameArguments = ["-game", GetOutputDatafileRelativePath(profileId)];
 		
-		List<string> gameArguments = ["-game", GetOutputDatafilePath(profile)];
-
 		// at least one version of the linux runner always appended "-game game.unx" at the end of its arguments, overriding
 		// our choice of datafile. including a single " character (appears to) make the runner listen to us,
-		// so i'm assuming it breaks the argument parser. it doesn't seem to break anything else so it is always included.
-		gameArguments.Add("\"");
+		// so i'm assuming it breaks the argument parser. 
+		
+		// it's probably more trouble than it's worth...
+		//gameArguments.Add("\"");
+		
+		return gameArguments;
+	}
+	
+	public Process Launch(Config config, Profile profile) {
+		Debug.Assert(ExecutableStatus(config).ok);
+
+
+		List<string> gameArguments = GetBaseLaunchArguments(profile.ID);
 		
 		switch (ChosenExecutableType) {
 			case ExecutableType.File: {
@@ -177,7 +185,7 @@ public class Game {
 	
 	public JsonObject ToJson() {
 		return new JsonObject() {
-			["format_version"] = 2,
+			["format_version"] = Game.LatestFormatVersion,
 			["display_name"] = DisplayName,
 			["internal_name"] = InternalName,
 			["datafile_name"] = DatafilePath,

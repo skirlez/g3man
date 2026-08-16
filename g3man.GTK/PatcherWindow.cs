@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Security.Cryptography;
 using g3man.Core.Models;
 using g3man.Core.Patching;
@@ -15,7 +16,7 @@ public class PatcherWindow : G3manWindow {
 	private Label statusLabel;
 	private Button closeButton;
 	private MainUI.MainWindow owner;
-	
+
 	
 	public PatcherWindow(MainUI.MainWindow owner) {
 		this.owner = owner;
@@ -48,42 +49,52 @@ public class PatcherWindow : G3manWindow {
 		SetChild(box);
 	}
 
-	public void Dialog(List<IMod> mods, Action onSuccess) {
+	public void ApplyDialog(List<IMod> mods, bool launch) {
 		SetTransientFor(owner);
 		SetModal(true);
-		
+		Present();
+		Game game = UI.GetGame()!;
+		Profile profile = UI.GetProfile()!;
 		new Thread(() => {
-			bool success = DoThing(UI.GetGame()!, UI.GetProfile()!, mods);
-			UI.RunOnMainThreadEventually(() => {
+			bool success = PatchRoutine(game, profile, mods);
+			UI.RunOnMainThreadEventually(async void () => {
+				if (success && launch)
+					await LaunchRoutine(game, profile);
 				canClose = true;
 				closeButton.SetSensitive(true);
-				if (success)
-					onSuccess();
 			});
 		}).Start();
-
 	}
-	private void setStatus(string status) {
-		UI.RunOnMainThreadEventually(() => {
-			statusLabel.SetMarkup(status);
-			if (!IsVisible())
-				Present();
-		});
+	public async void LaunchDialog() {
+		SetTransientFor(owner);
+		SetModal(true);
+		Present();
+		Game game = UI.GetGame()!;
+		Profile profile = UI.GetProfile()!;
+		await LaunchRoutine(game, profile);
+		canClose = true;
+		closeButton.SetSensitive(true);
 	}
 
-	record ChoiceLock() {
+	record ChoiceLock {
 		public int Choice = 0;
 	}
-	private bool DoThing(Game game, Profile profile, List<IMod> mods) {
+	private bool PatchRoutine(Game game, Profile profile, List<IMod> mods) {
+		void setStatus(string status) {
+			UI.RunOnMainThreadEventually(() => {
+				statusLabel.SetMarkup(status);
+				if (!IsVisible())
+					Present();
+			});
+		}
+		
 		string profilePath = game.GetProfileFolderPath(profile);
 		string profileLivePath = game.GetProfileLiveFolderPath(profile);
-		
-		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, profilePath, game.DatafilePath);
 		
 		setStatus("Hashing current datafile...");
 		string hash;
 		try {
-			using FileStream stream = new FileStream(game.GetInputDatafilePath(), FileMode.Open, FileAccess.Read);
+			using FileStream stream = new(game.GetInputDatafilePath(), FileMode.Open, FileAccess.Read);
 			hash = IO.HashToString(MD5.HashData(stream));
 		}
 		catch {
@@ -100,18 +111,18 @@ public class PatcherWindow : G3manWindow {
 			PopupWindow popupWindow = new PopupWindow(this, "Question",
 				$"g3man has detected that the game's datafile ({game.GetInputDatafileRelativePath()}) has been modified.\n"
 				+ $"Do you wish to update your clean copy as well? If so, select \"{buttonTexts[0]}\"\n(You probably want to choose this if you just updated the game).\n"
-				+ $"Otherwise, select \"{buttonTexts[1]}\".",
+				+ $"Otherwise, select \"{buttonTexts[1]}\" to stay on this version.",
 				buttonTexts,
 				
 				actions: [
-					(PopupWindow window) => {
+					(window) => {
 						lock (lockObject) {
 							lockObject.Choice = 1;
 							Monitor.PulseAll(lockObject);
 						}
 						window.Close();
 					},
-					(PopupWindow window) => {
+					(window) => {
 						lock (lockObject) {
 							lockObject.Choice = 2;
 							Monitor.PulseAll(lockObject);
@@ -128,9 +139,9 @@ public class PatcherWindow : G3manWindow {
 						}
 					}
 				});
-
+			
 			lock (lockObject) {
-				UI.RunOnMainThreadEventually(() => popupWindow.Dialog());
+				UI.RunOnMainThreadEventually(popupWindow.Dialog);
 				// wait for user to make choice
 				while (lockObject.Choice == 0)
 					Monitor.Wait(lockObject);
@@ -162,37 +173,14 @@ public class PatcherWindow : G3manWindow {
 				UI.RunOnMainThreadEventually(Close);
 				return false;
 			}
+			
 		}
 		
-		/*
-		if (mods.Count == 0) {
-			setStatus("Restoring clean datafile");
-			try
-			{
-				IO.RemoveLastOutputHash(game);
-				IO.Deapply(game);
-
-				setStatus("Restored clean datafile!");
-			}
-			catch (FileNotFoundException) {
-				setStatus("The game's clean datafile couldn't be found.\n"
-						  + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
-			}
-			catch (Exception e) {
-				UI.Logger.Error($"Failed to restore clean datafile: {e}");
-				setStatus("Failed to restore clean datafile. Please report this as an error!");
-			}
-
-			return;
-		}
-		*/
-		
+		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, profilePath, game.DatafilePath);
 		UI.DataLoader.LoadAsync(game, datafileXdeltaPatches, forceReloadDatafile);
 		
 		setStatus("Applying .xdelta patches");
-		
 		IO.CreateLiveFolder(profilePath, profileLivePath);
-
 		(IMod Mod, XdeltaSourcePair FailedPatch)? xdeltaError = IO.CreateXdeltaFoldersAndApply(game.Directory, profilePath, profileLivePath, mods);
 		if (xdeltaError.HasValue) {
 			setStatus($"Mod {xdeltaError.Value.Mod.Identify()} had a failed Xdelta patch called \"{xdeltaError.Value.FailedPatch.Filename}\"\nfor \"{xdeltaError.Value.FailedPatch.RelativeSourcePath}\"");
@@ -240,16 +228,9 @@ public class PatcherWindow : G3manWindow {
 		
 		setStatus("Writing...");
 		
+		
 		try {
-			if (!game.OverwriteGameFiles) {
-				IO.CreateStage(data, game.Directory, game.DatafilePath,game.GetProfileFolderPath(profile), profile.ID, vanillaAudioGroupCount,
-					output.Value.AudioGroupTransfers);
-			}
-			else {
-				IO.Apply(output.Value.Data, game.Directory, game.GetProfileFolderPath(profile),
-					game.GetOutputDatafileRelativePath(profile),
-					writeHash: overwritingInput, vanillaAudioGroupCount, output.Value.AudioGroupTransfers);
-			}
+			IO.Apply(data, vanillaAudioGroupCount, output.Value.AudioGroupTransfers, game, profile);
 		}
 		catch (Exception e) {
 			UI.Logger.Error(e);
@@ -268,4 +249,29 @@ public class PatcherWindow : G3manWindow {
 		setStatus($"Done!\n{launchInstructions}");
 		return true;
 	}
+
+
+	private async Task LaunchRoutine(Game game, Profile profile) {
+		try {
+			statusLabel.SetText("Launching...");
+			Status executableStatus = game.ExecutableStatus(UI.Config);
+			if (!executableStatus.ok) {
+				statusLabel.SetText(executableStatus.message);
+				return;
+			}
+			if (!File.Exists(game.GetOutputDatafilePath(profile))) {
+				statusLabel.SetText("This profile's datafile does not exist! Try applying the mods again.");
+				return;
+			}
+			await Task.Run(() => game.Launch(UI.Config, profile));
+		}
+		catch (Exception e) {
+			UI.Logger.Error($"Failed to launch game: {e}");
+			statusLabel.SetText($"Failed to launch game: {e.Message}");
+			return;
+		}
+
+		statusLabel.SetText($"Game launch should be successful.\ng3man does not have to stay open past this point.");
+	}
+	
 }

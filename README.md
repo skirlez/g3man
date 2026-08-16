@@ -19,6 +19,7 @@ an interactive website for creating GMLPv2 patches. You can try it out [here](ht
   - Dependency checking
 - A profile system to easily switch between sets of mods
 - Profile save separation (opt-in)
+- Non-destructive patching: by default, mod application is done in a way that doesn't touch original game files
 - Xdelta mod support: g3man allows, alongside its own mod format, the loading of .xdelta mod(s)*
 - General Xdelta support: g3man mods themselves can employ .xdelta files to patch other game files
 - Support for both Linux and Windows
@@ -40,11 +41,19 @@ Go to the [Releases](https://github.com/skirlez/g3man/releases) page, and follow
 
 ## Mods made with g3man
 
+### Void Stranger
 - [Void Stranger Endless Void](https://github.com/skirlez/void-stranger-endless-void/): a level builder for Void Stranger
 
-- [Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the example mods (found in the [g3man examples monorepo](https://github.com/skirlez/g3man-examples)): an API for Nubby's Number Factory, and two mods that depends on it to add new things to the game
+### Nubby's Number Factory
+- [Nubby's Forgery](https://github.com/skirlez/nubbys-forgery) and the example mods (found in the [g3man examples monorepo](https://github.com/skirlez/g3man-examples)):
+a library mod, and two mods that depends on it to add new things to the game
 
-- [NubPak!](https://gamebanana.com/mods/618918): a huge expansion mod for Nubby's Number Factory
+- [Nubby Cosmetics](https://github.com/SeymourSchlong/NubbyCosmetics): Mod that enables adding new cosmetic skins
+ 
+Two big content mods:
+
+- [Factory Overtime](https://github.com/SeymourSchlong/FactoryOvertime)
+- [NubPak!](https://gamebanana.com/mods/618918)
 
 Have YOU made ANYTHING with g3man? I would love to add more to this list! Please open an issue regarding your creation, even if it's something really small.
 

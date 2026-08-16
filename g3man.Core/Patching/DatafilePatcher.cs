@@ -419,52 +419,62 @@ public class DatafilePatcher {
 			return null;
 		}
 
+
 		
 		// keep track of which audiogroups from mods need to be copied into the game folder
 		// when files actually need to be written
 		// TODO: For GameMaker 2024.14 we don't actually need to do this apparently, since audiogroups have a path variable
 		List<AudioGroupTransfer> audioGroupTransfers = new();
+
+		int vanillaAudioGroupsCount = data.AudioGroups.Count;
+		Dictionary<string, int> audioGroupCounts = new();
+		
 		foreach (Mod mod in mods) {
-			if (mod.DatafilePath != "") {
-				setStatusAndInfo($"Merging: {mod.DisplayName}");
-				string fullDatafilePath = Path.Combine(profileLocation, mod.ModId, mod.DatafilePath);
-				UndertaleData modData;
-				try {
-					using FileStream stream = new(fullDatafilePath, FileMode.Open, FileAccess.Read);
-					modData = UndertaleIO.Read(stream);
-				}
-				catch (Exception e) {
-					setStatusAndError($"Failed to load the datafile of {mod.Identify()}.", e.ToString());
-					return null;
-				}
-				if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
-					return null;
-				
-				autoNamespace(modData, mod.ModId, mod.NamespacingOptions);
-				MergeProduct product;
-				try {
-					product = merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
-				}
-				catch (Exception e) {
-					setStatusAndError($"Merging {mod.Identify()} failed!", e.ToString());
-					return null;
-				}
-				
-				// TODO: don't get audio group indices like this please
-				// and make this one loop somehow
-				foreach (string audioGroup in product.GroupsToCopy) {
-					int originalIndex = modData.AudioGroups.IndexOf(modData.AudioGroups.ByName(audioGroup));
-					int newIndex = data.AudioGroups.IndexOf(data.AudioGroups.ByName(audioGroup));
-					audioGroupTransfers.Add(new AudioGroupTransfer(mod, originalIndex, newIndex, false));
-				}
-				foreach (string audioGroup in product.GroupsToUpdate) {
-					int originalIndex = modData.AudioGroups.IndexOf(modData.AudioGroups.ByName(audioGroup));
-					int newIndex = data.AudioGroups.IndexOf(data.AudioGroups.ByName(audioGroup));
-					audioGroupTransfers.Add(new AudioGroupTransfer(mod, originalIndex, newIndex, true));
-				}
-				if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
-					return null;
+			if (mod.DatafilePath == "") {
+				audioGroupCounts[mod.ModId] = 0;
+				continue;
 			}
+			setStatusAndInfo($"Merging: {mod.DisplayName}");
+			string fullDatafilePath = Path.Combine(profileLocation, mod.ModId, mod.DatafilePath);
+			UndertaleData modData;
+			try {
+				using FileStream stream = new(fullDatafilePath, FileMode.Open, FileAccess.Read);
+				modData = UndertaleIO.Read(stream);
+			}
+			catch (Exception e) {
+				setStatusAndError($"Failed to load the datafile of {mod.Identify()}.", e.ToString());
+				return null;
+			}
+				
+			audioGroupCounts[mod.ModId] = modData.AudioGroups?.Count ?? 0;
+				
+			if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
+				return null;
+				
+			autoNamespace(modData, mod.ModId, mod.NamespacingOptions);
+			MergeProduct product;
+			try {
+				product = merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
+			}
+			catch (Exception e) {
+				setStatusAndError($"Merging {mod.Identify()} failed!", e.ToString());
+				return null;
+			}
+				
+			// TODO: don't get audio group indices like this please
+			// and make this one loop somehow
+			foreach (string audioGroup in product.GroupsToCopy) {
+				int originalIndex = modData.AudioGroups.IndexOf(modData.AudioGroups.ByName(audioGroup));
+				int newIndex = data.AudioGroups.IndexOf(data.AudioGroups.ByName(audioGroup));
+				audioGroupTransfers.Add(new AudioGroupTransfer(mod, originalIndex, newIndex, false));
+			}
+			foreach (string audioGroup in product.GroupsToUpdate) {
+				int originalIndex = modData.AudioGroups.IndexOf(modData.AudioGroups.ByName(audioGroup));
+				int newIndex = data.AudioGroups.IndexOf(data.AudioGroups.ByName(audioGroup));
+				audioGroupTransfers.Add(new AudioGroupTransfer(mod, originalIndex, newIndex, true));
+			}
+			if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
+				return null;
 		}
 
 
@@ -474,12 +484,18 @@ public class DatafilePatcher {
 		}
 		
 
-		GlobalDecompileContext mainContext = new GlobalDecompileContext(data);
-		CompileGroup mainGroup = new CompileGroup(data, mainContext);
-		GameMakerCodeSource source = new GameMakerCodeSource(mainGroup);
+		GlobalDecompileContext mainContext = new(data);
+		CompileGroup mainGroup = new(data, mainContext);
+		GameMakerCodeSource source = new(mainGroup);
 		
 		if (mods.Any(mod => mod.Imports.Any(GameAPI.IsImportAskingForMe))) {
-			GameAPI.Inject(data, profile, relativeProfilePath, relativeProfileLivePath, mainGroup);
+			Dictionary<string, int> audioGroupOffsets = new();
+			audioGroupOffsets[mods[0].ModId] = vanillaAudioGroupsCount;
+			for (int i = 1; i < mods.Count; i++) {
+				audioGroupOffsets[mods[i].ModId] = audioGroupOffsets[mods[i - 1].ModId] + audioGroupCounts[mods[i - 1].ModId];
+			}
+			
+			GameAPI.Inject(data, profile, relativeProfilePath, relativeProfileLivePath, audioGroupOffsets, mainGroup);
 			CompileResult gameAPIResult = mainGroup.Compile();
 			if (!gameAPIResult.Successful) {
 				setStatusAndError("Failed to insert g3man Game API!", 

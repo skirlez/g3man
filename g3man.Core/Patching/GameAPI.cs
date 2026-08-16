@@ -8,7 +8,7 @@ namespace g3man.Core.Patching;
 public static class GameAPI {
 	public const string ScriptName = "g3man_api";
 
-	public static string GetCode(string[] modOrder, string[] disabledMods, string profileID, string relativeProfilePath, string relativeProfileLivePath) {
+	public static string GetCode(string[] modOrder, string[] disabledMods, string profileID, string relativeProfilePath, string relativeProfileLivePath, Dictionary<string, int> audioGroupOffsets) {
 		return 
 $$"""
 global.g3man_6 = {
@@ -20,6 +20,7 @@ global.g3man_7 = {
 	profile_path : "{{relativeProfilePath}}",
 	live_path : "{{relativeProfileLivePath}}",
 	mod_order : [{{string.Join(",", modOrder.Except(disabledMods).Select(s => $"\"{s}\""))}}],
+	audiogroup_offsets : { {{ string.Join(",", modOrder.Except(disabledMods).Select(s => $"\"{s}\" : {audioGroupOffsets[s]}")) }} }
 }
 """;
 	}
@@ -28,13 +29,14 @@ global.g3man_7 = {
 		return import.Name is "g3man_6" or "g3man_7";
 	}
 
-	public static void Inject(UndertaleData data, Profile profile, string relativeProfilePath, string relativeProfileLivePath, CompileGroup group) {
-		UndertaleScript? g3manAPIScript = data.Scripts.ByName(GameAPI.ScriptName);
+	public static void Inject(UndertaleData data, Profile profile, string relativeProfilePath, string relativeProfileLivePath, Dictionary<string, int> audioGroupOffsets, CompileGroup group) {
+		UndertaleScript? g3manAPIScript = data.Scripts.ByName(ScriptName);
 		if (g3manAPIScript is null) {
+			// TODO: a script might not be needed. maybe it just works without
 			g3manAPIScript = new UndertaleScript();
-			g3manAPIScript.Name = new UndertaleString(GameAPI.ScriptName);
+			g3manAPIScript.Name = new UndertaleString(ScriptName);
 			g3manAPIScript.Code = new UndertaleCode();
-			g3manAPIScript.Code.Name = new UndertaleString($"gml_GlobalScript_{GameAPI.ScriptName}");
+			g3manAPIScript.Code.Name = new UndertaleString($"gml_GlobalScript_{ScriptName}");
 				
 			data.Code.Add(g3manAPIScript.Code);
 			data.Scripts.Add(g3manAPIScript);
@@ -46,6 +48,6 @@ global.g3man_7 = {
 			data.Strings.Add(g3manAPIScript.Name);
 		}
 		
-		group.QueueCodeReplace(g3manAPIScript.Code, GameAPI.GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID, relativeProfilePath, relativeProfileLivePath));
+		group.QueueCodeReplace(g3manAPIScript.Code, GetCode(profile.ModOrder, profile.ModsDisabled, profile.ID, relativeProfilePath,  relativeProfileLivePath, audioGroupOffsets));
 	}
 }

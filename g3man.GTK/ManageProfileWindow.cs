@@ -81,33 +81,35 @@ public class ManageProfileWindow : G3manWindow {
 		
 		
 		
-		Label outputLocationPreviewLabel = Label.New("Output datafile location");
-		outputLocationPreviewLabel.SetHalign(Align.Start);
+		Label launchArgumentsLabel = Label.New("Launch arguments");
+		launchArgumentsLabel.SetHalign(Align.Start);
 		
-		Entry outputLocationPreviewEntry = Entry.New();
-		outputLocationPreviewEntry.SetEditable(false);
-		outputLocationPreviewEntry.SetHexpand(true);
-		outputLocationPreviewEntry.SetText(GetOutputDatafileName());
+		Entry launchArgumentsEntry = Entry.New();
+		launchArgumentsEntry.SetEditable(false);
+		launchArgumentsEntry.SetHexpand(true);
+		launchArgumentsEntry.SetText(GetLaunchArguments());
 		Button clipboardButton = Button.New();
 		clipboardButton.SetIconName("edit-copy");
 		
-		IDEntry.OnChanged += (entry, _) => {
-			outputLocationPreviewEntry.SetText(GetOutputDatafileName());
+		IDEntry.OnChanged += (_, _) => {
+			launchArgumentsEntry.SetText(GetLaunchArguments());
 		};
-		string GetOutputDatafileName() {
-			return UI.GetGame()!.GetOutputDatafileRelativePath(IDEntry.GetText());
+		string GetLaunchArguments() {
+			Game game = UI.GetGame()!;
+			if (game.OverwriteGameFiles)
+				return "This game has \"Overwrite game files\" enabled, so no launch arguments are necessary";
+			return string.Join(" ", game.GetBaseLaunchArguments(IDEntry.GetText()));
 		}
 		clipboardButton.OnClicked += (_, _) => {
-			GetClipboard().SetText(GetOutputDatafileName());
+			GetClipboard().SetText(GetLaunchArguments());
 		};
-
-		
-
+		if (UI.GetGame()!.OverwriteGameFiles)
+			clipboardButton.SetSensitive(false);
 		
 		Box outputOverrideBox = Box.New(Orientation.Vertical, 5)
-			.With(outputLocationPreviewLabel,
+			.With(launchArgumentsLabel,
 				Box.New(Orientation.Horizontal, 5).With(
-					clipboardButton, outputLocationPreviewEntry));
+					clipboardButton, launchArgumentsEntry));
 		
 		/*
 		Label descriptionLabel = Label.New("Description");

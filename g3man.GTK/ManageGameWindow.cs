@@ -90,25 +90,13 @@ public class ManageGameWindow : G3manWindow {
 		}
 		UpdateExecutableType((int)game.ChosenExecutableType);
 		launchMethod.OnChanged += (sender, _) => UpdateExecutableType(sender.GetActive());
-
-		Label launchParadigmLabel = Label.New("Current patching paradigm:");
-		launchParadigmLabel.SetHalign(Align.Start);
-		Stack paradigmDisplayStack = Stack.New();
-		paradigmDisplayStack.SetHalign(Align.Start);
 		
-		Label[] paradigms = [
-			Label.New("\"Do not modify game; launch via g3man/arguments ONLY\""),
-			Label.New("\"Modify game; can launch via any means\"")
-		];
-		foreach (Label p in paradigms) {
-			paradigmDisplayStack.AddChild(p);
-			p.SetHalign(Align.Start);
-		}
-
+		
 		CheckButton writeDirectlyCheck = CheckButton.NewWithLabel("Overwrite game files");
+		writeDirectlyCheck.SetActive(game.OverwriteGameFiles);
 		writeDirectlyCheck.SetTooltipText(
 			"If this is set, g3man will overwrite the game's file directly."
-			+ " This means you can launch the game without g3man and still have mods applied.");
+			+ " This means you can launch the game without g3man/launch arguments, and still have mods applied.");
 
 		Box paradigmSpacer = Box.New(Orientation.Horizontal, 0);
 		paradigmSpacer.SetHexpand(true);
@@ -183,8 +171,7 @@ public class ManageGameWindow : G3manWindow {
 
 
 
-			Game newGame = new(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafilePath,
-					launchMethod.Active, fileExeEntry.GetText(), newAppId, writeDirectlyCheck.Active);
+			Game newGame = new(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafilePath, launchMethod.Active, fileExeEntry.GetText(), newAppId, writeDirectlyCheck.Active);
 			if (saveCallback(newGame)) {
 				Close();
 			}

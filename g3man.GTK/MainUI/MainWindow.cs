@@ -142,62 +142,21 @@ public partial class MainWindow : G3manWindow {
 		currentProfileLabel.SetEllipsize(EllipsizeMode.End);
 		
 		void ApplyModsDialog(bool launch) {
-			PatcherWindow window = new PatcherWindow(this);
+			UI.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
+			UI.GetProfile()!.Write(UI.GetGame()!);
 			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
-			window.Dialog(enabledModsList, () => {
-				if (launch) {
-					window.Close();
-					LaunchDialog();
-				}
-			});
-		}
-		
-
-		void LaunchDialog() {
-			Game game = UI.GetGame()!;
-			Status executableStatus = game.ExecutableStatus(UI.Config);
-			if (!executableStatus.ok) {
-				PopupWindow popup = new PopupWindow(this, "Error!",
-					$"{executableStatus.message}",
-					"OK");
-				popup.Dialog();
-				return;
-			}
-
-			try {
-				game.Launch(UI.Config, UI.GetProfile()!);
-			}
-			catch (Exception e) {
-				UI.Logger.Error($"Failed to launch game: {e}");
-				PopupWindow popup = new PopupWindow(this, "Error!",
-					$"Failed to launch game: {e.Message}",
-					"Damn");
-				popup.Dialog();
-				return;
-			}
-			
-			PopupWindow successPopup = new PopupWindow(this, "Game launched!",
-				$"Game launch should be successful.\ng3man does not have to stay open past this point.",
-				"OK");
-			successPopup.Dialog();
+			new PatcherWindow(this).ApplyDialog(enabledModsList, launch);
 		}
 		
 		Button applyButton = Button.NewWithLabel("Apply");
-		applyButton.OnClicked += (_, _) => {
-			UI.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			UI.GetProfile()!.Write(UI.GetGame()!);
-			ApplyModsDialog(launch: false);
-		};
+		applyButton.OnClicked += (_, _) => ApplyModsDialog(launch: false);
 		
 		Button launchButton = Button.NewWithLabel("Launch");
-		launchButton.OnClicked += (_, _) => { LaunchDialog(); };
+		launchButton.OnClicked += (_, _) => new PatcherWindow(this).LaunchDialog();
 
 		Button applyAndLaunchButton = Button.NewWithLabel("Apply and Launch!");
-		applyAndLaunchButton.OnClicked += (_, _) => {
-			UI.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			UI.GetProfile()!.Write(UI.GetGame()!);
-			ApplyModsDialog(launch: true);
-		};
+		applyAndLaunchButton.OnClicked += (_, _) => ApplyModsDialog(launch: true);
+		
 		actionBox = Box.New(Orientation.Horizontal, 10);
 		actionBox.Append(applyAndLaunchButton);
 		actionBox.Append(applyButton);
