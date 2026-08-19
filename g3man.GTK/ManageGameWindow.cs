@@ -46,20 +46,19 @@ public class ManageGameWindow : G3manWindow {
 		fileExeEntry.SetHexpand(true);
 		
 		Button fileExeBrowse = Button.NewWithLabel("Browse");
-		fileExeBrowse.OnClicked += (_, _) => {
-			FileDialogWindow window = new FileDialogWindow("Choose an executable", [],file => {
-				string? path = file.GetPath();
-				if (path is null)
-					return;
-				string relativePath = Path.GetRelativePath(game.Directory, path);
-				if (relativePath.StartsWith("..")) {
-					// path should only be relative if it is inside the game's folder
-					fileExeEntry.SetText(path);
-				}
-				else
-					fileExeEntry.SetText(relativePath);
-			}, game.Directory);
-			window.Dialog(this);
+		fileExeBrowse.OnClicked += async (_, _) => {
+			Gio.File? file = await FileDialogWindow.Dialog(this, "Choose an executable", [], game.Directory);
+			string? path = file?.GetPath();
+			if (path is null)
+				return;
+			string relativePath = Path.GetRelativePath(game.Directory, path);
+			if (relativePath.StartsWith("..")) {
+				// path should only be relative if it is inside the game's folder
+				fileExeEntry.SetText(path);
+			}
+			else
+				fileExeEntry.SetText(relativePath);
+	
 		};
 		
 		Box fileExeEntryBox = Box.New(Orientation.Horizontal, 5);
@@ -227,7 +226,7 @@ public class ManageGameWindow : G3manWindow {
 
 
 	private void DoFileOperation(Func<(bool, string?)> action) {
-		Thread thread = new Thread(() => {
+		Thread thread = new(() => {
 			(bool success, string? message) = action();
 			UI.RunOnMainThreadEventually(() => {
 				PopupWindow window;

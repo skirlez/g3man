@@ -425,13 +425,18 @@ public class DatafilePatcher {
 		// when files actually need to be written
 		// TODO: For GameMaker 2024.14 we don't actually need to do this apparently, since audiogroups have a path variable
 		List<AudioGroupTransfer> audioGroupTransfers = new();
+		
+		Assets vanillaAssets = GetAllIndices(data);
 
-		int vanillaAudioGroupsCount = data.AudioGroups.Count;
-		Dictionary<string, int> audioGroupCounts = new();
+		Assets prevAssets = vanillaAssets;
+
+		Dictionary<string, Assets> modIndices = new();
 		
 		foreach (Mod mod in mods) {
 			if (mod.DatafilePath == "") {
-				audioGroupCounts[mod.ModId] = 0;
+				Assets emptyAssets = EmptyIndices(prevAssets);
+				modIndices[mod.ModId] = emptyAssets;
+				prevAssets = emptyAssets;
 				continue;
 			}
 			setStatusAndInfo($"Merging: {mod.DisplayName}");
@@ -445,13 +450,13 @@ public class DatafilePatcher {
 				setStatusAndError($"Failed to load the datafile of {mod.Identify()}.", e.ToString());
 				return null;
 			}
-				
-			audioGroupCounts[mod.ModId] = modData.AudioGroups?.Count ?? 0;
-				
+
+			
 			if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 				return null;
 				
 			autoNamespace(modData, mod.ModId, mod.NamespacingOptions);
+			//ReferenceFixer.FixReferences(modData);
 			MergeProduct product;
 			try {
 				product = merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
@@ -460,7 +465,7 @@ public class DatafilePatcher {
 				setStatusAndError($"Merging {mod.Identify()} failed!", e.ToString());
 				return null;
 			}
-				
+			
 			// TODO: don't get audio group indices like this please
 			// and make this one loop somehow
 			foreach (string audioGroup in product.GroupsToCopy) {
@@ -475,6 +480,10 @@ public class DatafilePatcher {
 			}
 			if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 				return null;
+			
+			Assets assets = GetAllIndices(data, prevAssets);
+			modIndices[mod.ModId] = assets;
+			prevAssets = assets;
 		}
 
 
@@ -487,18 +496,19 @@ public class DatafilePatcher {
 		GlobalDecompileContext mainContext = new(data);
 		CompileGroup mainGroup = new(data, mainContext);
 		GameMakerCodeSource source = new(mainGroup);
-		
-		if (mods.Any(mod => mod.Imports.Any(GameAPI.IsImportAskingForMe))) {
-			Dictionary<string, int> audioGroupOffsets = new();
-			audioGroupOffsets[mods[0].ModId] = vanillaAudioGroupsCount;
-			for (int i = 1; i < mods.Count; i++) {
-				audioGroupOffsets[mods[i].ModId] = audioGroupOffsets[mods[i - 1].ModId] + audioGroupCounts[mods[i - 1].ModId];
-			}
-			
-			GameAPI.Inject(data, profile, relativeProfilePath, relativeProfileLivePath, audioGroupOffsets, mainGroup);
+
+		string[] requestedAPIs = GameAPI.GetRequestedAPIs(mods.SelectMany(mod => mod.Imports));
+		if (requestedAPIs.Length > 0) {
+			GameAPI.Inject(data, requestedAPIs,
+				profile,
+				relativeProfilePath,
+				relativeProfileLivePath,
+				vanillaAssets,
+				modIndices,
+				mainGroup);
 			CompileResult gameAPIResult = mainGroup.Compile();
 			if (!gameAPIResult.Successful) {
-				setStatusAndError("Failed to insert g3man Game API!", 
+				setStatusAndError("Failed to insert g3man Game API(s)!", 
 					gameAPIResult.PrintAllErrors(false));
 				return null;
 			}
@@ -633,7 +643,7 @@ public class DatafilePatcher {
 	}
 	
 	private List<string> CheckModApplicationIssues(List<Mod> mods, bool allowModScripting) {
-		List<string> issues = new List<string>();
+		List<string> issues = new();
 		List<IGrouping<string, Mod>> idGroups = mods.GroupBy(mod => mod.ModId).ToList();
 
 		if (idGroups.Any(idGroup => idGroup.Count() > 1)) {
@@ -650,7 +660,7 @@ public class DatafilePatcher {
 		
 		Dictionary<string, Mod> idMap = mods.ToDictionary(mod => mod.ModId);
 		foreach (Mod mod in mods) {
-			if (mod.TargetPatcherVersion > ProgramConstants.VERSION) {
+			if (mod.TargetPatcherVersion > ProgramConstants.VERSION.Major) {
 				issues.Add($"Mod {mod.Identify()} is made for a version of g3man that is too high: {mod.TargetPatcherVersion} (you are on {ProgramConstants.VERSION})");
 			}
 			
@@ -762,7 +772,7 @@ public class DatafilePatcher {
 
 	private void CheckImports(List<Mod> mods, Mod mod, Dictionary<string, Mod> idMap, List<string> issues) {
 		foreach (Import import in mod.Imports) {
-			if (GameAPI.IsImportAskingForMe(import))
+			if (GameAPI.IsImportAskingForUs(import))
 				continue;
 			
 			List<Mod> WhoExports(string name) {
@@ -776,7 +786,7 @@ public class DatafilePatcher {
 			
 			List<Mod> exporters = WhoExports(import.Name);
 			if (exporters.Count == 0) {
-				if (import.Contingency is GiveUpContingency a) {
+				if (import.Contingency is GiveUpContingency) {
 					lock (issues) {
 						issues.Add($"Mod {mod.Identify()} depends on the import \"{import.Name}\" but it is not provided by anyone.");
 					}
@@ -806,7 +816,7 @@ public class DatafilePatcher {
 	
 	
 	private string generateCompileError(CompileResult compileResult, PatchStep<Mod> step, PatchResults result) {
-		StringBuilder sb = new StringBuilder();
+		StringBuilder sb = new();
 		int number = 1;
 			
 		// group errors by file
@@ -911,7 +921,43 @@ public class DatafilePatcher {
 		//return data.BuiltinList.LookupBuiltinFunction(function.Name.Content) is not null;
 		return false;
 	}
-	
+
+	private static Assets GetAllIndices(UndertaleData data, Assets? previous = null) {
+		Assets assets = new();
+		assets.Set = new();
+		object?[] lists = [data.Sprites, data.Backgrounds, data.GameObjects, data.Rooms, data.Sounds, data.AudioGroups,
+							  data.AnimationCurves, data.Fonts, data.ParticleSystems, data.Paths, data.Paths, data.Shaders, data.Sequences, data.Timelines];
+
+		assets.Offsets = new int[lists.Length];
+		for (int i = 0; i < lists.Length; i++) {
+			object? uncastedList = lists[i];
+			if (uncastedList is null)
+				continue;
+			IEnumerable<UndertaleNamedResource?> enumerable = (IEnumerable<UndertaleNamedResource?>)uncastedList;
+			List<UndertaleNamedResource?> list = new(enumerable);
+			int offset = previous?.Offsets[i] ?? 0;
+			for (int j = offset; j < list.Count; j++) {
+				UndertaleNamedResource? asset = list[j];
+				if (asset is null)
+					continue;
+				assets.Set.Add(asset.Name.Content);
+			}
+
+			assets.Offsets[i] = list.Count;
+		}
+		return assets;
+	}
+	private static Assets EmptyIndices(Assets previous) {
+		Assets assets = new();
+		assets.Set = new();
+		assets.Offsets = previous.Offsets;
+		return assets;
+	}
+
+	public struct Assets {
+		public HashSet<string> Set;
+		public int[] Offsets;
+	}
 }
 
 

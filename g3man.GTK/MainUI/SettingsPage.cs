@@ -106,14 +106,12 @@ public partial class MainWindow {
 		steamExecutableEntry.SetTooltipText("The path to Steam's executable/command to launch Steam, for launching games with Steam.");
 		
 		Button steamBrowseButton = Button.NewWithLabel("Browse");
-		steamBrowseButton.OnClicked += (_, _) => {
-			FileDialogWindow window = new FileDialogWindow("Choose an executable", [], file => {
-				string? path = file.GetPath();
-				if (path is null)
-					return;
-				steamExecutableEntry.SetText(path);
-			});
-			window.Dialog(this);
+		steamBrowseButton.OnClicked += async (_, _) => {
+			Gio.File? file = await FileDialogWindow.Dialog(this, "Choose an executable", []);
+			string? path = file?.GetPath();
+			if (path is null)
+				return;
+			steamExecutableEntry.SetText(path);
 		};
 
 		Box steamBox = Box.New(Orientation.Vertical, 10)

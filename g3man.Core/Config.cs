@@ -12,12 +12,12 @@ public class Config {
 	public bool CheckForUpdates;
 	public string SteamExecutable;
 
-	private const int LatestVersion = 2;
+	private const int FormatVersion = 2;
 
 	public Config() : this(new JsonElement(), Logger.Null) { }
 
 	public Config(JsonElement root, Logger errorLogger) {
-		int formatVersion = JsonUtil.GetOrDefault(root, "format_version", LatestVersion);
+		int formatVersion = JsonUtil.GetOrDefault(root, "format_version", FormatVersion);
 		if (formatVersion == 1) {
 			List<string> gameDirectories = JsonUtil.GetOrDefaultClass(root, "game_directories", Array.Empty<string>()).ToList();
 			GameEntries = gameDirectories.Select(s => new GameEntry(s, "default")).ToList();

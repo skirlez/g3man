@@ -12,8 +12,6 @@ using DateTime = System.DateTime;
 namespace g3man;
 
 public static class Program {
-	public const int Version = 9;
-	
 	public static TextWriter? Logfile = null;
 	
 	
@@ -35,13 +33,13 @@ public static class Program {
 		#endif
 		MainThread = Thread.CurrentThread;
 		string logFilename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
-		Logger.LoggerPipe pipe = new Logger.LoggerPipe(InfoWriters, ErrorWriters);
+		Logger.LoggerPipe pipe = new(InfoWriters, ErrorWriters);
 		if (args.Length == 0) {
 			Logger logger = Logger.Make("", pipe);
 			try {
 				string logs = Path.Combine(ProgramPaths.GetDataDirectory(), "logs");
 				Directory.CreateDirectory(logs);
-				StreamWriter logfile = new StreamWriter(Path.Combine(logs, logFilename));
+				StreamWriter logfile = new(Path.Combine(logs, logFilename));
 				logfile.AutoFlush = true;
 				
 				Logfile = logfile;

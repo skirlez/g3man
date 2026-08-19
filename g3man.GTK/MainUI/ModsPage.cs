@@ -124,7 +124,7 @@ public partial class MainWindow {
 		}
 
 		Button importFromZipButton = Button.NewWithLabel("Import");
-		importFromZipButton.OnClicked += (_, _) => {
+		importFromZipButton.OnClicked += async (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
@@ -132,21 +132,20 @@ public partial class MainWindow {
 			FileFilter xdeltaFilter = FileFilter.New();
 			xdeltaFilter.SetName("Xdelta patches");
 			xdeltaFilter.AddPattern("*.xdelta");
-			FileDialogWindow window = new FileDialogWindow("Select a mod's file", [zipFilter, xdeltaFilter], (file) => {
-				string? path = file.GetPath();
-				if (path is null)
-					return;
-				if (Path.GetExtension(path) == ".xdelta") {
-					// TODO: this is done on the main thread
-					File.Copy(path, Path.Combine(UI.CurrentProfileFolderPath(), Path.GetFileName(path)), true);
-					ParseModsAndUpdateMenu();
-				}
-				else {
-					UnzipperWindow window = new(UnzipperWindow.ZipType.Mod);
-					window.Dialog(this, file, ParseModsAndUpdateMenu);
-				}
-			});
-			window.Dialog(this);
+
+			Gio.File? file = await FileDialogWindow.Dialog(this, "Select a mod's file", [zipFilter, xdeltaFilter]);
+			string? path = file?.GetPath();
+			if (path is null)
+				return;
+			if (Path.GetExtension(path) == ".xdelta") {
+				// TODO: this is done on the main thread
+				File.Copy(path, Path.Combine(UI.CurrentProfileFolderPath(), Path.GetFileName(path)), true);
+				ParseModsAndUpdateMenu();
+			}
+			else {
+				UnzipperWindow window = new(UnzipperWindow.ZipType.Mod);
+				window.Dialog(this, file!, ParseModsAndUpdateMenu);
+			}
 		};
 
 		Button deleteModButton = Button.NewWithLabel("Delete selected");

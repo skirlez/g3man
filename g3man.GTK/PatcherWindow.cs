@@ -49,108 +49,66 @@ public class PatcherWindow : G3manWindow {
 		SetChild(box);
 	}
 
-	public void ApplyDialog(List<IMod> mods, bool launch) {
+	private async void Dialog(List<IMod>? mods, bool applyAndLaunch) {
 		SetTransientFor(owner);
 		SetModal(true);
 		Present();
 		Game game = UI.GetGame()!;
 		Profile profile = UI.GetProfile()!;
-		new Thread(() => {
-			bool success = PatchRoutine(game, profile, mods);
-			UI.RunOnMainThreadEventually(async void () => {
-				if (success && launch)
-					await LaunchRoutine(game, profile);
-				canClose = true;
-				closeButton.SetSensitive(true);
-			});
-		}).Start();
-	}
-	public async void LaunchDialog() {
-		SetTransientFor(owner);
-		SetModal(true);
-		Present();
-		Game game = UI.GetGame()!;
-		Profile profile = UI.GetProfile()!;
-		await LaunchRoutine(game, profile);
+		bool shouldLaunch;
+		if (mods == null) {
+			shouldLaunch = true;
+		}
+		else {
+			bool success = await PatchRoutine(game, profile, mods);
+			shouldLaunch = (success && applyAndLaunch);
+		}
+		if (shouldLaunch)
+			await LaunchRoutine(game, profile);
 		canClose = true;
 		closeButton.SetSensitive(true);
 	}
-
-	record ChoiceLock {
-		public int Choice = 0;
+	
+	public void ApplyDialog(List<IMod> mods, bool launch) {
+		Dialog(mods, applyAndLaunch: launch);
 	}
-	private bool PatchRoutine(Game game, Profile profile, List<IMod> mods) {
-		void setStatus(string status) {
-			UI.RunOnMainThreadEventually(() => {
-				statusLabel.SetMarkup(status);
-				if (!IsVisible())
-					Present();
-			});
-		}
+	public void LaunchDialog() {
+		Dialog(mods: null, applyAndLaunch: true);
+	}
+	
+	private async Task<bool> PatchRoutine(Game game, Profile profile, List<IMod> mods) {
+		statusLabel.SetText("Hashing current datafile...");
+		string hash = "";
+		string lastHash = "";
+		await Task.Run(() => {
+			lastHash = IO.GetLastOutputHash(game);
+			try {
+				using FileStream stream = new(game.GetInputDatafilePath(), FileMode.Open, FileAccess.Read);
+				hash = IO.HashToString(MD5.HashData(stream));
+			}
+			catch {
+				// don't care
+			}
+		});
 		
-		string profilePath = game.GetProfileFolderPath(profile);
-		string profileLivePath = game.GetProfileLiveFolderPath(profile);
-		
-		setStatus("Hashing current datafile...");
-		string hash;
-		try {
-			using FileStream stream = new(game.GetInputDatafilePath(), FileMode.Open, FileAccess.Read);
-			hash = IO.HashToString(MD5.HashData(stream));
-		}
-		catch {
-			hash = "";
-		}
-		
-		string lastHash = IO.GetLastOutputHash(game);
 		bool forceReloadDatafile = false;
-		
 		if (lastHash != hash && hash != "" && lastHash != "") {
 			string[] buttonTexts = ["Update clean datafile copy", "Keep it as is", "Cancel"];
-			ChoiceLock lockObject = new ChoiceLock();
-			
-			PopupWindow popupWindow = new PopupWindow(this, "Question",
-				$"g3man has detected that the game's datafile ({game.GetInputDatafileRelativePath()}) has been modified.\n"
+			AlertDialog alertDialog = AlertDialog.NewWithProperties([]);
+			alertDialog.Message =
+				"g3man has detected that the game's datafile ({game.GetInputDatafileRelativePath()}) has been modified.\n"
 				+ $"Do you wish to update your clean copy as well? If so, select \"{buttonTexts[0]}\"\n(You probably want to choose this if you just updated the game).\n"
-				+ $"Otherwise, select \"{buttonTexts[1]}\" to stay on this version.",
-				buttonTexts,
-				
-				actions: [
-					(window) => {
-						lock (lockObject) {
-							lockObject.Choice = 1;
-							Monitor.PulseAll(lockObject);
-						}
-						window.Close();
-					},
-					(window) => {
-						lock (lockObject) {
-							lockObject.Choice = 2;
-							Monitor.PulseAll(lockObject);
-						}
-						window.Close();
-					}, 
-					PopupWindow.CloseWindowAction,
-				], 
-				beforeClose: _ => {
-					lock (lockObject) {
-						if (lockObject.Choice == 0) {
-							lockObject.Choice = 3;
-							Monitor.PulseAll(lockObject);
-						}
-					}
-				});
+				+ $"Otherwise, select \"{buttonTexts[1]}\" to stay on this version.";
+			alertDialog.SetButtons(buttonTexts);
+			alertDialog.SetDefaultButton(1);
+			alertDialog.SetCancelButton(2);
+			int choice = await alertDialog.ChooseAsync(this);
 			
-			lock (lockObject) {
-				UI.RunOnMainThreadEventually(popupWindow.Dialog);
-				// wait for user to make choice
-				while (lockObject.Choice == 0)
-					Monitor.Wait(lockObject);
-			}
-
-			if (lockObject.Choice == 1) {
-				setStatus("Updating clean datafile...");
+			if (choice == 0) {
+				statusLabel.SetText("Updating clean datafile...");
 				try {
-					File.Move(game.GetCleanDatafilePath(), game.GetBackupDatafilePath(), true);
+					if (File.Exists(game.GetCleanDatafilePath()))
+						File.Move(game.GetCleanDatafilePath(), game.GetBackupDatafilePath(), true);
 					File.Copy(game.GetInputDatafilePath(),
 						game.GetCleanDatafilePath(), true);
 					// update hash to what we just read
@@ -158,95 +116,102 @@ public class PatcherWindow : G3manWindow {
 				}
 				catch (Exception e) {
 					UI.Logger.Error($"Failed to update clean datafile: {e}");
-					setStatus("Failed to update clean datafile! Please report this as a bug.");
+					statusLabel.SetText("Failed to update clean datafile! Please report this as a bug.");
 					return false;
 				}
 
 				forceReloadDatafile = true;
 			}
-			else if (lockObject.Choice == 2) {
+			else if (choice == 1) {
 				// update hash to what we just read
 				IO.WriteGameLastOutputHash(game.Directory, hash);
 			}
-			else if (lockObject.Choice == 3) {
+			else if (choice == 2) {
 				canClose = true;
 				UI.RunOnMainThreadEventually(Close);
 				return false;
 			}
-			
 		}
 		
-		List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, profilePath, game.DatafilePath);
-		UI.DataLoader.LoadAsync(game, datafileXdeltaPatches, forceReloadDatafile);
-		
-		setStatus("Applying .xdelta patches");
-		IO.CreateLiveFolder(profilePath, profileLivePath);
-		(IMod Mod, XdeltaSourcePair FailedPatch)? xdeltaError = IO.CreateXdeltaFoldersAndApply(game.Directory, profilePath, profileLivePath, mods);
-		if (xdeltaError.HasValue) {
-			setStatus($"Mod {xdeltaError.Value.Mod.Identify()} had a failed Xdelta patch called \"{xdeltaError.Value.FailedPatch.Filename}\"\nfor \"{xdeltaError.Value.FailedPatch.RelativeSourcePath}\"");
-			return false;
-		} 
-		
-		setStatus("Waiting for game data to load...");
-		UndertaleData data;
-		lock (UI.DataLoader.Lock) {
-			while (!UI.DataLoader.CanSnatch()) {
-				if (UI.DataLoader.HasErrored()) {
-					setStatus("Failed to load the game's clean datafile.\nThis can happen for a number of reasons.\n"
-							  + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
-					return false;
-				}
-				Monitor.Wait(UI.DataLoader.Lock);
-			}
-			data = UI.DataLoader.Snatch();
-		}
-
-
-		List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
-		DatafilePatcher datafilePatcher = new DatafilePatcher();
-
-
-		string relativeProfilePath = $"g3man/profiles/{profile.ID}";
-		int vanillaAudioGroupCount = data.AudioGroups.Count;
-		DatafilePatcher.PatchProduct? output;
-		try {
-			output = datafilePatcher.Patch(noXdeltas, profile, profilePath,
-				relativeProfilePath, profile.ID,
-				data, Logger.MakeWithoutInfo("PATCHER", UI.Logger.Pipe), setStatus, allowModScripting: UI.Config.AllowModScripting);
-		}
-		catch (Exception e) {
-			setStatus("Unknown error occurred while patching! Report this as a bug.");
-			UI.Logger.Error($"Unhandled exception while patching:\n{e}");
-			return false;
-		}
-
-		if (!output.HasValue)
-			return false;
-		
-		
+		string profilePath = game.GetProfileFolderPath(profile);
+		string profileLivePath = game.GetProfileLiveFolderPath(profile);
 		bool overwritingInput = (game.DatafilePath == game.GetOutputDatafileRelativePath(profile));
-		
-		setStatus("Writing...");
-		
-		
-		try {
-			IO.Apply(data, vanillaAudioGroupCount, output.Value.AudioGroupTransfers, game, profile);
-		}
-		catch (Exception e) {
-			UI.Logger.Error(e);
-			setStatus("Failed to write output datafile! Check the log.");
+		bool success = await Task.Run(() => { 
+			void setStatus(string status) {
+				UI.RunOnMainThreadEventually(() => {
+					statusLabel.SetMarkup(status);
+				});
+			}
+			
+			List<Xdelta> datafileXdeltaPatches = Xdelta.GetDatafileXdeltaPatches(mods, profilePath, game.DatafilePath);
+			UI.DataLoader.LoadAsync(game, datafileXdeltaPatches, forceReloadDatafile);
+			
+			setStatus("Applying .xdelta patches");
+			IO.CreateLiveFolder(profilePath, profileLivePath);
+			(IMod Mod, XdeltaSourcePair FailedPatch)? xdeltaError = IO.CreateXdeltaFoldersAndApply(game.Directory, profilePath, profileLivePath, mods);
+			if (xdeltaError.HasValue) {
+				setStatus($"Mod {xdeltaError.Value.Mod.Identify()} had a failed Xdelta patch called \"{xdeltaError.Value.FailedPatch.Filename}\"\nfor \"{xdeltaError.Value.FailedPatch.RelativeSourcePath}\"");
+				return false;
+			} 
+			
+			setStatus("Waiting for game data to load...");
+			UndertaleData data;
+			lock (UI.DataLoader.Lock) {
+				while (!UI.DataLoader.CanSnatch()) {
+					if (UI.DataLoader.HasErrored()) {
+						setStatus("Failed to load the game's clean datafile.\nThis can happen for a number of reasons.\n"
+								  + "See the <a href=\"https://github.com/skirlez/g3man/wiki/Error:-Failed-to-load-game's-clean-datafile\">wiki page</a> for this error.");
+						return false;
+					}
+					Monitor.Wait(UI.DataLoader.Lock);
+				}
+				data = UI.DataLoader.Snatch();
+			}
+
+
+			List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
+			DatafilePatcher datafilePatcher = new();
+			
+			string relativeProfilePath = $"g3man/profiles/{profile.ID}";
+			int vanillaAudioGroupCount = data.AudioGroups?.Count ?? 0;
+			DatafilePatcher.PatchProduct? output;
+			try {
+				output = datafilePatcher.Patch(noXdeltas, profile, profilePath,
+					relativeProfilePath, profile.ID,
+					data, Logger.MakeWithoutInfo("PATCHER", UI.Logger.Pipe), setStatus, allowModScripting: UI.Config.AllowModScripting);
+			}
+			catch (Exception e) {
+				setStatus("Unknown error occurred while patching! Report this as a bug.");
+				UI.Logger.Error($"Unhandled exception while patching:\n{e}");
+				return false;
+			}
+
+			if (!output.HasValue)
+				return false;
+			
+			setStatus("Writing...");
+			
+			try {
+				IO.Apply(data, vanillaAudioGroupCount, output.Value.AudioGroupTransfers, game, profile);
+			}
+			catch (Exception e) {
+				UI.Logger.Error(e);
+				setStatus("Failed to write output datafile! Check the log.");
+				return false;
+			}
+			
+			bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
+			if (createOldSymlink)
+				IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
+
+			return true;
+		});
+		if (!success)
 			return false;
-		}
-		
-		bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
-		if (createOldSymlink)
-			IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
-		
 		string launchInstructions =
 			overwritingInput ? "You can launch the game by any means to play!" :
-						"You must launch the game through g3man\nto see the changes.";
-		
-		setStatus($"Done!\n{launchInstructions}");
+				"You must launch the game through g3man\nto see the changes.";
+		statusLabel.SetText($"Done!\n{launchInstructions}");
 		return true;
 	}
 

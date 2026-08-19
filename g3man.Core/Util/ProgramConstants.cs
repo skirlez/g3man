@@ -1,5 +1,7 @@
+using g3man.Core.Models;
+
 namespace g3man.Core.Util;
 
-public class ProgramConstants {
-	public const int VERSION = 10;
+public static class ProgramConstants {
+	public static readonly SemVer VERSION = new("10.0.0");
 }

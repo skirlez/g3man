@@ -10,9 +10,7 @@ public class ManageProfileWindow : G3manWindow {
 	public ManageProfileWindow(Profile? profile, Action<Profile, bool> saveCallback, Action? deleteCallback = null) {
 		SetSizeRequest(400, 300);
 		SetTitle(profile is null ? "Create Profile" : "Manage Profile");
-
 		
-			
 		Label nameLabel = Label.New("Name");
 		nameLabel.SetHalign(Align.Start);
 		Entry nameEntry = Entry.New();

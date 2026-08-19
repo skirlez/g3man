@@ -1,4 +1,5 @@
 using g3man.Core;
+using g3man.Core.Models;
 using g3man.Core.Util;
 using g3man.GTK.Util;
 using Gtk;
@@ -32,7 +33,7 @@ public partial class MainWindow {
 				+ $"\nYou may download it <a href=\"https://github.com/skirlez/g3man/releases/latest\">here</a>.");
 		}
 
-		setUpdateFoundText((ProgramConstants.VERSION + 1).ToString());
+		setUpdateFoundText(ProgramConstants.VERSION.ToString());
 		
 		Label checkingUpdateLabel = Label.New("Checking for updates...");
 		Label latestVersionLabel = Label.New("You are on the latest version.");
@@ -40,7 +41,7 @@ public partial class MainWindow {
 		Label empty = Label.New("");
 		
 		// We're using a stack here so it scales up to the size of the largest text (so the UI doesn't move around when the text updates)
-		Stack updateStatusStack = new Stack();
+		Stack updateStatusStack = new();
 		updateStatusStack.AddChild(updateFoundLabel);
 		updateStatusStack.AddChild(checkingUpdateLabel);
 		updateStatusStack.AddChild(latestVersionLabel);
@@ -54,7 +55,7 @@ public partial class MainWindow {
 			child = child.GetNextSibling();
 		} while (child != null);
 		
-		UpdateChecker checker = new UpdateChecker(() => {
+		UpdateChecker checker = new(() => {
 			updateStatusStack.SetVisibleChild(checkingUpdateLabel);
 		}, 
 		(string? version) => {

@@ -33,16 +33,15 @@ public partial class MainWindow {
 		};
 		
 		Button importFromZipButton = Button.NewWithLabel("Import from ZIP");
-		importFromZipButton.OnClicked += (_, _) => {
+		importFromZipButton.OnClicked += async (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
-			FileDialogWindow window = new FileDialogWindow("Select a profile ZIP file", [zipFilter], (file) => {
-				UnzipperWindow window = new UnzipperWindow(UnzipperWindow.ZipType.Profile);
-				window.Dialog(this, file, ParseProfilesAndUpdateMenu);
-				
-			});
-			window.Dialog(this);
+			Gio.File? file = await FileDialogWindow.Dialog(this, "Select a profile ZIP file", [zipFilter]);
+			if (file is null)
+				return;
+			UnzipperWindow window = new(UnzipperWindow.ZipType.Profile);
+			window.Dialog(this, file, ParseProfilesAndUpdateMenu);
 		};
 		
 		
