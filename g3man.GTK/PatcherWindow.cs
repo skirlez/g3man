@@ -80,11 +80,16 @@ public class PatcherWindow : G3manWindow {
 		statusLabel.SetText("Hashing current datafile...");
 		string hash = "";
 		string lastHash = "";
+		bool readHashesSuccessfully = false;
 		await Task.Run(() => {
 			lastHash = IO.GetLastOutputHash(game);
+			if (lastHash == "")
+				return;
 			try {
 				using FileStream stream = new(game.GetInputDatafilePath(), FileMode.Open, FileAccess.Read);
 				hash = IO.HashToString(MD5.HashData(stream));
+
+				readHashesSuccessfully = true;
 			}
 			catch {
 				// don't care
@@ -92,7 +97,7 @@ public class PatcherWindow : G3manWindow {
 		});
 		
 		bool forceReloadDatafile = false;
-		if (lastHash != hash && hash != "" && lastHash != "") {
+		if (lastHash != hash && readHashesSuccessfully) {
 			string[] buttonTexts = ["Update clean datafile copy", "Keep it as is", "Cancel"];
 			AlertDialog alertDialog = AlertDialog.NewWithProperties([]);
 			alertDialog.Message =

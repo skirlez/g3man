@@ -65,7 +65,7 @@ public class Mod : IMod {
 		Homepage = JsonUtil.GetStringOrThrow(root, "homepage", "");
 		Source = JsonUtil.GetStringOrThrow(root, "source", "");
 		
-		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"), false);
+		Version = new SemVer(JsonUtil.GetStringOrThrow(root, "version"));
 		string target_patcher_version = JsonUtil.GetOrDefaultClass(root, "target_patcher_version", "");
 		if (target_patcher_version != "") {
 			// TODO
@@ -205,7 +205,7 @@ public class Mod : IMod {
 		return $"\"{DisplayName}\" (ID \"{ModId}\")";
 	} 
 }
-public class InvalidModException(string message) : Exception(message);
+public class InvalidModException(string message) : Gexception(message);
 
 public class PatchLocation {
 	public string Path;
@@ -344,11 +344,11 @@ public class InvalidNamespacingOptionsException(string message) : InvalidModExce
 public readonly struct NamespacingOptions {
 	public readonly SuffixingScheme Scheme;
 
-	private NamespacingOptions(bool invert, SuffixingScheme scheme) {
+	private NamespacingOptions(SuffixingScheme scheme) {
 		Scheme = scheme;
 	}
-	public static NamespacingOptions None = new(false, new NoneNamespacingScheme());
-	public static NamespacingOptions All = new(false, new AllNamespacingScheme());
+	public static NamespacingOptions None = new(new NoneNamespacingScheme());
+	public static NamespacingOptions All = new(new AllNamespacingScheme());
 	public NamespacingOptions(JsonElement root) {
 		string type = JsonUtil.GetStringOrThrow(root, "type");
 		switch (type) {
@@ -361,7 +361,7 @@ public readonly struct NamespacingOptions {
 				Scheme = new ListNamespacingScheme(excludeList);
 				break;
 			default:
-				throw new InvalidNamespacingOptionsException($"Invalid namespacing scheme type \"{type}\". Supported types: include, exclude, prefix");
+				throw new InvalidNamespacingOptionsException($"Invalid namespacing scheme type \"{type}\". Supported types: exclude, exclude_prefix");
 		}
 	}
 }

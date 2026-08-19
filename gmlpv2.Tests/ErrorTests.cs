@@ -22,6 +22,5 @@ public class ErrorTests {
 	public void Test() {
 		Shared.AssertFailsRealization(code1, patch1);
 		Shared.ApplyAndCompare(code1, patch2, code1);
-
 	}
 }

@@ -77,7 +77,6 @@ public partial class MainWindow : G3manWindow {
 		pageBox.Append(pageStack);
 		pageBox.SetHomogeneous(false);
 		
-
 		pageStack.SetTransitionType(StackTransitionType.SlideUpDown);
 		
 		pageSidebar.SetMargin(5);
@@ -113,7 +112,7 @@ public partial class MainWindow : G3manWindow {
 		}
 		
 		if (UI.InitializedUsing == Initializer.Libadwaita) {
-			CssProvider pageButtonProvider = new CssProvider();
+			CssProvider pageButtonProvider = CssProvider.New();
 			pageButtonProvider.LoadFromString(
 			@"button {
 				font-weight	: normal;

@@ -1,3 +1,5 @@
+using g3man.Core.Util;
+
 namespace g3man.Core.Models;
 
 public readonly struct SemVer() {
@@ -6,22 +8,19 @@ public readonly struct SemVer() {
 	public readonly int Patch;
 
 	public SemVer(string version, bool shorteningAllowed = false) : this() {
-		const string help1 = "Mods should have versions of the form \"major.minor.patch\", like \"1.0.0\", or \"2.3.4\"";
-		const string help2 = "Mod relations should have versions of the form \"major.minor.patch\" (with shortening allowed), like \"1.0.0\" or \"2.3\"";
-		string help = shorteningAllowed ? help2 : help1;
 		string[] sections = version.Split(".");
 
 		int ParseSection(string section) {
 			return int.Parse(section);
 		}
 
-		if (!shorteningAllowed && sections.Length != 3) {
-			throw new InvalidSemVerException($"Field \"version\" has too little dots. {help}");
-		}
+		if (!shorteningAllowed && sections.Length != 3)
+			throw new InvalidSemVerException($"Version string \"{version}\" has too little dots (there must be exactly 2).");
+		
 		try {
 			switch (sections.Length) {
 				case 0:
-					throw new InvalidSemVerException($"Field \"version\" is blank. {help}");
+					throw new InvalidSemVerException($"Version string \"{version}\" is blank.");
 				case 1:
 					Major = ParseSection(sections[0]);
 					Minor = 0;
@@ -38,12 +37,12 @@ public readonly struct SemVer() {
 					Patch = ParseSection(sections[2]);
 					break;
 				default:
-					throw new InvalidSemVerException($"Field \"version\" has too many dots. {help}");
+					throw new InvalidSemVerException($"Version string \"{version}\" has too many dots (there must be at most 2)");
 			}
 		}
 		catch (Exception e) {
 			if (e is FormatException || e is OverflowException)
-				throw new InvalidSemVerException($"Field \"version\" does not have valid numbers. {help}");
+				throw new InvalidSemVerException($"Version string \"{version}\" does not have valid numbers.");
 			throw;
 		}
 	}
@@ -51,7 +50,7 @@ public readonly struct SemVer() {
 		return $"{Major}.{Minor}.{Patch}";
 	}
 }
-public class InvalidSemVerException(string message) : InvalidModException(message);
+public class InvalidSemVerException(string message) : Gexception(message);
 
 public readonly struct SemVerRequirements {
 	private readonly (SemVer, SemVerComparison)[] Conditions;
@@ -173,4 +172,4 @@ public enum SemVerComparison {
 	RoughlyEquals,
 	Equals
 }
-public class InvalidSemVerRequirementException(string message) : InvalidModException(message);
+public class InvalidSemVerRequirementException(string message) : Gexception(message);

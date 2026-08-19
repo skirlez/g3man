@@ -142,10 +142,10 @@ public class DatafilePatcher {
 		public HashSet<string> GroupsToCopy = groupsToCopy;
 	}
 
-
+	public static readonly string SCRIPT_PREFIX = "gml_Script_";
 	// namespace the names of functions in accordance to NamespacingOptions
 	private void autoNamespace(UndertaleData data, string modId, NamespacingOptions namespacingOptions) {
-	    const string SCRIPT_PREFIX = "gml_Script_";
+	    
 		bool shouldNamespaceScript(UndertaleScript script) {
 			string name = script.Name.Content;
 			if (name.Contains('@') || name.StartsWith("gml_GlobalScript_"))
@@ -155,14 +155,23 @@ public class DatafilePatcher {
 			string functionName = name.Remove(0, SCRIPT_PREFIX.Length);
 			return !namespacingOptions.Scheme.IsExcluded(functionName);
 		}
+		
 		foreach (UndertaleScript script in data.Scripts) {
-			if (shouldNamespaceScript(script)) {
-				string name = script.Name.Content.Remove(0, SCRIPT_PREFIX.Length);
-				UndertaleVariable? variable = data.Variables.ByName(name);
-				variable?.Name.Content = $"@{modId}@{name}";
-				script.Name.Content = $"{SCRIPT_PREFIX}@{modId}@{name}";
-			}
+			if (!shouldNamespaceScript(script)) 
+				continue;
+			string name = script.Name.Content.Remove(0, SCRIPT_PREFIX.Length);
+			
+			// Renaming the variable associated with a function is basically done for correctness.
+			// It's probably possible to make everything behave as it does without doing this step,
+			// but it would be Jank.
+			UndertaleVariable? variable = data.Variables.ByName(name);
+			if (variable is not null)
+				CodeFixer.RenameVariableOrCreateNew(data, script, variable, $"@{modId}@{name}");
+			
+			script.Name.Content = $"{SCRIPT_PREFIX}@{modId}@{name}";
 		}
+		
+		
 	}
 	
 	/**
@@ -352,7 +361,6 @@ public class DatafilePatcher {
 		return new MergeProduct(groupsToUpdate, groupsToCopy);
 	}
 
-	private const string CHECK_LOG = "Check the log for more details.";
 
 	public struct PatchProduct(UndertaleData data, List<AudioGroupTransfer> transfers) {
 		public UndertaleData Data = data;
@@ -373,16 +381,19 @@ public class DatafilePatcher {
 				statusCallback(message);
 				return;
 			}
+			
 			logger.Error($"{message}\n{error}");
-			statusCallback($"{message} {CHECK_LOG}");
+			statusCallback($"{message}\nCheck the log for more details.");
 		}
 		
 		bool runModScript(Mod mod, Func<Mod, string> getScriptPath, ScriptGlobals globals) {
 			string path = getScriptPath(mod);
 			if (path == "")
 				return true;
-			setStatusAndInfo($"Running script: {path}");
+			
 			string relativePath = Path.Combine(mod.ModId, path);
+			setStatusAndInfo($"Running script: {relativePath}");
+			
 			string fullStringPath = Path.Combine(profileLocation, relativePath);
 			string code;
 				
@@ -456,7 +467,9 @@ public class DatafilePatcher {
 				return null;
 				
 			autoNamespace(modData, mod.ModId, mod.NamespacingOptions);
+			
 			//ReferenceFixer.FixReferences(modData);
+			
 			MergeProduct product;
 			try {
 				product = merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
