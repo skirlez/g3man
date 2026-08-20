@@ -7,12 +7,13 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-	<ItemGroup>
+    <ItemGroup>
         <PackageReference Include="GirCore.Adw-1" Version="0.8.1" />
         <PackageReference Include="GirCore.Gtk-4.0" Version="0.8.1" />
-	</ItemGroup>
+        <ProjectReference Include="..\g3man.Core\g3man.Core.csproj" />
+    </ItemGroup>
 
-	<ItemGroup>
-	  <ProjectReference Include="..\g3man.Core\g3man.Core.csproj" />
-	</ItemGroup>
+    <ItemGroup Condition="'$(IsWindows)'=='true'">
+        <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.8.1" />
+    </ItemGroup>
 </Project>
