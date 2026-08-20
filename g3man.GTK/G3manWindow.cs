@@ -1,4 +1,8 @@
-﻿using Gtk;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+using g3man.Core;
+using Gdk;
+using Gtk;
 #if THEMABLE_TITLEBAR
     #if WINDOWS
         using System.Runtime.InteropServices;
@@ -37,7 +41,7 @@ public class G3manWindow : Window {
             AdwaitaDark = 0x00201D1D,
         }
         private static WindowTitlebarColor getAppropriateColor() {
-            if (Program.InitializedUsing == Program.Initializer.Gtk4) {
+            if (UI.InitializedUsing == Initializer.Gtk4) {
                 Settings? settings = Settings.GetDefault();
                 if (settings is not null && settings.GtkInterfaceColorScheme == InterfaceColorScheme.Dark)
                     return WindowTitlebarColor.GtkDark;

@@ -162,7 +162,8 @@ public class Game {
 			case ExecutableType.File: {
 				Process? p = Process.Start(new ProcessStartInfo(Path.Combine(Directory, ExecutablePath), gameArguments) {
 					UseShellExecute = false,
-					CreateNoWindow = true
+					CreateNoWindow = true,
+					WorkingDirectory = Directory
 				});
 				return p;
 			}

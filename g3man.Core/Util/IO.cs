@@ -6,6 +6,10 @@ using g3man.Core.Patching;
 using UndertaleModLib;
 using UndertaleModLib.Models;
 
+#if WINDOWS
+	using System.Runtime.InteropServices;
+#endif
+
 namespace g3man.Core.Util;
 
 public static class IO {
@@ -61,14 +65,22 @@ public static class IO {
 		DeleteModdedAudioGroups(game.Directory, vanillaAudioGroupCount);
 		
 		string outFolder;
-		Action<string, string> copyFunction;
-		if (game.OverwriteGameFiles) {
+		if (game.OverwriteGameFiles)
 			outFolder = game.Directory;
-		}
 		else {
 			string stageDirectory = Path.Combine(g3manFolder, "stages", profile.ID);
-			if (Directory.Exists(stageDirectory))
+			if (Directory.Exists(stageDirectory)) {
+				DeleteSymlink(Path.Combine(stageDirectory, "g3man"));
 				Directory.Delete(stageDirectory, true);
+			}
+			
+			// to create the stage, we create all the same folders as the original, but link the files instead of copying.
+			// I prefer this to linking all top-level files and folders, as it cannot create issues when deleting the stage
+			// (since you can't somehow traverse back to the original game folder)
+			
+			// if needed, in the future, in environments where we can't have symlinks, this code could easily be modified
+			// to copy files instead
+			
 			Directory.CreateDirectory(stageDirectory);
 			List<string> ignoreFiles = [
 				game.GetInputDatafileRelativePath(), .. getAllAudioGroupDatFiles(game.Directory)
@@ -108,8 +120,13 @@ public static class IO {
 			string audioGroupName = $"audiogroup{mergeTransfers.Key}.dat";
 			string targetDatPath = Path.Combine(game.Directory, audioGroupName);
 			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: false);
-			using FileStream output = new(Path.Combine(outFolder, audioGroupName), FileMode.Create, FileAccess.Write);
-			UndertaleIO.Write(output, audiogroupDat);
+
+			string tempOutPath = Path.Combine(tempFolder, audioGroupName);
+			{
+				using FileStream output = new(tempOutPath, FileMode.Create, FileAccess.Write);
+				UndertaleIO.Write(output, audiogroupDat);
+			}
+			File.Move(tempOutPath, Path.Combine(outFolder, audioGroupName), overwrite: true);
 		}
 
 		byte[] hash = null!;
@@ -238,14 +255,23 @@ public static class IO {
 	
 	/* On normal operating systems, this makes a symlink.
 	* On Windows, this makes a hard link. */
+#if WINDOWS
+	[DllImport("Kernel32.dll", CharSet = CharSet.Unicode)]
+	static extern bool CreateHardLink
+	(
+		string lpFileName,
+		string lpExistingFileName,
+		IntPtr lpSecurityAttributes
+	);
+#endif
+	
 	private static void LinkFile(string targetFile, string path) {
 		#if LINUX || OSX
 			File.CreateSymbolicLink(path, targetFile);
 		#elif WINDOWS
 			// TODO this requires admin (i think)
-			File.CreateSymbolicLink(path, targetFile);
-			// TODO this function is dotnet 11 
-			//File.CreateHardLink(path, targetFile);
+			CreateHardLink(path, targetFile, IntPtr.Zero);
+			// Switch to File.CreateHardLink when we upgrade to .NET 11
 		#else
 			throw new Exception("Function not implemented for this OS");
 		#endif

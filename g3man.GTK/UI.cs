@@ -6,6 +6,10 @@ using g3man.Core.Util;
 using g3man.GTK.Util;
 using Gtk;
 
+#if WINDOWS
+	using System.Reflection;
+#endif
+
 namespace g3man.GTK;
 
 public static class UI {
@@ -63,15 +67,15 @@ public static class UI {
 		Logger = logger;
 		Config = config;
 #if WINDOWS
-				// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
-				// Doesn't happen to me anymore!
-				// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo");
-				
-				string? executableDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-				string? schemaDir = Environment.GetEnvironmentVariable("GSETTINGS_SCHEMA_DIR");
-				if (executableDir is not null && (schemaDir is null || schemaDir.Length == 0))
-					Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", $"{executableDir}\\default-glib-schemas");
-				Environment.SetEnvironmentVariable("GTK_CSD", "0");
+		// force Cairo (fixes black borders around the window on Windows. not sure why this happens)
+		// Doesn't happen to me anymore!
+		// Environment.SetEnvironmentVariable("GSK_RENDERER", "cairo");
+		
+		string? executableDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+		string? schemaDir = Environment.GetEnvironmentVariable("GSETTINGS_SCHEMA_DIR");
+		if (executableDir is not null && (schemaDir is null || schemaDir.Length == 0))
+			Environment.SetEnvironmentVariable("GSETTINGS_SCHEMA_DIR", $"{executableDir}\\default-glib-schemas");
+		Environment.SetEnvironmentVariable("GTK_CSD", "0");
 #endif
 		
 		try {
