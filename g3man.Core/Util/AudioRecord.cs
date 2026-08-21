@@ -1,5 +1,7 @@
+using System.Security.Cryptography;
 using System.Text;
 using UndertaleModLib;
+using UndertaleModLib.Models;
 
 namespace g3man.Core.Util;
 
@@ -18,7 +20,8 @@ public class AudioRecord {
 		writer.Write((short)VERSION);
 		writer.Write(originalEntriesCount);
 		writer.Write(originalHash);
-		return s.GetBuffer();
+		
+		return s.ToArray();
 	}
 	
 	public static AudioRecord? Read(byte[] bytes) {
@@ -33,10 +36,10 @@ public class AudioRecord {
 	}
 
 	
-	private const int RECORD_SIZE = 5 + 2 + 4 + 32;
+	private const int RECORD_SIZE = 5 + 2 + 4 + 16;
 	private static AudioRecord? ReadInternal(byte[] bytes) {
 		BinaryReader binaryReader = new(new MemoryStream(bytes), new ASCIIEncoding());
-		string header = new string(binaryReader.ReadChars(5));
+		string header = new(binaryReader.ReadChars(5));
 		if (header != "g3man")
 			return null;
 		
@@ -47,7 +50,15 @@ public class AudioRecord {
 			return null;
 		}
 		record.OriginalEntriesCount = binaryReader.ReadUInt32();
-		record.OriginalHash = binaryReader.ReadBytes(32);
+		record.OriginalHash = binaryReader.ReadBytes(16);
 		return record;
+	}
+
+
+	public static byte[] Hash(IList<UndertaleEmbeddedAudio> audio) {
+		IncrementalHash md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+		foreach (UndertaleEmbeddedAudio entry in audio)
+			md5.AppendData(entry.Data);
+		return md5.GetCurrentHash();
 	}
 }

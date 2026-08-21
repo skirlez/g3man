@@ -13,12 +13,12 @@ namespace g3man.Core;
 public class DataLoader {
 	private Game? lastGame;
 	private List<Xdelta>? lastXdeltaPaths;
-	public readonly LoaderLock Lock = new LoaderLock();
+	public readonly LoaderLock Lock = new();
 	private readonly Logger logger;
 	
 	public DataLoader(Logger.LoggerPipe pipe) {
 		logger = Logger.Make("DATALOADER", pipe);
-		Thread thread = new Thread(() => {
+		Thread thread = new(() => {
 			UndertaleData? result = null;
 			string? hash = null;
 			MemoryStream dataMemory = new MemoryStream();

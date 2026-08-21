@@ -13,7 +13,6 @@ using UndertaleModLib.Models;
 namespace g3man.Core.Util;
 
 public static class IO {
-	
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
 	public const string OutputHashTextFileName = "last_hash.txt";
 	
@@ -159,6 +158,24 @@ public static class IO {
 			GetRecursiveDirectoryInfo(basis, directoryPath, ignoreFiles, ignoreFolders, outputFiles, outputFolders);
 		}
 	}
+
+
+	private static byte[] RestoreAudioGroupThrowIfHashMismatch(IList<UndertaleEmbeddedAudio> audio, string filename) {
+		if (audio.Count == 0)
+			return AudioRecord.Hash(audio);
+		UndertaleEmbeddedAudio last = audio.Last();
+		AudioRecord? record = AudioRecord.Read(last.Data);
+		if (record is null)
+			return AudioRecord.Hash(audio);
+		
+		while (record.OriginalEntriesCount != (uint)audio.Count)
+			audio.RemoveAt((int)record.OriginalEntriesCount);
+		byte[] vanillaHash = record.OriginalHash;
+		byte[] restoredHash = AudioRecord.Hash(audio);
+		if (!vanillaHash.SequenceEqual(restoredHash))
+			throw new Gexception($"Something is wrong with the audio group file {filename}.\nPlease validate the game files.");
+		return restoredHash;
+	}
 	
 	/**
 	 * This method takes in a path to an audiogroup file and a sequence of AudioGroupTransfers.
@@ -169,35 +186,19 @@ public static class IO {
 	 *
 	 * This function is also responsible for creating the modded record mentioned earlier, if createRecord is set.
 	 */
-	private static UndertaleData MergeAudioGroups(string targetPath, IEnumerable<AudioGroupTransfer> grouping, string modsFolder, bool createRecord) {
+	private static UndertaleData MergeAudioGroups(string targetPath, IEnumerable<AudioGroupTransfer> transfers, string modsFolder, bool createRecord) {
 		UndertaleData targetDat;
-		byte[] vanillaHash;
-		byte[] potentialHash; 
 		{
 			using FileStream s = new(targetPath, FileMode.Open, FileAccess.Read);
-			potentialHash = MD5.HashData(s);
 			targetDat = UndertaleIO.Read(s);
 		}
-			
-		// TODO: right now this system just assumes an error with finding the header just means the header doesn't exist...
+		
+		// TODO: right now this system just assumes an error with finding the header record just means it doesn't exist...
 		// cause it's very convenient to do that
-		if (targetDat.EmbeddedAudio.Count > 0) {
-			UndertaleEmbeddedAudio last = targetDat.EmbeddedAudio.Last();
-			AudioRecord? record = AudioRecord.Read(last.Data);
-			if (record != null) {
-				while (record.OriginalEntriesCount != (uint)targetDat.EmbeddedAudio.Count)
-					targetDat.EmbeddedAudio.RemoveAt((int)record.OriginalEntriesCount);
-				vanillaHash = record.OriginalHash;
-			}
-			else
-				vanillaHash = potentialHash;
-		}
-		else
-			vanillaHash = potentialHash;
-
+		byte[] vanillaHash = RestoreAudioGroupThrowIfHashMismatch(targetDat.EmbeddedAudio, Path.GetFileName(targetPath));
+		
 		int vanillaCount = targetDat.EmbeddedAudio.Count;
-			
-		foreach (AudioGroupTransfer transfer in grouping) {
+		foreach (AudioGroupTransfer transfer in transfers) {
 			string modDatPath = Path.Combine(modsFolder, transfer.Mod.ModId, $"audiogroup{transfer.OriginalIndex}.dat");
 			UndertaleData modDat;
 			{
@@ -339,7 +340,7 @@ public static class IO {
 		if (Directory.Exists(appliedProfileSymlink))
 			Directory.Delete(appliedProfileSymlink, false);
 		byte[] hashBytes;
-		using (FileStream stream = new FileStream(game.GetCleanDatafilePath(), FileMode.Open, FileAccess.Read)) {
+		using (FileStream stream = new(game.GetCleanDatafilePath(), FileMode.Open, FileAccess.Read)) {
 			hashBytes = MD5.HashData(stream);		
 		}
 		File.Copy(game.GetCleanDatafilePath(), game.GetInputDatafilePath(), true);
@@ -359,15 +360,7 @@ public static class IO {
 			return "";
 		}
 	}
-
-	/**
-	 * Deletes the last output hash.
-	 */
-	public static void RemoveLastOutputHash(Game game) {
-		string fullPath = Path.Combine(game.Directory, "g3man", OutputHashTextFileName);
-		File.Delete(fullPath);
-	}
-
+	
 	public static string HashToString(byte[] hashBytes) {
 		return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
 	}
@@ -421,7 +414,7 @@ public static class IO {
 				if (relativeSourcePathFolder is null)
 					return (mod, patch);
 				Directory.CreateDirectory(Path.Combine(xdeltaFolder, relativeSourcePathFolder));
-				using FileStream stream = new FileStream(Path.Combine(xdeltaFolder, patch.RelativeSourcePath), FileMode.Create);
+				using FileStream stream = new(Path.Combine(xdeltaFolder, patch.RelativeSourcePath), FileMode.Create);
 				int ret = patch.Decode(stream);
 				if (ret != 1) {
 					return (mod, patch);
