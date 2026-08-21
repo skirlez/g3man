@@ -52,7 +52,7 @@ public static class IO {
 			int vanillaAudioGroupCount, 
 			List<AudioGroupTransfer> audioGroupTransfers,
 			Game game,
-			Profile profile) {
+			Profile profile, string modsFolder) {
 
 		string tempFolder = Directory.CreateTempSubdirectory("g3man").FullName;
 		
@@ -100,8 +100,6 @@ public static class IO {
 			
 			outFolder = stageDirectory;
 		}
-
-		string modsFolder = game.GetProfileFolderPath(profile);
 		
 		// link to mod audiogroup files
 		foreach (AudioGroupTransfer transfer in audioGroupTransfers) {

@@ -56,6 +56,7 @@ public class UnzipperWindow : G3manWindow {
 		
 		questionLabel = Label.New("");
 		questionLabel.SetWrap(true);
+		questionLabel.SetJustify(Justification.Center);
 
 		
 		questionBox.Append(questionLabel);
@@ -180,12 +181,10 @@ public class UnzipperWindow : G3manWindow {
 				precedingPath != "" ? Path.GetFileName(precedingPath)
 					: Path.GetFileNameWithoutExtension(file.GetBasename()!);
 			string folder = Path.Combine(basePath, folderName);
-			if (!Directory.Exists(folder)) {
+			if (!Directory.Exists(folder))
 				answers[i] = true;
-			}
-			else {
+			else
 				answers[i] = false;
-			}
 		}
 
 		int count = answers.Count(b => !b);
@@ -204,7 +203,7 @@ public class UnzipperWindow : G3manWindow {
 							using Stream s = jsonEntry.Open();
 							mod = Mod.Parse(s);
 						}
-						Ask($"Mod {mod.Identify()} already exists - overwrite it? ({asked}/{count})");
+						Ask($"Mod {mod.Identify()} already exists.\nThis ZIP has version {mod.Version}.\nOverwrite? ({asked}/{count})");
 						asked++;
 					}
 					if (type == ZipType.Profile) {

@@ -148,27 +148,52 @@ public class DatafilePatcher {
 	    
 		bool shouldNamespaceScript(UndertaleScript script) {
 			string name = script.Name.Content;
-			if (name.Contains('@') || name.StartsWith("gml_GlobalScript_"))
+			if (name.Contains('@'))
 				return false;
-			if (!name.StartsWith(SCRIPT_PREFIX))
-				return false;
-			string functionName = name.Remove(0, SCRIPT_PREFIX.Length);
-			return !namespacingOptions.Scheme.IsExcluded(functionName);
+			string unprefixedName;
+			if (script.Name.Content.StartsWith(SCRIPT_PREFIX))
+				unprefixedName = name.Remove(0, SCRIPT_PREFIX.Length);
+			else
+				unprefixedName = name;
+			return !namespacingOptions.Scheme.IsExcluded(unprefixedName);
 		}
 		
 		foreach (UndertaleScript script in data.Scripts) {
 			if (!shouldNamespaceScript(script)) 
 				continue;
-			string name = script.Name.Content.Remove(0, SCRIPT_PREFIX.Length);
+			if (script.Name.Content.StartsWith(SCRIPT_PREFIX)) {
+				string name = script.Name.Content.Remove(0, SCRIPT_PREFIX.Length);
+				
+				UndertaleString newName = data.Strings.MakeString($"@{modId}@{name}");
+				UndertaleFunction? function = data.Functions.ByName(name);
+				if (function is not null)
+					function.Name = newName;
+				
+				// Renaming the variable associated with a function is basically done for correctness.
+				// It's probably possible to make everything behave as it does without doing this step,
+				// but it would be Jank.
+				UndertaleVariable? variable = data.Variables.ByName(name);
+				if (variable is not null)
+					CodeFixer.RenameVariableOrCreateNew(data, script, variable, newName);
+
+				// should be fine to rename directly
+				script.Name.Content = $"{SCRIPT_PREFIX}@{modId}@{name}";
+			}
+			else {
+				string name = script.Name.Content;
+				// this should always be true
+				if (script.Code.Name.Content.StartsWith("gml_GlobalScript_")) {
+					UndertaleString newName = data.Strings.MakeString($"@{modId}@{name}");
+					script.Name = newName;
+					UndertaleFunction? function = data.Functions.ByName(name);
+					if (function is not null)
+						function.Name = newName;
+				}
+			}
+
 			
-			// Renaming the variable associated with a function is basically done for correctness.
-			// It's probably possible to make everything behave as it does without doing this step,
-			// but it would be Jank.
-			UndertaleVariable? variable = data.Variables.ByName(name);
-			if (variable is not null)
-				CodeFixer.RenameVariableOrCreateNew(data, script, variable, $"@{modId}@{name}");
 			
-			script.Name.Content = $"{SCRIPT_PREFIX}@{modId}@{name}";
+
 		}
 		
 		
@@ -368,7 +393,7 @@ public class DatafilePatcher {
 	}
 	
 	public PatchProduct? Patch(List<Mod> mods, Profile profile, 
-			string profileLocation, string relativeProfilePath, string relativeProfileLivePath,
+			string modsFolder, string relativeProfilePath, string relativeProfileLivePath,
 			UndertaleData data, Logger logger, Action<string> statusCallback, bool allowModScripting) 
 	{
 		void setStatusAndInfo(string message) {
@@ -394,7 +419,7 @@ public class DatafilePatcher {
 			string relativePath = Path.Combine(mod.ModId, path);
 			setStatusAndInfo($"Running script: {relativePath}");
 			
-			string fullStringPath = Path.Combine(profileLocation, relativePath);
+			string fullStringPath = Path.Combine(modsFolder, relativePath);
 			string code;
 				
 			try {
@@ -451,7 +476,7 @@ public class DatafilePatcher {
 				continue;
 			}
 			setStatusAndInfo($"Merging: {mod.DisplayName}");
-			string fullDatafilePath = Path.Combine(profileLocation, mod.ModId, mod.DatafilePath);
+			string fullDatafilePath = Path.Combine(modsFolder, mod.ModId, mod.DatafilePath);
 			UndertaleData modData;
 			try {
 				using FileStream stream = new(fullDatafilePath, FileMode.Open, FileAccess.Read);
@@ -539,7 +564,7 @@ public class DatafilePatcher {
 			PatchIntentionAggregate<FileRecord> gmlpv2IntentionAggregate = new();
 			
 			foreach (PatchLocation patchLocation in mod.Patches) {
-				string modFolder = Path.Combine(profileLocation, mod.ModId);
+				string modFolder = Path.Combine(modsFolder, mod.ModId);
 				string fullPath = Path.Combine(modFolder, patchLocation.Path);
 				
 				if (Directory.Exists(fullPath)) {

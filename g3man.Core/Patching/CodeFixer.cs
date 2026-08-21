@@ -25,11 +25,8 @@ public class CodeFixer {
 	}
 	
 
-	public static void RenameVariableOrCreateNew(UndertaleData data, UndertaleScript script, UndertaleVariable variable, string newName) {
+	public static void RenameVariableOrCreateNew(UndertaleData data, UndertaleScript script, UndertaleVariable variable, UndertaleString newString) {
 		string name = variable.Name.Content;
-		
-		// must be a new string, it is plausible that other things in the project might share the name of a variable (in which case, they'll reuse a string instance)
-		UndertaleString newString = data.Strings.MakeString(newName);
 		
 		if (variable.Occurrences == 1) {
 			// no shenanigans possible unless occurances is inaccurate
@@ -49,7 +46,6 @@ pop.v.v [stacktop]self.(OUR FUNCTION)
 
 		bool seenFunctionPush = false;
 		foreach (IGMInstruction instruction in code.Instructions) {
-			continue;
 			if (instruction.Kind == IGMInstruction.Opcode.Push) {
 				IGMFunction? function = instruction.ResolvedFunction;
 				if (function is null)

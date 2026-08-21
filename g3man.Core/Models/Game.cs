@@ -152,7 +152,7 @@ public class Game {
 		return gameArguments;
 	}
 	
-	public Process Launch(Config config, Profile profile) {
+	public Process? Launch(Config config, Profile profile) {
 		Debug.Assert(ExecutableStatus(config).ok);
 
 
@@ -186,7 +186,7 @@ public class Game {
 	
 	public JsonObject ToJson() {
 		return new JsonObject() {
-			["format_version"] = Game.LatestFormatVersion,
+			["format_version"] = LatestFormatVersion,
 			["display_name"] = DisplayName,
 			["internal_name"] = InternalName,
 			["datafile_name"] = DatafilePath,

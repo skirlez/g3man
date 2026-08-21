@@ -197,7 +197,7 @@ public class PatcherWindow : G3manWindow {
 			setStatus("Writing...");
 			
 			try {
-				IO.Apply(data, vanillaAudioGroupCount, output.Value.AudioGroupTransfers, game, profile);
+				IO.Apply(data, vanillaAudioGroupCount, output.Value.AudioGroupTransfers, game, profile, modsFolder: game.GetProfileFolderPath(profile));
 			}
 			catch (Exception e) {
 				UI.Logger.Error(e);
