@@ -14,7 +14,6 @@ namespace g3man.Core.Util;
 
 public static class IO {
 	
-	public const string TempDataName = "g3man_temp_data.win";
 	public const string AppliedProfileSymlinkName = "g3man_applied_profile";
 	public const string OutputHashTextFileName = "last_hash.txt";
 	
@@ -119,7 +118,7 @@ public static class IO {
 		{
 			string audioGroupName = $"audiogroup{mergeTransfers.Key}.dat";
 			string targetDatPath = Path.Combine(game.Directory, audioGroupName);
-			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: false);
+			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: game.OverwriteGameFiles);
 
 			string tempOutPath = Path.Combine(tempFolder, audioGroupName);
 			{
@@ -161,7 +160,16 @@ public static class IO {
 		}
 	}
 	
-	private static UndertaleData MergeAudioGroups(string targetPath, IGrouping<int, AudioGroupTransfer> grouping, string modsFolder, bool createRecord) {
+	/**
+	 * This method takes in a path to an audiogroup file and a sequence of AudioGroupTransfers.
+	 * It will load the audiogroup data, discard any previous modded data if a record is found, and merge in audiogroup files from the
+	 * AudioGroupTransfers.
+	 *
+	 * The function returns the modified audiogroup data.
+	 *
+	 * This function is also responsible for creating the modded record mentioned earlier, if createRecord is set.
+	 */
+	private static UndertaleData MergeAudioGroups(string targetPath, IEnumerable<AudioGroupTransfer> grouping, string modsFolder, bool createRecord) {
 		UndertaleData targetDat;
 		byte[] vanillaHash;
 		byte[] potentialHash; 

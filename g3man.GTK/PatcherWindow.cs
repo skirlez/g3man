@@ -101,8 +101,8 @@ public class PatcherWindow : G3manWindow {
 			string[] buttonTexts = ["Update clean datafile copy", "Keep it as is", "Cancel"];
 			AlertDialog alertDialog = AlertDialog.NewWithProperties([]);
 			alertDialog.Message =
-				"g3man has detected that the game's datafile ({game.GetInputDatafileRelativePath()}) has been modified.\n"
-				+ $"Do you wish to update your clean copy as well? If so, select \"{buttonTexts[0]}\"\n(You probably want to choose this if you just updated the game).\n"
+				$"g3man has detected that the game's datafile ({game.GetInputDatafileRelativePath()}) has been modified.\n"
+				+ $"Do you wish to update your clean copy as well?\nIf so, select \"{buttonTexts[0]}\"\n(You probably want to choose this if you just updated the game).\n"
 				+ $"Otherwise, select \"{buttonTexts[1]}\" to stay on this version.";
 			alertDialog.SetButtons(buttonTexts);
 			alertDialog.SetDefaultButton(1);
