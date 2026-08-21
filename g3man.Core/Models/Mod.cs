@@ -352,6 +352,9 @@ public readonly struct NamespacingOptions {
 	public NamespacingOptions(JsonElement root) {
 		string type = JsonUtil.GetStringOrThrow(root, "type");
 		switch (type) {
+			case "none":
+				Scheme = new NoneNamespacingScheme();
+				break;
 			case "exclude_prefix":
 				string[] includeList = JsonUtil.GetStringArrayOrThrow(root, "list");
 				Scheme = new PrefixNamespacingScheme(includeList);
@@ -361,7 +364,7 @@ public readonly struct NamespacingOptions {
 				Scheme = new ListNamespacingScheme(excludeList);
 				break;
 			default:
-				throw new InvalidNamespacingOptionsException($"Invalid namespacing scheme type \"{type}\". Supported types: exclude, exclude_prefix");
+				throw new InvalidNamespacingOptionsException($"Invalid namespacing scheme type \"{type}\". Supported types: none, exclude, exclude_prefix");
 		}
 	}
 }
