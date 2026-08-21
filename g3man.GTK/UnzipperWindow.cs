@@ -257,11 +257,11 @@ public class UnzipperWindow : G3manWindow {
 			Directory.CreateDirectory(folder);
 
 			Dictionary<bool, ZipArchiveEntry[]> groups = archive.Entries
-				.Where(entry => entry.FullName.StartsWith(precedingPath) && entry.FullName != precedingPath)
-				.GroupBy(entry => entry.FullName.EndsWith("/"))
+				.Where(entry => entry.FullName.StartsWith($"{precedingPath}/") && entry.FullName != precedingPath)
+				.GroupBy(entry => entry.FullName.EndsWith('/'))
 				.ToDictionary(group => group.Key, group => group.ToArray());
 
-			// these are just ignored. they don't show up on all platforms, and we know
+			// we are going to ignore "foldermates". they don't show up on all platforms, and we know
 			// which folders files need from their path anyway
 			//ZipArchiveEntry[] foldermates = groups.GetValueOrDefault(true, []);
 			
@@ -284,7 +284,7 @@ public class UnzipperWindow : G3manWindow {
 		SetModal(true);
 		Present();
 
-		Thread t = new Thread(() => {
+		Thread t = new(() => {
 			try {
 				using ZipArchive archive = ZipFile.OpenRead(file.GetPath()!);
 

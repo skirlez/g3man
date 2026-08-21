@@ -36,7 +36,7 @@ public static class IO {
 			Directory.Delete(profileLivePath, true);
 		}
 		Directory.CreateDirectory(profileLivePath);
-		LinkFolder(profilePath, profileLink);
+		LinkFolderRelativelyIfPossible(profilePath, profileLink);
 	}
 
 	private static void deleteLegacySymlink(string gameDirectory) {
@@ -91,7 +91,7 @@ public static class IO {
 			GetRecursiveDirectoryInfo(game.Directory, game.Directory, ignoreFiles, ignoreFolders, files, folders);
 			foreach (string folder in folders)
 				Directory.CreateDirectory(Path.Combine(stageDirectory, folder));
-			LinkFolder(g3manFolder, Path.Combine(stageDirectory, "g3man"));
+			LinkFolderRelativelyIfPossible(g3manFolder, Path.Combine(stageDirectory, "g3man"));
 			foreach (string file in files)
 				LinkFileRelativelyIfPossible(Path.Combine(game.Directory, file), Path.Combine(stageDirectory, file));
 
@@ -233,6 +233,18 @@ public static class IO {
 			if (vanillaAudioGroupsCount <= number)
 				File.Delete(Path.Combine(gameDirectory, audioGroupFile));
 		}
+	}
+	
+	private static void LinkFolderRelativelyIfPossible(string targetDirectory, string path) {
+		#if LINUX || OSX
+			string? oneAbove = Path.GetDirectoryName(path);
+			if (oneAbove is null)
+				LinkFolder(targetDirectory, path);
+			else
+				LinkFolder(Path.GetRelativePath(oneAbove, targetDirectory), path);
+		#else
+			LinkFolder(targetDirectory, path);
+		#endif
 	}
 	
 	/* On normal operating systems, this makes a symlink.
