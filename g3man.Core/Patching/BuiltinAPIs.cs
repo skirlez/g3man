@@ -5,13 +5,18 @@ using UndertaleModLib.Models;
 
 namespace g3man.Core.Patching;
 
-public static class GameAPI {
+public static class BuiltinAPIs {
 	public const string ScriptName = "g3man_api";
 	
 	// TODO: this works fine, however, if there are duplicate assets this will cause issues.
 	
 	private static string GetCommaSeparatedAssetStructVariables(DatafilePatcher.Assets assets) {
-		return string.Join(",", assets.Set.Select(x => $"{x} : {x}"));
+		return string.Join(",", 
+			assets.Set.Select(x => $"{x} : {x}")
+			.Concat(
+			assets.Functions.Select(x => $"{x.Key} : {x.Value}")
+			)
+		);
 	}
 
 	private static string GetAssetsCode(Dictionary<string, DatafilePatcher.Assets> modIndicesMap) {
@@ -31,10 +36,7 @@ $"global.vanilla_assets_1 = {{ {
 	GetCommaSeparatedAssetStructVariables(vanillaAssets)
 } }}";
 	}
-
-
-
-
+	
 	private static string GetCodeG3man(string[] modOrder, string[] disabledMods, string relativeProfilePath, string relativeProfileLivePath) {
 		return
 $$"""

@@ -143,7 +143,9 @@ public class DatafilePatcher {
 	}
 
 	public static readonly string SCRIPT_PREFIX = "gml_Script_";
-	// namespace the names of functions in accordance to NamespacingOptions
+	/**
+	 * Namespace the names of functions with "@modId@", in accordance to NamespacingOptions.
+	 */
 	private void autoNamespace(UndertaleData data, string modId, NamespacingOptions namespacingOptions) {
 	    
 		bool shouldNamespaceScript(UndertaleScript script) {
@@ -462,7 +464,7 @@ public class DatafilePatcher {
 		// TODO: For GameMaker 2024.14 we don't actually need to do this apparently, since audiogroups have a path variable
 		List<AudioGroupTransfer> audioGroupTransfers = new();
 		
-		Assets vanillaAssets = GetAllIndices(data);
+		Assets vanillaAssets = getAllIndices(data, functions: getAllCallableFunctionNames(data));
 
 		Assets prevAssets = vanillaAssets;
 
@@ -490,8 +492,9 @@ public class DatafilePatcher {
 			
 			if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 				return null;
-				
+			
 			autoNamespace(modData, mod.ModId, mod.NamespacingOptions);
+			Dictionary<string, string> callableFunctions = getAllCallableFunctionNames(modData, mod.ModId);
 			
 			//ReferenceFixer.FixReferences(modData);
 			
@@ -519,7 +522,7 @@ public class DatafilePatcher {
 			if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 				return null;
 			
-			Assets assets = GetAllIndices(data, prevAssets);
+			Assets assets = getAllIndices(data, callableFunctions, prevAssets);
 			modIndices[mod.ModId] = assets;
 			prevAssets = assets;
 		}
@@ -535,9 +538,9 @@ public class DatafilePatcher {
 		CompileGroup mainGroup = new(data, mainContext);
 		GameMakerCodeSource source = new(mainGroup);
 
-		string[] requestedAPIs = GameAPI.GetRequestedAPIs(mods.SelectMany(mod => mod.Imports));
+		string[] requestedAPIs = BuiltinAPIs.GetRequestedAPIs(mods.SelectMany(mod => mod.Imports));
 		if (requestedAPIs.Length > 0) {
-			GameAPI.Inject(data, requestedAPIs,
+			BuiltinAPIs.Inject(data, requestedAPIs,
 				profile,
 				relativeProfilePath,
 				relativeProfileLivePath,
@@ -677,7 +680,7 @@ public class DatafilePatcher {
 	}
 	
 	public static bool IsDataPatched(UndertaleData data) {
-		return data.Scripts.ByName(GameAPI.ScriptName) is not null;
+		return data.Scripts.ByName(BuiltinAPIs.ScriptName) is not null;
 	}
 	
 	private List<string> CheckModApplicationIssues(List<Mod> mods, bool allowModScripting) {
@@ -810,7 +813,7 @@ public class DatafilePatcher {
 
 	private void CheckImports(List<Mod> mods, Mod mod, Dictionary<string, Mod> idMap, List<string> issues) {
 		foreach (Import import in mod.Imports) {
-			if (GameAPI.IsImportAskingForUs(import))
+			if (BuiltinAPIs.IsImportAskingForUs(import))
 				continue;
 			
 			List<Mod> WhoExports(string name) {
@@ -960,7 +963,32 @@ public class DatafilePatcher {
 		return false;
 	}
 
-	private static Assets GetAllIndices(UndertaleData data, Assets? previous = null) {
+	/**
+	 * Returns all functions that should be callable by mods. They are returned in a dictionary where the key is the unnamespaced name,
+	 * and the value is either the same or the namespaced name (how you'd refer to it in code.)
+	 */
+	private Dictionary<string, string> getAllCallableFunctionNames(UndertaleData data, string? modId = null) {
+		Dictionary<string, string> functions = new();
+		foreach (UndertaleScript script in data.Scripts) {
+			if (!script.Name.Content.StartsWith(SCRIPT_PREFIX)) 
+				continue;
+			string nameWithoutPrefix = script.Name.Content.Remove(0,SCRIPT_PREFIX.Length);
+			if (!script.Name.Content.Contains("@")) {
+				functions.Add(nameWithoutPrefix, nameWithoutPrefix);
+				continue;
+			}
+			if (modId is null)
+				continue;
+			string modNamespace = $"@{modId}@";
+			if (!nameWithoutPrefix.StartsWith(modNamespace))
+				continue;
+			string name = nameWithoutPrefix.Remove(0, modNamespace.Length);
+			functions.Add(name, nameWithoutPrefix);
+		}
+		return functions;
+	}
+
+	private static Assets getAllIndices(UndertaleData data, Dictionary<string, string> functions, Assets? previous = null) {
 		Assets assets = new();
 		assets.Set = new();
 		object?[] lists = [data.Sprites, data.Backgrounds, data.GameObjects, data.Rooms, data.Sounds, data.AudioGroups,
@@ -980,20 +1008,24 @@ public class DatafilePatcher {
 					continue;
 				assets.Set.Add(asset.Name.Content);
 			}
-
+				
 			assets.Offsets[i] = list.Count;
 		}
+
+		assets.Functions = functions;
 		return assets;
 	}
 	private static Assets EmptyIndices(Assets previous) {
 		Assets assets = new();
 		assets.Set = new();
+		assets.Functions = new();
 		assets.Offsets = previous.Offsets;
 		return assets;
 	}
 
 	public struct Assets {
 		public HashSet<string> Set;
+		public Dictionary<string, string> Functions;
 		public int[] Offsets;
 	}
 }
