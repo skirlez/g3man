@@ -21,7 +21,7 @@ public static class BuiltinAPIs {
 
 	private static string GetAssetsCode(Dictionary<string, DatafilePatcher.Assets> modIndicesMap) {
 		return
-$"global.assets_1 = {{ {
+$"global.assets_1b = {{ {
 	string.Join(",",
 		modIndicesMap.Keys.Select(modId => 
 			$"\"{modId}\":"
@@ -32,7 +32,7 @@ $"global.assets_1 = {{ {
 	}
 	private static string GetVanillaAssetsCode(DatafilePatcher.Assets vanillaAssets) {
 		return
-$"global.vanilla_assets_1 = {{ {
+$"global.vanilla_assets_1b = {{ {
 	GetCommaSeparatedAssetStructVariables(vanillaAssets)
 } }}";
 	}
@@ -50,7 +50,7 @@ global.g3man_7 = {
 	}
 
 
-	private static string[] us = ["g3man_7", "assets_1", "vanilla_assets_1"];
+	private static string[] us = ["g3man_7", "assets_1b", "vanilla_assets_1b"];
 	public static bool IsImportAskingForUs(Import import) {
 		return us.Contains(import.Name);
 	}
@@ -77,9 +77,9 @@ global.g3man_7 = {
 
 		if (requestedAPIs.Contains("g3man_7"))
 			code += GetCodeG3man(profile.ModOrder, profile.ModsDisabled, relativeProfilePath, relativeProfileLivePath);
-		if (requestedAPIs.Contains("assets_1"))
+		if (requestedAPIs.Contains("assets_1b"))
 			code += "\n" + GetAssetsCode(indicesMap);
-		if (requestedAPIs.Contains("vanilla_assets_1"))
+		if (requestedAPIs.Contains("vanilla_assets_1b"))
 			code += "\n" + GetVanillaAssetsCode(vanillaAssets);
 		
 		group.QueueCodeReplace(APIScript.Code, code);
