@@ -8,6 +8,7 @@ using gmlpv2;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using PatchCommon;
+using Underanalyzer;
 using Underanalyzer.Decompiler;
 using UndertaleModLib;
 using UndertaleModLib.Compiler;
@@ -968,22 +969,28 @@ public class DatafilePatcher {
 	 * and the value is either the same or the namespaced name (how you'd refer to it in code.)
 	 */
 	private Dictionary<string, string> getAllCallableFunctionNames(UndertaleData data, string? modId = null) {
+		GlobalFunctions globalFunctions = new(data.GlobalInitScripts.Select(x => x.Code));
 		Dictionary<string, string> functions = new();
-		foreach (UndertaleScript script in data.Scripts) {
-			if (!script.Name.Content.StartsWith(SCRIPT_PREFIX)) 
-				continue;
-			string nameWithoutPrefix = script.Name.Content.Remove(0,SCRIPT_PREFIX.Length);
-			if (!script.Name.Content.Contains("@")) {
-				functions.Add(nameWithoutPrefix, nameWithoutPrefix);
-				continue;
+		foreach (UndertaleGlobalInit entry in data.GlobalInitScripts) {
+			foreach (UndertaleCode code in entry.Code.ChildEntries) {
+				string name = code.Name.Content;
+				if (!name.StartsWith(SCRIPT_PREFIX))
+					continue;
+				string nameWithoutPrefix = name.Remove(0, SCRIPT_PREFIX.Length);
+				if (!globalFunctions.FunctionNameExists(nameWithoutPrefix))
+					continue;
+				if (!nameWithoutPrefix.Contains("@")) {
+					functions.Add(nameWithoutPrefix, nameWithoutPrefix);
+					continue;
+				}
+				if (modId is null)
+					continue;
+				string modNamespace = $"@{modId}@";
+				if (!nameWithoutPrefix.StartsWith(modNamespace))
+					continue;
+				string nameWithoutNamespace = nameWithoutPrefix.Remove(0, modNamespace.Length);
+				functions.Add(nameWithoutNamespace, nameWithoutPrefix);
 			}
-			if (modId is null)
-				continue;
-			string modNamespace = $"@{modId}@";
-			if (!nameWithoutPrefix.StartsWith(modNamespace))
-				continue;
-			string name = nameWithoutPrefix.Remove(0, modNamespace.Length);
-			functions.Add(name, nameWithoutPrefix);
 		}
 		return functions;
 	}

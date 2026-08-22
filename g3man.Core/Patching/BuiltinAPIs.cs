@@ -56,7 +56,7 @@ global.g3man_7 = {
 	}
 
 	public static string[] GetRequestedAPIs(IEnumerable<Import> imports) {
-		return imports.Select(i => i.Name).ToArray().Distinct().Union(us).ToArray();	
+		return imports.Select(i => i.Name).ToArray().Distinct().Intersect(us).ToArray();	
 	}
 	
 	public static void Inject(
