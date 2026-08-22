@@ -288,7 +288,6 @@ public static class IO {
 		#if LINUX || OSX
 			File.CreateSymbolicLink(path, targetFile);
 		#elif WINDOWS
-			// TODO this requires admin (i think)
 			CreateHardLink(path, targetFile, IntPtr.Zero);
 			// Switch to File.CreateHardLink when we upgrade to .NET 11
 		#else
