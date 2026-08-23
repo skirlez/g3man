@@ -146,27 +146,28 @@ public class DatafilePatcher {
 	public static readonly string SCRIPT_PREFIX = "gml_Script_";
 	/**
 	 * Namespace the names of functions with "@modId@", in accordance to NamespacingOptions.
+	 *
+	 * Returns a dictionary mapping function names to their new namespaced names. Even if a function wasn't namespaced,
+	 * its name gets added to the dictionary with the same name as the value.
 	 */
-	private void autoNamespace(UndertaleData data, string modId, NamespacingOptions namespacingOptions) {
-	    
-		bool shouldNamespaceScript(UndertaleScript script) {
-			string name = script.Name.Content;
-			if (name.Contains('@'))
-				return false;
-			string unprefixedName;
-			if (script.Name.Content.StartsWith(SCRIPT_PREFIX))
-				unprefixedName = name.Remove(0, SCRIPT_PREFIX.Length);
-			else
-				unprefixedName = name;
-			return !namespacingOptions.Scheme.IsExcluded(unprefixedName);
-		}
-		
-		foreach (UndertaleScript script in data.Scripts) {
-			if (!shouldNamespaceScript(script)) 
+	private Dictionary<string, string> autoNamespace(UndertaleData data, List<string> functionsAndScripts, string modId, NamespacingOptions namespacingOptions) {
+		Dictionary<string, string> mapping = new();
+		foreach (string name in functionsAndScripts) {
+			if (namespacingOptions.Scheme.IsExcluded(name)) 
 				continue;
-			if (script.Name.Content.StartsWith(SCRIPT_PREFIX)) {
-				string name = script.Name.Content.Remove(0, SCRIPT_PREFIX.Length);
-				
+			UndertaleScript? globalScript = data.Scripts.ByName(name);
+			if (globalScript is not null) {
+				if (globalScript.Code.Name.Content.StartsWith("gml_GlobalScript_")) {
+					UndertaleString newName = data.Strings.MakeString($"@{modId}@{name}");
+					globalScript.Name = newName;
+					UndertaleFunction? function = data.Functions.ByName(name);
+					if (function is not null)
+						function.Name = newName;
+					mapping[name] = newName.Content;
+				}
+			}
+			UndertaleScript? script = data.Scripts.ByName($"{SCRIPT_PREFIX}{name}");
+			if (script is not null) {
 				UndertaleString newName = data.Strings.MakeString($"@{modId}@{name}");
 				UndertaleFunction? function = data.Functions.ByName(name);
 				if (function is not null)
@@ -181,32 +182,54 @@ public class DatafilePatcher {
 
 				// should be fine to rename directly
 				script.Name.Content = $"{SCRIPT_PREFIX}@{modId}@{name}";
+				mapping[name] = newName.Content;
 			}
-			else {
-				string name = script.Name.Content;
-				// this should always be true
-				if (script.Code.Name.Content.StartsWith("gml_GlobalScript_")) {
-					UndertaleString newName = data.Strings.MakeString($"@{modId}@{name}");
-					script.Name = newName;
-					UndertaleFunction? function = data.Functions.ByName(name);
-					if (function is not null)
-						function.Name = newName;
-				}
-			}
-
-			
-			
-
 		}
+
+		return mapping;
+	}
+
+	/**
+	* Namespace the names of uncallable functions with "modId@". (the initial @ is dropped as these should remain uncallable)
+	*
+	* This is just done to make sure some uncallable functions in the datafile don't share names (as there can be issues from these conflicts)
+	* 
+	* A determined user could probably create a normal function that fools this function. They deserve whatever will happen to their function.
+	*/
+	private static void namespaceUncallable(UndertaleData data, string modId) {
+		foreach (UndertaleFunction function in data.Functions) {
+			string name = function.Name.Content;
+			/*
+			anonymous scripts:
+			these look like "gml_Script_anon@X@(location string)"
+			they're generated whenever you have an anonymous function in a code file.
+			I don't know how X is obtained (seems to be just the text position of the function at compile time),
+			but if there is a name collision, the runner can run the wrong one!
+			*/
+			if (name.StartsWith($"{SCRIPT_PREFIX}anon@")) {
+				function.Name.Content = $"{SCRIPT_PREFIX}{modId}@{name.Substring(SCRIPT_PREFIX.Length)}";
+				continue;
+			}
+			/*
+			 struct initializers (i made this name up right now):
+			 these look like "gml_Script____struct___X(location string)"
+			 and appear to be generated when you create a struct inline.
+			 X seems to just increment per usage in the datafile. If a name collision occurs here it can also make
+			 the runner run the wrong one.
+			*/
+			if (name.StartsWith($"{SCRIPT_PREFIX}___struct___"))
+				function.Name.Content = $"{SCRIPT_PREFIX}{modId}@{name.Substring(SCRIPT_PREFIX.Length)}";
+		}
+
 		
 		
 	}
-	
+
 	/**
-	 * Merges (as in, copies all data) from `modData` into `data`.
-	 * 
-	 * This is pretty old code. I don't remember how much of it is necessary or could be improved.
-	 */
+	* Merges (as in, copies all data) from `modData` into `data`.
+	*
+	* This is pretty old code. I don't remember how much of it is necessary or could be improved.
+	*/
 	// TODO: There's several instances now where maps between an asset's name and the asset are made more than once. They should be made once.
 	private MergeProduct merge(UndertaleData data, UndertaleData modData, string modFolderPath) {
 		int stringListLength = data.Strings.Count;
@@ -465,7 +488,7 @@ public class DatafilePatcher {
 		// TODO: For GameMaker 2024.14 we don't actually need to do this apparently, since audiogroups have a path variable
 		List<AudioGroupTransfer> audioGroupTransfers = new();
 		
-		Assets vanillaAssets = getAllIndices(data, functions: getAllCallableFunctionNames(data));
+		Assets vanillaAssets = getAllIndices(data, functions: getAllCallableFunctionAndScriptNames(data).ToDictionary(x => x));
 
 		Assets prevAssets = vanillaAssets;
 
@@ -494,8 +517,9 @@ public class DatafilePatcher {
 			if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
 				return null;
 			
-			autoNamespace(modData, mod.ModId, mod.NamespacingOptions);
-			Dictionary<string, string> callableFunctions = getAllCallableFunctionNames(modData, mod.ModId);
+			List<string> functionsAndScriptNames = getAllCallableFunctionAndScriptNames(modData);
+			Dictionary<string, string> modFunctions = autoNamespace(modData, functionsAndScriptNames, mod.ModId, mod.NamespacingOptions);
+			namespaceUncallable(modData, mod.ModId);
 			
 			//ReferenceFixer.FixReferences(modData);
 			
@@ -523,7 +547,7 @@ public class DatafilePatcher {
 			if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
 				return null;
 			
-			Assets assets = getAllIndices(data, callableFunctions, prevAssets);
+			Assets assets = getAllIndices(data, modFunctions, prevAssets);
 			modIndices[mod.ModId] = assets;
 			prevAssets = assets;
 		}
@@ -550,7 +574,7 @@ public class DatafilePatcher {
 				mainGroup);
 			CompileResult gameAPIResult = mainGroup.Compile();
 			if (!gameAPIResult.Successful) {
-				setStatusAndError("Failed to insert g3man Game API(s)!", 
+				setStatusAndError("Failed to insert g3man Builtin API(s)!", 
 					gameAPIResult.PrintAllErrors(false));
 				return null;
 			}
@@ -965,34 +989,19 @@ public class DatafilePatcher {
 	}
 
 	/**
-	 * Returns all functions that should be callable by mods. They are returned in a dictionary where the key is the unnamespaced name,
-	 * and the value is either the same or the namespaced name (how you'd refer to it in code.)
+	 * Returns all functions that should be callable by mods 
 	 */
-	private Dictionary<string, string> getAllCallableFunctionNames(UndertaleData data, string? modId = null) {
+	private List<string> getAllCallableFunctionAndScriptNames(UndertaleData data) {
 		GlobalFunctions globalFunctions = new(data.GlobalInitScripts.Select(x => x.Code));
-		Dictionary<string, string> functions = new();
+		List<string> scriptNames = new();
 		foreach (UndertaleGlobalInit entry in data.GlobalInitScripts) {
-			foreach (UndertaleCode code in entry.Code.ChildEntries) {
-				string name = code.Name.Content;
-				if (!name.StartsWith(SCRIPT_PREFIX))
-					continue;
-				string nameWithoutPrefix = name.Remove(0, SCRIPT_PREFIX.Length);
-				if (!globalFunctions.FunctionNameExists(nameWithoutPrefix))
-					continue;
-				if (!nameWithoutPrefix.Contains("@")) {
-					functions.Add(nameWithoutPrefix, nameWithoutPrefix);
-					continue;
-				}
-				if (modId is null)
-					continue;
-				string modNamespace = $"@{modId}@";
-				if (!nameWithoutPrefix.StartsWith(modNamespace))
-					continue;
-				string nameWithoutNamespace = nameWithoutPrefix.Remove(0, modNamespace.Length);
-				functions.Add(nameWithoutNamespace, nameWithoutPrefix);
+			const string GLOBAL_SCRIPT_PREFIX = "gml_GlobalScript_";
+			if (entry.Code.Name.Content.StartsWith(GLOBAL_SCRIPT_PREFIX)) {
+				// should always be true
+				scriptNames.Add(entry.Code.Name.Content.Remove(0, GLOBAL_SCRIPT_PREFIX.Length));
 			}
 		}
-		return functions;
+		return globalFunctions.GetFunctionNames().Concat(scriptNames).Distinct().ToList();
 	}
 
 	private static Assets getAllIndices(UndertaleData data, Dictionary<string, string> functions, Assets? previous = null) {

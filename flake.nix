@@ -118,7 +118,7 @@
       # the automated fetch-deps script is Kinda Weird, and doesn't seem
       # to account for the libraries needed to run the tests, so this is how the nuget lockfile
       # is made
-      update-nuget-lockfile-script = pkgs.writeShellApplication {
+      update-nuget-lockfile = pkgs.writeShellApplication {
         name = "update-nuget-lockfile";
         runtimeInputs = with pkgs; [
           pkgs.dotnetCorePackages.sdk_10_0
@@ -135,8 +135,10 @@
     in
     {
       devShells.x86_64-linux.default = devshell;
-      packages.x86_64-linux.default = g3man;
-      packages.x86_64-linux.update-nuget-lockfile = update-nuget-lockfile-script;
+      packages.x86_64-linux = {
+      	default = g3man;
+       	inherit update-nuget-lockfile;
+      };
       formatter.x86_64-linux = nixpkgs.legacyPackages.${system}.nixfmt-tree;
     };
 }
