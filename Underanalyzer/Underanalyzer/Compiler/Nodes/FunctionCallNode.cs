@@ -20,7 +20,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
     /// <summary>
     /// Expression being called.
     /// </summary>
-    public IASTNode Expression { get; private set; }
+    public IASTNode Expression { get; set; }
 
     /// <summary>
     /// Arguments being used for this function call, in order.

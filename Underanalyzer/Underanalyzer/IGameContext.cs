@@ -256,6 +256,14 @@ public interface IGameContext
     public bool UsingFixedDefaultArgumentFunctionDecls { get; }
 
     /// <summary>
+    /// <see langword="true"/> if the game uses improved side effect handling in nullish coalesce assignments; <see langword="false"/> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// This code generation change was introduced in GameMaker 2026.1 (after the initial 2026 LTS release).
+    /// </remarks>
+    public bool UsingNewNullishAssignSideEffects { get; }
+
+    /// <summary>
     /// Interface for getting global functions.
     /// Can be custom, or can use the provided implementation of <see cref="Decompiler.GlobalFunctions"/>.
     /// This should not be modified during decompilation.

@@ -85,6 +85,8 @@ public class GameContextMock : IGameContext
     /// <inheritdoc/>
     public bool UsingFixedDefaultArgumentFunctionDecls { get; set; } = false;
     /// <inheritdoc/>
+    public bool UsingNewNullishAssignSideEffects { get; set; } = false;
+    /// <inheritdoc/>
     public IGlobalFunctions GlobalFunctions { get; } = new GlobalFunctions();
     /// <inheritdoc/>
     public GameSpecificRegistry GameSpecificRegistry { get; set; } = new();

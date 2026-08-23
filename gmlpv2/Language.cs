@@ -129,7 +129,7 @@ public static class Language {
 
 
 	private class SandboxedFileSystem(string basis) : ILuaFileSystem {
-		private FileSystem s = new FileSystem(basis);
+		private FileSystem s = new(basis);
 		public bool IsReadable(string path) {
 			string norm = Path.GetFullPath(Path.Combine(basis, path));
 			return norm.StartsWith(Path.GetFullPath(basis));
@@ -152,10 +152,13 @@ public static class Language {
 			return s.Remove(path, cancellationToken);
 		}
 		public string GetTempFileName() {
-			return s.GetTempFileName();
+			// TODO
+			throw new UnauthorizedAccessException(STOP);
 		}
 		public ValueTask<ILuaStream> OpenTempFileStream(CancellationToken cancellationToken) {
-			return s.OpenTempFileStream(cancellationToken);
+			// TODO
+			throw new UnauthorizedAccessException(STOP);
+			//return s.OpenTempFileStream(cancellationToken);
 		}
 	}
 

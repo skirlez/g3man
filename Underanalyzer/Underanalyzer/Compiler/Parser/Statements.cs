@@ -181,6 +181,11 @@ internal static class Statements
             // Parse expression on right side and make assignment if possible
             if (Expressions.ParseExpression(context) is IASTNode rhs)
             {
+                if (tokenOperator.Kind == OperatorKind.CompoundNullishCoalesce)
+                {
+                    return new NullishCoalesceAssignNode(assignable, rhs);
+                }
+
                 return new AssignNode(tokenOperator.Kind switch
                 {
                     OperatorKind.Assign or OperatorKind.Assign2 =>  AssignNode.AssignKind.Normal,
@@ -192,7 +197,6 @@ internal static class Statements
                     OperatorKind.CompoundBitwiseAnd =>              AssignNode.AssignKind.CompoundBitwiseAnd,
                     OperatorKind.CompoundBitwiseOr =>               AssignNode.AssignKind.CompoundBitwiseOr,
                     OperatorKind.CompoundBitwiseXor =>              AssignNode.AssignKind.CompoundBitwiseXor,
-                    OperatorKind.CompoundNullishCoalesce =>         AssignNode.AssignKind.CompoundNullishCoalesce,
                     _ => throw new Exception("Unknown operator kind in assignment")
                 }, assignable, rhs);
             }

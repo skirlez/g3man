@@ -192,21 +192,39 @@ public partial class MainWindow {
 		page.Append(modInfoWindow);
 	}
 
-
-	private void ParseModsAndUpdateMenu() {
+	private bool running = false;
+	private async void ParseModsAndUpdateMenu() {
+		// all calls are from the UI thread so it should be fine to do it like this
+		if (running)
+			return;
+		running = true;
+		
 		Game? game = UI.GetGame();
 		Profile? profile = UI.GetProfile();
-
+		
+		
+		
+		
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
 
+		for (int i = 0; i < modsList.Count; i++) {
+			ListBoxRow? row = modsListBox.GetRowAtIndex(i);
+			if (row is null)
+				break;
+			// TODO this is jank
+			row.Child!.SetOpacity(0);
+		}
+		
+		List<Mod> g3manMods = await Task.Run(() => 
+			Mod.ParseAll(game.GetProfileFolderPath(profile), (e, path) 
+				=> UI.Logger.Error($"Error reading mod at {path}:\n{e.Message}")));
+		
+		List<XdeltaMod> xdeltaMods = await Task.Run(() => XdeltaMod.ParseAll(game.GetProfileFolderPath(profile)));
+		
 		modsList = new List<IMod>();
-		modsList.AddRange(Mod.ParseAll(game.GetProfileFolderPath(profile), (e, path) => {
-			UI.Logger.Error($"Error reading mod at {path}:\n{e.Message}");
-		}));
-		List<XdeltaMod> xdeltaMods = XdeltaMod.ParseAll(game.GetProfileFolderPath(profile));
+		modsList.AddRange(g3manMods);
 		modsList.AddRange(xdeltaMods);
-
 		modsListBox.RemoveAll();
 		modsListBox.SetPlaceholder(noModsLabel);
 
@@ -245,5 +263,6 @@ public partial class MainWindow {
 		}
 
 		ResetModInfo();
+		running = false;
 	}
 }

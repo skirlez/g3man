@@ -59,6 +59,7 @@ public class GlobalDecompileContext : IGameContext
     public bool UsingModernTemplateStrings => Data?.IsVersionAtLeast(2024, 14) ?? false;
     public bool UsingStructAnyNonemptyString => Data?.IsVersionAtLeast(2024, 14) ?? false;
     public bool UsingFixedDefaultArgumentFunctionDecls => Data?.IsVersionAtLeast(2024, 14) ?? false;
+    public bool UsingNewNullishAssignSideEffects => Data?.IsVersionAtLeast(2026, 1) ?? false;
     public GameSpecificRegistry GameSpecificRegistry => Data?.GameSpecificRegistry;
     public IBuiltins Builtins { get; private set; } = null;
     public ICodeBuilder CodeBuilder { get; private set; } = null;
@@ -83,7 +84,7 @@ public class GlobalDecompileContext : IGameContext
     /// <see cref="IGlobalFunctions"/>.
     /// </summary>
     /// <remarks>
-    /// Note: If a <see cref="IGlobalFunctions"/> instance is not given, this will recalculate the global functions
+    /// Note: If an <see cref="IGlobalFunctions"/> instance is not given, this will recalculate the global functions
     /// belonging to the given <see cref="UndertaleData"/>, mutating its state. Therefore, this initialization operation
     /// is not thread-safe on its own.
     /// </remarks>

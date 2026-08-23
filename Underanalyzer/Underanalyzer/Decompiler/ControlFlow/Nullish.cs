@@ -91,8 +91,8 @@ internal sealed class Nullish : IControlFlowNode
                 Block? endOfNullishBlock = null;
                 if (nullishKind == NullishType.Assignment)
                 {
-                    // Remove pop instruction from "after" block
-                    afterBlock.Instructions.RemoveAt(0);
+                    // Clear all instructions from "after" block (includes pop, as well as duplicated side effect statements)
+                    afterBlock.Instructions.Clear();
 
                     // Our "end of nullish" block is always before the "after" block.
                     // Remove its branch instruction.
@@ -120,7 +120,9 @@ internal sealed class Nullish : IControlFlowNode
                 }
                 IControlFlowNode.DisconnectSuccessor(block, 0);
                 if (endOfNullishBlock is not null)
+                {
                     IControlFlowNode.DisconnectSuccessor(endOfNullishBlock, 0);
+                }
 
                 // Insert new node into graph
                 block.Successors.Add(n);

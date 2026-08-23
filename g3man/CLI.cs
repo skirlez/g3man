@@ -149,20 +149,32 @@ public static class CLI {
 				string relativeProfileLivePath = $"g3man/live/{profile.ID}";
 				string relativeProfilePath = $"g3man/live/{profile.ID}/profile";
 									
-				DatafilePatcher datafilePatcher = new();
-				DatafilePatcher.PatchProduct? output = datafilePatcher.Patch(mods, profile, 
-					modsDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data, logger,
-					_ => {}, allowModScripting: true);
-				if (!output.HasValue)
+				DatafilePatcher datafilePatcher = new(message => {
+					logger.Info(message);
+				});
+				DatafilePatcher.PatchProduct output;
+				try {
+					output = datafilePatcher.Patch(mods, profile,
+						modsDirectoryInfo.FullName, relativeProfilePath, relativeProfileLivePath, data,
+						allowModScripting: true);
+				}
+				catch (DatafilePatcher.PatcherException e) {
+					logger.Error($"{e}");
 					return 1;
-				data = output.Value.Data;
+				}
+				catch (Exception e) {
+					logger.Error($"Unhandled error while patching: {e}");
+					return 1;
+				}
+				
+				data = output.Data;
 				bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 				if (createOldSymlink)
 					IO.CreateLegacySymlink(game.Directory, game.GetProfileFolderPath(profile));
 				logger.Info("Writing...");
 				
 				try {
-					IO.Apply(data, vanillaAudioGroupsCount, output.Value.AudioGroupTransfers, game, profile, modsDirectoryInfo.FullName);
+					IO.Apply(data, vanillaAudioGroupsCount, output.AudioGroupTransfers, game, profile, modsDirectoryInfo.FullName);
 				}
 				catch (Exception e) {
 					logger.Error("Failed to save output");

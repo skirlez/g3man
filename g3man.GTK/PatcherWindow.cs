@@ -175,29 +175,35 @@ public class PatcherWindow : G3manWindow {
 
 
 			List<Mod> noXdeltas = mods.Where(m => m is Mod).Cast<Mod>().ToList();
-			DatafilePatcher datafilePatcher = new();
+			Logger logger = Logger.MakeWithoutInfo("PATCHER", UI.Logger.Pipe); 
+			DatafilePatcher datafilePatcher = new(s => {
+				setStatus(s);
+				logger.Info(s);
+			});
 			
 			string relativeProfilePath = $"g3man/profiles/{profile.ID}";
 			int vanillaAudioGroupCount = data.AudioGroups?.Count ?? 0;
-			DatafilePatcher.PatchProduct? output;
+			DatafilePatcher.PatchProduct output;
 			try {
 				output = datafilePatcher.Patch(noXdeltas, profile, profilePath,
 					relativeProfilePath, profile.ID,
-					data, Logger.MakeWithoutInfo("PATCHER", UI.Logger.Pipe), setStatus, allowModScripting: UI.Config.AllowModScripting);
+					data, allowModScripting: UI.Config.AllowModScripting);
+			}
+			catch (DatafilePatcher.PatcherException e) {
+				setStatus(e.ToStringReplacingOther("Check the logs for more information."));
+				UI.Logger.Error(e);
+				return false;
 			}
 			catch (Exception e) {
-				setStatus("Unknown error occurred while patching! Report this as a bug.");
+				setStatus("Unknown error occurred while patching! Check the logs and report this as a bug.");
 				UI.Logger.Error($"Unhandled exception while patching:\n{e}");
 				return false;
 			}
-
-			if (!output.HasValue)
-				return false;
 			
 			setStatus("Writing...");
 			
 			try {
-				IO.Apply(data, vanillaAudioGroupCount, output.Value.AudioGroupTransfers, game, profile, modsFolder: game.GetProfileFolderPath(profile));
+				IO.Apply(data, vanillaAudioGroupCount, output.AudioGroupTransfers, game, profile, modsFolder: game.GetProfileFolderPath(profile));
 			}
 			catch (Exception e) {
 				UI.Logger.Error(e);

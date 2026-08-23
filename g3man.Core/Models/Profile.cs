@@ -121,7 +121,6 @@ public class Profile {
 	public void Write(Game game) {
 		string profileFolder = game.GetProfileFolderPath(this);
 		Directory.CreateDirectory(profileFolder);
-
 		string jsonText = ToJson().ToJsonString(new JsonSerializerOptions() {
 			WriteIndented = true
 		});

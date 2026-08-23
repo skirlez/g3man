@@ -47,7 +47,7 @@
 
       g3man = pkgs.buildDotnetModule {
         pname = "g3man";
-        version = "10";
+        version = "10.0.1";
         src = builtins.filterSource (
           path: type: type != "directory" || (baseNameOf path != "gmlpweb" && baseNameOf path != ".github")
         ) ./.;

@@ -20,12 +20,12 @@ internal sealed class NullishCoalesceNode : IASTNode
     /// <summary>
     /// Left side of the nullish coalesce node.
     /// </summary>
-    public IASTNode Left { get; private set; }
+    public IASTNode Left { get; set; }
 
     /// <summary>
     /// Right side of the nullish coalesce node.
     /// </summary>
-    public IASTNode Right { get; private set; }
+    public IASTNode Right { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; }

@@ -20,7 +20,7 @@ internal sealed class UnaryNode : IASTNode
     /// <summary>
     /// Expression being pre-incremented/pre-decremented.
     /// </summary>
-    public IASTNode Expression { get; private set; }
+    public IASTNode Expression { get; set; }
 
     /// <summary>
     /// Whether this prefix is an increment (++) or a decrement (--).

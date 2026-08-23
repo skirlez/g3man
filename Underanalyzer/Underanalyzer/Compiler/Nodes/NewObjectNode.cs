@@ -20,7 +20,7 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
     /// <summary>
     /// Expression being instantiated.
     /// </summary>
-    public IASTNode Expression { get; private set; }
+    public IASTNode Expression { get; set; }
 
     /// <summary>
     /// Arguments being used in constructor call.

@@ -111,13 +111,13 @@
   },
   {
     "pname": "Microsoft.AspNetCore.App.Runtime.win-x64",
-    "version": "10.0.10",
-    "hash": "sha256-Fmngs3lZrV1jBtzMGZHuFYY/0I9l3ED9Kt3K/9I12Xc="
+    "version": "10.0.11",
+    "hash": "sha256-QGE+Xlc+vIFnRM+QILHZYQCp3fSTlZbmq2NcFrE8Ufc="
   },
   {
     "pname": "Microsoft.AspNetCore.App.Runtime.win-x86",
-    "version": "10.0.10",
-    "hash": "sha256-2d8fQmwPtrkp9yRID5w8g1VwuEWLvGA0uJ10xESTioA="
+    "version": "10.0.11",
+    "hash": "sha256-5CnFo4qBaeiIVHhe/S+Po1qFEEn67wmnEU+b/iDadXI="
   },
   {
     "pname": "Microsoft.Bcl.AsyncInterfaces",
@@ -166,23 +166,23 @@
   },
   {
     "pname": "Microsoft.NETCore.App.Host.win-x64",
-    "version": "10.0.10",
-    "hash": "sha256-OXE+ZZOPO8jM7jQ903fgEEmETDSEcxq5spCF5lC6Gb0="
+    "version": "10.0.11",
+    "hash": "sha256-t5kOjvWSK7FB2flu+z2j26rg7c7wrmdZjLWHJCQQfjA="
   },
   {
     "pname": "Microsoft.NETCore.App.Host.win-x86",
-    "version": "10.0.10",
-    "hash": "sha256-qmoC8Kw89BkoBdKWeSRaHtKwT/AK+BtA40lYLTP3xHw="
+    "version": "10.0.11",
+    "hash": "sha256-IB1GcFG3ESQC5KK194/sEhkyGJF+LIV4XiN+cWjAugU="
   },
   {
     "pname": "Microsoft.NETCore.App.Runtime.win-x64",
-    "version": "10.0.10",
-    "hash": "sha256-VomckFfWmBq58jfWSJ5GmvBDZoqzTPtBmbVfknArBrs="
+    "version": "10.0.11",
+    "hash": "sha256-giske929iKKQqAcr6JgV/+rCblqsDUGx6rlf2lJ59EM="
   },
   {
     "pname": "Microsoft.NETCore.App.Runtime.win-x86",
-    "version": "10.0.10",
-    "hash": "sha256-TD1DYZSB9dfv2x8E+GhM9FlQXBivn6aZj3Fsfu1dzhE="
+    "version": "10.0.11",
+    "hash": "sha256-35NeODPWEJi015pXSsaofsF7qM3aWA8yXfgXGRXBdmc="
   },
   {
     "pname": "Microsoft.Testing.Extensions.Telemetry",

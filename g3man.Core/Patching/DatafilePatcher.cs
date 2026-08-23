@@ -18,7 +18,7 @@ using UndertaleModLib.Util;
 
 namespace g3man.Core.Patching;
 
-public class DatafilePatcher {
+public class DatafilePatcher(Action<string> setStatus) {
 	public const string CleanDataName = "clean_data.win";
 	public const string CleanDataBackupName = "BACKUP_clean_data.win";
 
@@ -138,10 +138,7 @@ public class DatafilePatcher {
 		}
 	}
 
-	private record struct MergeProduct(HashSet<string> groupsToUpdate, HashSet<string> groupsToCopy) {
-		public HashSet<string> GroupsToUpdate = groupsToUpdate;
-		public HashSet<string> GroupsToCopy = groupsToCopy;
-	}
+	private record struct MergeProduct(HashSet<string> GroupsToUpdate, HashSet<string> GroupsToCopy);
 
 	public static readonly string SCRIPT_PREFIX = "gml_Script_";
 	/**
@@ -201,7 +198,7 @@ public class DatafilePatcher {
 			string name = function.Name.Content;
 			/*
 			anonymous scripts:
-			these look like "gml_Script_anon@X@(location string)"
+			these look like "gml_Script_anon@X(location string)"
 			they're generated whenever you have an anonymous function in a code file.
 			I don't know how X is obtained (seems to be just the text position of the function at compile time),
 			but if there is a name collision, the runner can run the wrong one!
@@ -211,7 +208,7 @@ public class DatafilePatcher {
 				continue;
 			}
 			/*
-			 struct initializers (i made this name up right now):
+			 struct initializers:
 			 these look like "gml_Script____struct___X(location string)"
 			 and appear to be generated when you create a struct inline.
 			 X seems to just increment per usage in the datafile. If a name collision occurs here it can also make
@@ -220,9 +217,6 @@ public class DatafilePatcher {
 			if (name.StartsWith($"{SCRIPT_PREFIX}___struct___"))
 				function.Name.Content = $"{SCRIPT_PREFIX}{modId}@{name.Substring(SCRIPT_PREFIX.Length)}";
 		}
-
-		
-		
 	}
 
 	/**
@@ -413,75 +407,81 @@ public class DatafilePatcher {
 	}
 
 
+	public class PatcherException : Exception {
+		private string otherMessage;
+		public PatcherException(string message) : base(message) {
+			this.otherMessage = "";
+		}
+		public PatcherException(string message, Exception inner) : base(message) {
+			otherMessage = inner.ToString();
+		}
+		public PatcherException(string message, string otherMessage) : base(message) {
+			this.otherMessage = otherMessage;
+		}
+		public override string ToString() {
+			if (!hasOtherMessage())
+				return ToStringWithoutOther();
+			return $"{Message}:\n{otherMessage}";
+		}
+		private bool hasOtherMessage() {
+			return otherMessage != "";
+		}
+		public string ToStringReplacingOther(string replaceOther) {
+			if (hasOtherMessage())
+				return $"{Message}! {replaceOther}";
+			return ToStringWithoutOther();
+		}
+		public string ToStringWithoutOther() {
+			return Message;
+		}
+
+
+	}
+	
 	public struct PatchProduct(UndertaleData data, List<AudioGroupTransfer> transfers) {
 		public UndertaleData Data = data;
 		public List<AudioGroupTransfer> AudioGroupTransfers = transfers;
 	}
 	
-	public PatchProduct? Patch(List<Mod> mods, Profile profile, 
-			string modsFolder, string relativeProfilePath, string relativeProfileLivePath,
-			UndertaleData data, Logger logger, Action<string> statusCallback, bool allowModScripting) 
-	{
-		void setStatusAndInfo(string message) {
-			logger.Info(message);
-			statusCallback(message);
-		}
-		void setStatusAndError(string message, string? error = null) {
-			if (error is null) {
-				logger.Error(message);
-				statusCallback(message);
-				return;
-			}
+	void runModScriptIfExists(Mod mod, string path, string modsFolder, ScriptGlobals globals) {
+		if (path == "")
+			return;
+		string relativePath = Path.Combine(mod.ModId, path);
+		setStatus($"Running script: {relativePath}");
 			
-			logger.Error($"{message}\n{error}");
-			statusCallback($"{message}\nCheck the log for more details.");
-		}
-		
-		bool runModScript(Mod mod, Func<Mod, string> getScriptPath, ScriptGlobals globals) {
-			string path = getScriptPath(mod);
-			if (path == "")
-				return true;
-			
-			string relativePath = Path.Combine(mod.ModId, path);
-			setStatusAndInfo($"Running script: {relativePath}");
-			
-			string fullStringPath = Path.Combine(modsFolder, relativePath);
-			string code;
+		string fullStringPath = Path.Combine(modsFolder, relativePath);
+		string code;
 				
-			try {
-				code = File.ReadAllText(fullStringPath);
-			}
-			catch (Exception e) {
-				setStatusAndError($"Failed to read script belonging to {mod.Identify()}!", e.ToString());
-				return false;
-			}
-			
-			// makes errors point to the path of the script
-			code = $"#line 1 \"{relativePath}\"\n" + code;
-			try {
-				CSharpScript.EvaluateAsync(code, scriptOptions, globals);
-			}
-			catch (CompilationErrorException e) {
-				setStatusAndError($"Script belonging to {mod.Identify()} threw an exception.", e.GetBaseException().Message);
-				return false;
-			}
-			return true;
+		try {
+			code = File.ReadAllText(fullStringPath);
+		}
+		catch (Exception e) {
+			throw new PatcherException($"Failed to read script belonging to {mod.Identify()}", e);
 		}
 		
-
+		// makes errors point to the path of the script
+		code = $"#line 1 \"{relativePath}\"\n" + code;
+		try {
+			CSharpScript.EvaluateAsync(code, scriptOptions, globals);
+		}
+		catch (CompilationErrorException e) {
+			throw new PatcherException($"Script belonging to {mod.Identify()} threw an exception", e.GetBaseException().Message);
+		}
+	}
+	
+	
+	public PatchProduct Patch(List<Mod> mods, Profile profile, 
+			string modsFolder, string relativeProfilePath, string relativeProfileLivePath, UndertaleData data, bool allowModScripting) 
+	{
 		List<string> issues = CheckModApplicationIssues(mods, allowModScripting);
 		if (issues.Count > 0) {
-			StringBuilder sb = new("Encountered issues that are preventing mod application!");
+			StringBuilder sb = new();
 			for (int i = 0; i < issues.Count; i++) {
 				var issue = issues[i];
 				sb.Append($"\n{i + 1}. {issue}");
 			}
-
-			setStatusAndInfo(sb.ToString());
-			return null;
+			throw new PatcherException($"Encountered issues that are preventing mod application!{sb}");
 		}
-
-
 		
 		// keep track of which audiogroups from mods need to be copied into the game folder
 		// when files actually need to be written
@@ -491,7 +491,6 @@ public class DatafilePatcher {
 		Assets vanillaAssets = getAllIndices(data, functions: getAllCallableFunctionAndScriptNames(data).ToDictionary(x => x));
 
 		Assets prevAssets = vanillaAssets;
-
 		Dictionary<string, Assets> modIndices = new();
 		
 		foreach (Mod mod in mods) {
@@ -501,7 +500,7 @@ public class DatafilePatcher {
 				prevAssets = emptyAssets;
 				continue;
 			}
-			setStatusAndInfo($"Merging: {mod.DisplayName}");
+			setStatus($"Merging: {mod.DisplayName}");
 			string fullDatafilePath = Path.Combine(modsFolder, mod.ModId, mod.DatafilePath);
 			UndertaleData modData;
 			try {
@@ -509,13 +508,11 @@ public class DatafilePatcher {
 				modData = UndertaleIO.Read(stream);
 			}
 			catch (Exception e) {
-				setStatusAndError($"Failed to load the datafile of {mod.Identify()}.", e.ToString());
-				return null;
+				throw new PatcherException($"Failed to load the datafile of {mod.Identify()}", e);
 			}
 
-			
-			if (!runModScript(mod, m => m.PreMergeScriptPath, new ScriptGlobals(data, modData)))
-				return null;
+
+			runModScriptIfExists(mod, mod.PreMergeScriptPath, modsFolder, new ScriptGlobals(data, modData));
 			
 			List<string> functionsAndScriptNames = getAllCallableFunctionAndScriptNames(modData);
 			Dictionary<string, string> modFunctions = autoNamespace(modData, functionsAndScriptNames, mod.ModId, mod.NamespacingOptions);
@@ -528,8 +525,7 @@ public class DatafilePatcher {
 				product = merge(data, modData, Path.Combine(relativeProfilePath, mod.ModId));
 			}
 			catch (Exception e) {
-				setStatusAndError($"Merging {mod.Identify()} failed!", e.ToString());
-				return null;
+				throw new PatcherException($"Merging {mod.Identify()} failed", e);
 			}
 			
 			// TODO: don't get audio group indices like this please
@@ -544,8 +540,8 @@ public class DatafilePatcher {
 				int newIndex = data.AudioGroups.IndexOf(data.AudioGroups.ByName(audioGroup));
 				audioGroupTransfers.Add(new AudioGroupTransfer(mod, originalIndex, newIndex, true));
 			}
-			if (!runModScript(mod, m => m.PostMergeScriptPath, new ScriptGlobals(data, modData)))
-				return null;
+
+			runModScriptIfExists(mod, mod.PostMergeScriptPath, modsFolder, new ScriptGlobals(data, modData));
 			
 			Assets assets = getAllIndices(data, modFunctions, prevAssets);
 			modIndices[mod.ModId] = assets;
@@ -554,8 +550,7 @@ public class DatafilePatcher {
 
 
 		foreach (Mod mod in mods) {
-			if (!runModScript(mod, m => m.PrePatchScriptPath, new ScriptGlobals(data)))
-				return null;
+			runModScriptIfExists(mod, mod.PrePatchScriptPath, modsFolder, new ScriptGlobals(data));
 		}
 		
 
@@ -573,11 +568,8 @@ public class DatafilePatcher {
 				modIndices,
 				mainGroup);
 			CompileResult gameAPIResult = mainGroup.Compile();
-			if (!gameAPIResult.Successful) {
-				setStatusAndError("Failed to insert g3man Builtin API(s)!", 
-					gameAPIResult.PrintAllErrors(false));
-				return null;
-			}
+			if (!gameAPIResult.Successful)
+				throw new PatcherException("Failed to insert g3man Builtin API(s)", gameAPIResult.PrintAllErrors(false));
 		}
 		
 		
@@ -586,7 +578,7 @@ public class DatafilePatcher {
 		
 		foreach (Mod mod in mods) {
 			if (mod.Patches.Length != 0)
-				setStatusAndInfo($"Reading patches from: {mod.DisplayName}");
+				setStatus($"Reading patches from: {mod.DisplayName}");
 			
 			PatchIntentionAggregate<UnitOperations> gmlpIntentionAggregate = new();
 			PatchIntentionAggregate<FileRecord> gmlpv2IntentionAggregate = new();
@@ -597,38 +589,32 @@ public class DatafilePatcher {
 				
 				if (Directory.Exists(fullPath)) {
 					foreach (string file in Directory.GetFiles(fullPath, $"*.{patchLocation.Extension}", SearchOption.AllDirectories)) {
-						if (!processPatch(file, Path.GetRelativePath(modFolder, file)))
-							return null;
+						processPatch(file, Path.GetRelativePath(modFolder, file));
 					}
 				}
-				else if (File.Exists(fullPath)) {
-					if (!processPatch(fullPath, patchLocation.Path))
-						return null;
-				}
-				else {
-					setStatusAndError($"Mod {mod.Identify()} specified an invalid patch or patch directory: \"{patchLocation.Path}\"");
-					return null;
-				}
+				else if (File.Exists(fullPath))
+					processPatch(fullPath, patchLocation.Path);
+				else
+					throw new PatcherException($"Mod {mod.Identify()} specified an invalid patch or patch directory: \"{patchLocation.Path}\"");
 				
-				bool processPatch(string patchPath, string relativePath) {
+				
+				void processPatch(string patchPath, string relativePath) {
 					string patchText;
 					try {
 						patchText = File.ReadAllText(patchPath).ReplaceLineEndings("\n");
 						if (patchLocation.Type == PatchFormatType.GMLP) {
 							gmlp.Language.FindIntentions(patchText, relativePath, gmlpIntentionAggregate);
-							return true;
+							return;
 						}
-
 						if (patchLocation.Type == PatchFormatType.GMLPv2) {
 							gmlpv2.Language.FindIntentions(patchText, Path.GetDirectoryName(patchPath), relativePath, gmlpv2IntentionAggregate);
-							return true;
+							return;
 						}
 					}
 					catch (Exception e) {
-						setStatusAndError(
-							$"An error occurred while trying to read a patch file at \"{relativePath}\" from {mod.Identify()}!",
-							e.ToString());
-						return false;
+						// TODO: aggregate this error
+						throw new PatcherException(
+							$"An error occurred while trying to read a patch file at \"{relativePath}\" from {mod.Identify()}", e);
 					}
 					throw new UnreachableException();
 				}
@@ -641,8 +627,7 @@ public class DatafilePatcher {
 				foreach (string error in intentionErrors) {
 					total += error + "\n";
 				}
-				setStatusAndError("Patch intention errors occurred!", total);
-				return null;
+				throw new PatcherException($"Patch intention errors occurred:\n{total}");
 			}
 
 			
@@ -662,12 +647,12 @@ public class DatafilePatcher {
 			GlobalDecompileContext context = new(data, namespacedGlobalFunctions);
 			CompileGroup group = new(data, context);
 			
-			setStatusAndInfo($"Applying patches... (step {currentStep}/{steps})");
+			setStatus($"Applying patches... (step {currentStep}/{steps})");
 			PatchResults patchResults = step.Apply();
 		
 			if (patchResults.HasErrors()) {
-				setStatusAndError("Some patches failed to execute!", string.Join('\n', patchResults.GetAllErrors()));
-				return null;
+				throw new PatcherException(
+					$"Some patches failed to execute:\n{string.Join('\n', patchResults.GetAllErrors())}");
 			}
 			foreach (KeyValuePair<string, string> pair in patchResults.GetAllResults()) {
 				group.QueueCodeReplace(data.Code.ByName(pair.Key), pair.Value);
@@ -682,9 +667,10 @@ public class DatafilePatcher {
 				}
 				
 				string detailedError = generateCompileError(compileResult, step, patchResults);
-				string message = $"Compilation error while applying patches from {step.Owner.Identify()}!";
-				setStatusAndError(message, $"Below will be a file-by-file analysis of every compilation error.\n\n{detailedError}");
-				return null;
+				throw new PatcherException(
+					$"Compilation error while applying patches from {step.Owner.Identify()}!" +
+					$"\nBelow will be a file-by-file analysis of every compilation error." +
+					$"\n\n{detailedError}");
 			}
 			currentStep++;
 		}
@@ -695,11 +681,8 @@ public class DatafilePatcher {
 			data.GeneralInfo.Name.Content = profile.ModdedSaveName;
 		
 		foreach (Mod mod in mods) {
-			if (!runModScript(mod, m => m.PostPatchScriptPath, new ScriptGlobals(data)))
-				return null;
+			runModScriptIfExists(mod, mod.PostPatchScriptPath,  modsFolder, new ScriptGlobals(data));
 		}
-		
-		
 		
 		return new PatchProduct(data, audioGroupTransfers);
 	}

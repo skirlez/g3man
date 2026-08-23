@@ -32,12 +32,12 @@ internal sealed class AccessorNode : IAssignableASTNode
     /// <summary>
     /// Expression inside of the accessor itself.
     /// </summary>
-    public IASTNode AccessorExpression { get; private set; }
+    public IASTNode AccessorExpression { get; set; }
 
     /// <summary>
     /// Second expression inside of the accessor itself, if applicable.
     /// </summary>
-    public IASTNode? AccessorExpression2 { get; private set; }
+    public IASTNode? AccessorExpression2 { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; }

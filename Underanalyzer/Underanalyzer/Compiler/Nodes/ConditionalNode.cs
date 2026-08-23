@@ -20,17 +20,17 @@ internal sealed class ConditionalNode : IASTNode
     /// <summary>
     /// Condition of the conditional node.
     /// </summary>
-    public IASTNode Condition { get; private set; }
+    public IASTNode Condition { get; set; }
 
     /// <summary>
     /// True expression of the conditional node.
     /// </summary>
-    public IASTNode TrueExpression { get; private set; }
+    public IASTNode TrueExpression { get; set; }
 
     /// <summary>
     /// False expression of the conditional node.
     /// </summary>
-    public IASTNode FalseExpression { get; private set; }
+    public IASTNode FalseExpression { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; }
