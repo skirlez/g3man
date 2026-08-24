@@ -102,9 +102,9 @@ public class ManageGameWindow : G3manWindow {
 
 		
 		Button openGameFolderButton = Button.NewWithLabel("Open game folder");
-		openGameFolderButton.OnClicked += (_, _) => {
-			TryUtil.TryOpeningFileExplorer(this, game.Directory);
-		};
+		openGameFolderButton.OnClicked += UI.LockedOrQueue<Button>(async (_, _) => {
+			await TryUtil.TryOpeningFileExplorer(this, game.Directory);
+		});
 		openGameFolderButton.SetHalign(Align.Start);
 		
 		Button cleanToInput = Button.NewWithLabel($"(1) Copy {game.GetCleanDatafileRelativePath()} -> {game.GetInputDatafileRelativePath()}");

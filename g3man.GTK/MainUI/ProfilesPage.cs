@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using g3man.GTK;
 using g3man.Core.Models;
 using g3man.Core.Util;
@@ -9,15 +10,22 @@ namespace g3man.GTK.MainUI;
 
 public partial class MainWindow {
 	private List<Profile> profiles;
+	
+	private Label noProfilesLabel;
+	private const string NO_PROFILE_SELECTED = "No profile selected";
+	
 	private void SetupProfilesPage(Box box) {
 		profilesListBox = ListBox.New();
 		profilesListBox.SetSelectionMode(SelectionMode.None);
+		noProfilesLabel = Label.New("No profiles found.");
+		noProfilesLabel.SetMargin(30);
+		
 		selectProfileButtons = [];
 		
 		Button openProfilesFolder = Button.NewWithLabel("Open profiles folder");
-		openProfilesFolder.OnClicked += (_, _) => {
-			TryUtil.TryOpeningFileExplorer(this, Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"));
-		};
+		openProfilesFolder.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+			await TryUtil.TryOpeningFileExplorer(this, Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"));
+		});
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
 		addNewProfile.OnClicked += (_, _) => {
@@ -28,12 +36,15 @@ public partial class MainWindow {
 		};
 		
 		Button refreshProfiles = Button.NewWithLabel("Refresh");
-		refreshProfiles.OnClicked += (_, _) => {
-			ParseProfilesAndUpdateMenu();
-		};
+		refreshProfiles.OnClicked += UI.LockedOrQueue<Button>(async (_, _) => {
+			profilesListBox.SetSensitive(false);
+			await ParseProfilesAndUpdateMenu();
+			profilesListBox.SetSensitive(true);
+		});
 		
 		Button importFromZipButton = Button.NewWithLabel("Import from ZIP");
-		importFromZipButton.OnClicked += async (_, _) => {
+
+		importFromZipButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
@@ -41,8 +52,10 @@ public partial class MainWindow {
 			if (file is null)
 				return;
 			UnzipperWindow window = new(UnzipperWindow.ZipType.Profile);
-			window.Dialog(this, file, ParseProfilesAndUpdateMenu);
-		};
+			window.Dialog(this, file, async void () => {
+				await ParseProfilesAndUpdateMenu();
+			});
+		});
 		
 		
 		Box profileManagementBox = Box.New(Orientation.Horizontal, 10);
@@ -58,33 +71,31 @@ public partial class MainWindow {
 	}
 	
 	
-	private void ParseProfilesAndUpdateMenu() {
-		profiles = Profile.ParseAll(Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"), (e, path) => {
+	private async Task ParseProfilesAndUpdateMenu() {
+		profiles = await Task.Run(() => Profile.ParseAll(Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"), (e, path) => {
 			UI.Logger.Error($"Profile at {path} failed to parse:\n{e.Message}");
-		});
+		}));
 		profiles = profiles.OrderBy(profile => profile.Name).ToList();
-		if (profiles.Count == 0) {
-			EnableExtraCategories(ExtraCategories.Profiles);
-			return;
-		}
-		Profile? profile = profiles.FirstOrDefault(p => p!.ID == UI.GetGame()!.Entry.ProfileFolderName, null);
-		if (profile is null) {
-			PopulateProfilesList();
-			// let user choose profile if for some reason we couldn't use the normal one
-			EnableExtraCategories(ExtraCategories.Profiles);
-			return;
-		}
-		UI.SetProfile(profile);
-		currentProfileLabel.SetText(profile.Name);
 		
+		// let user choose profile if we have no profiles or we couldn't use the normal one
+		Profile? profile = profiles.FirstOrDefault(p => p!.ID == UI.GetGame()!.Entry.ProfileFolderName, null);
+		UI.SetProfile(profile);
+		if (profile is null) {
+			currentProfileLabel.SetText(NO_PROFILE_SELECTED);
+			PopulateProfilesList();
+			EnableExtraCategories(ExtraCategories.Profiles);
+			return;
+		}
+		currentProfileLabel.SetText(profile.Name);
 		PopulateProfilesList(profile);
-		ParseModsAndUpdateMenu();
+		await ParseModsAndUpdateMenu();
 		EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 	}
 
 	
 	private void PopulateProfilesList(Profile? selectedId = null) {
 		profilesListBox.RemoveAll();
+		profilesListBox.SetPlaceholder(noProfilesLabel);
 		foreach (Profile profile in profiles) {
 			AddToProfilesList(profile, profile == selectedId);
 		}
@@ -112,8 +123,10 @@ public partial class MainWindow {
 		spacer.SetHexpand(true);
 			
 		Button manageProfileButton = Button.NewWithLabel("Manage");
-		manageProfileButton.OnClicked += (_, _) => {
-			ManageProfileWindow window = new ManageProfileWindow(profile, (newProfile, createdNew) => {
+		manageProfileButton.OnClicked += UI.LockedOrQueue<Button>((_, _) => {
+			if (TransientFor is not null)
+				return;
+			ManageProfileWindow window = new(profile, async void (newProfile, createdNew) => {
 				if (createdNew) {
 					AddToProfilesList(newProfile, false);
 					return;
@@ -121,26 +134,25 @@ public partial class MainWindow {
 				bool prevSelected = UI.GetProfile() == profile;
 				UpdateProfilesList(newProfile, index, prevSelected);
 				if (prevSelected) {
-					SelectProfile(newProfile);
+					await SelectProfile(newProfile);
 				}
 			}, () => {
 				bool prevSelected = UI.GetProfile() == profile;
 				UpdateProfilesList(null, index, prevSelected);
 				if (prevSelected) {
+					currentProfileLabel.SetText(NO_PROFILE_SELECTED);
 					EnableExtraCategories(ExtraCategories.Profiles);
-					currentProfileLabel.SetText("No profile selected");
 				}
 			});
-			
 			window.Dialog(this);
-		};
+		});
 		Button selectButton = Button.NewWithLabel("Select");
 		if (selected)
 			selectButton.SetSensitive(false);
 		selectProfileButtons.Add(selectButton);
-		selectButton.OnClicked += (sender, args) => {
-			SelectProfile(profile, sender);
-		};
+		selectButton.OnClicked += UI.LockedOrCancel<Button>(async (button, _) => {
+			await SelectProfile(profile, button);
+		});
 			
 		Box box = Box.New(Orientation.Horizontal, 10);
 		box.Append(profileName);
@@ -157,23 +169,16 @@ public partial class MainWindow {
 	}
 	
 	
-	private void SelectProfile(Profile profile, Button? buttonPressed = null) {
+	private async Task SelectProfile(Profile profile, Button? buttonPressed = null) {
 		UI.SetProfile(profile);
+		foreach (Button selectProfileButton in selectProfileButtons)
+			selectProfileButton.SetSensitive(true);
+		buttonPressed?.SetSensitive(false);
+		currentProfileLabel.SetText(profile.Name);
+		await ParseModsAndUpdateMenu();
 		if (currentExtraCategories == ExtraCategories.Profiles) 
 			EnableExtraCategories(ExtraCategories.ProfilesAndMods);
-		if (buttonPressed is not null) {
-			foreach (Button button in selectProfileButtons) {
-				button.SetSensitive(true);
-			}
-
-			buttonPressed.SetSensitive(false);
-		}
-
-		currentProfileLabel.SetText(profile.Name);
-		ParseModsAndUpdateMenu();
-		
-		UI.GetGame()!.Entry.ProfileFolderName = profile.ID;
-		UI.TryWriteConfig();
+		await UI.TryWriteConfig();
 	}
 	
 }

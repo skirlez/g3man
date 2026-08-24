@@ -51,13 +51,13 @@ public class PopupWindow : G3manWindow {
             };
         }
     }
-
-    public static void PopupIfError(Window window, Action action) {
+    
+    public static async Task PopupIfError(Window window, Func<Task> action) {
         try {
-            action();
+           await action();
         }
         catch (Exception e) {
-            PopupWindow popup = new PopupWindow(window,  "Error!" ,"", "Close");
+            PopupWindow popup = new(window,  "Error!" ,e.Message, "Close");
             popup.Dialog();
         }
     }

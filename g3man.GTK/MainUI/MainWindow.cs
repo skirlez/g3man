@@ -81,7 +81,7 @@ public partial class MainWindow : G3manWindow {
 		
 		pageSidebar.SetMargin(5);
 		
-
+		
 		for (int i = 0; i < allPages.Length; i++) {
 			Box page = allPages[i];
 			pageStack.AddChild(page);
@@ -103,9 +103,10 @@ public partial class MainWindow : G3manWindow {
 			if (i != 0)
 				pageButton.SetGroup(pageButtons[i - 1]);
 			
-			pageButton.OnClicked += (sender, _) => {
+			pageButton.OnClicked += UI.LockedOrQueue<Button>((_, _) => {
 				pageStack.SetVisibleChild(page);
-			};
+			});
+			
 			
 			pageSidebar.Append(pageButton);
 			pageButtons[i] = pageButton;
@@ -140,21 +141,25 @@ public partial class MainWindow : G3manWindow {
 		currentProfileLabel = Label.New("No profile selected");
 		currentProfileLabel.SetEllipsize(EllipsizeMode.End);
 		
-		void ApplyModsDialog(bool launch) {
+		async Task ApplyModsDialog(bool launch) {
 			UI.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			UI.GetProfile()!.Write(UI.GetGame()!);
+			await Task.Run(() => UI.GetProfile()!.Write(UI.GetGame()!));
 			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();
 			new PatcherWindow(this).ApplyDialog(enabledModsList, launch);
 		}
 		
 		Button applyButton = Button.NewWithLabel("Apply");
-		applyButton.OnClicked += (_, _) => ApplyModsDialog(launch: false);
+		applyButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+			await ApplyModsDialog(launch: false);
+		});
 		
 		Button launchButton = Button.NewWithLabel("Launch");
-		launchButton.OnClicked += (_, _) => new PatcherWindow(this).LaunchDialog();
-
+		launchButton.OnClicked += UI.LockedOrCancel<Button>((_, _) => new PatcherWindow(this).LaunchDialog());
+		
 		Button applyAndLaunchButton = Button.NewWithLabel("Apply and Launch!");
-		applyAndLaunchButton.OnClicked += (_, _) => ApplyModsDialog(launch: true);
+		applyAndLaunchButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+			await ApplyModsDialog(launch: true);
+		});
 		
 		actionBox = Box.New(Orientation.Horizontal, 10);
 		actionBox.Append(applyAndLaunchButton);

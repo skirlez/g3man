@@ -211,7 +211,7 @@ public class ManageProfileWindow : G3manWindow {
 				}
 				catch (Exception e) {
 					UI.Logger.Error(e);
-					PopupWindow popup = new PopupWindow(this,  "Error!" ,"The profile was saved correctly, however, due to an error, the profile has been duplicated.\nWhen you refresh, the older version of this profile will reappear.", "Damn");
+					PopupWindow popup = new(this,  "Error!" ,"The profile was saved correctly, however, due to an error, the profile has been duplicated.\nWhen you refresh, the older version of this profile will reappear.", "Damn");
 					popup.Dialog();
 				}
 				
@@ -229,7 +229,7 @@ public class ManageProfileWindow : G3manWindow {
 				}
 				catch (Exception e) {
 					UI.Logger.Error(e);
-					PopupWindow popup = new PopupWindow(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
+					PopupWindow popup = new(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
 					popup.Dialog();
 					return;
 				}

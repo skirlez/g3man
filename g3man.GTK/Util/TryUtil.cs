@@ -4,9 +4,9 @@ using Gtk;
 namespace g3man.GTK.Util;
 
 public static class TryUtil {
-	public static void TryOpeningFileExplorer(Window window, string path) {
-		PopupWindow.PopupIfError(window, () => {
-			IO.OpenFileExplorer(path);
+	public static async Task TryOpeningFileExplorer(Window window, string path) {
+		await PopupWindow.PopupIfError(window, async Task () => {
+			await Task.Run(() => IO.OpenFileExplorer(path));
 		});
 	}
 }

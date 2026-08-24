@@ -72,28 +72,27 @@ public partial class MainWindow {
 
 
 		Button openModsFolderButton = Button.NewWithLabel("Open mods folder");
-		openModsFolderButton.OnClicked += (_, _) => { TryUtil.TryOpeningFileExplorer(this, UI.CurrentProfileFolderPath()); };
+		openModsFolderButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+			await TryUtil.TryOpeningFileExplorer(this, UI.CurrentProfileFolderPath());
+		});
 
 		Button refreshButton = Button.NewWithLabel("Refresh");
-		refreshButton.OnClicked += (_, _) => {
-			UI.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
-			try {
-				UI.GetProfile()!.Write(UI.GetGame()!);
-			}
-			catch (Exception e) {
-				UI.Logger.Error(e);
-			}
-
-			ParseModsAndUpdateMenu();
-		};
+		refreshButton.OnClicked += UI.LockedOrQueue<Button>(async (_, _) => {
+			modsListBox.SetSensitive(false);
+			Profile profile = UI.GetProfile()!;
+			profile.UpdateModsStatus(modsList, enabledMods);
+			await Task.Run(() => profile.Write(UI.GetGame()!));
+			await ParseModsAndUpdateMenu();
+			modsListBox.SetSensitive(true);
+		});
 
 		Button moveModsUp = Button.New();
 		moveModsUp.Label = "↑";
 		Button moveModsDown = Button.New();
 		moveModsDown.Label = "↓";
 
-		moveModsUp.OnClicked += reorderMods;
-		moveModsDown.OnClicked += reorderMods;
+		moveModsUp.OnClicked += UI.LockedOrQueue<Button>(reorderMods);
+		moveModsDown.OnClicked += UI.LockedOrQueue<Button>(reorderMods);
 
 		void reorderMods(Button sender, EventArgs _) {
 			int direction = (sender == moveModsUp ? -1 : 1);
@@ -124,7 +123,7 @@ public partial class MainWindow {
 		}
 
 		Button importFromZipButton = Button.NewWithLabel("Import");
-		importFromZipButton.OnClicked += async (_, _) => {
+		importFromZipButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
@@ -138,43 +137,45 @@ public partial class MainWindow {
 			if (path is null)
 				return;
 			if (Path.GetExtension(path) == ".xdelta") {
-				// TODO: this is done on the main thread
-				File.Copy(path, Path.Combine(UI.CurrentProfileFolderPath(), Path.GetFileName(path)), true);
-				ParseModsAndUpdateMenu();
+				await Task.Run(() => File.Copy(path, Path.Combine(UI.CurrentProfileFolderPath(), Path.GetFileName(path)), true));
+				await ParseModsAndUpdateMenu();
 			}
 			else {
 				UnzipperWindow window = new(UnzipperWindow.ZipType.Mod);
-				window.Dialog(this, file!, ParseModsAndUpdateMenu);
+				window.Dialog(this, file!, async void () => {
+					await ParseModsAndUpdateMenu();
+				});
 			}
-		};
+		});
 
 		Button deleteModButton = Button.NewWithLabel("Delete selected");
-		deleteModButton.OnClicked += (_, _) => {
+		deleteModButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
 			ListBoxRow? selected = modsListBox.GetSelectedRow();
 			if (selected is null)
 				return;
+			selected.SetSensitive(false);
+			modsListBox.UnselectAll();
 			int index = selected.GetIndex();
 			IMod mod = modsList[index];
 			string profileFolder = UI.CurrentProfileFolderPath();
 			try {
-				mod.Delete(profileFolder);
+				await Task.Run(() => mod.Delete(profileFolder));
 			}
 			catch (Exception e) {
 				UI.Logger.Error(e);
-				PopupWindow popup = new PopupWindow(this, "Error!",
+				PopupWindow popup = new(this, "Error!",
 					"Failed to delete this mod. Please report this as a bug!", "Damn");
 				popup.Dialog();
+				selected.SetSensitive(true);
 				return;
 			}
 
 			ListBoxRow? next = modsListBox.GetRowAtIndex(index + 1);
 			if (next is not null)
 				modsListBox.SelectRow(next);
-			else
-				modsListBox.UnselectAll();
 			modsListBox.Remove(selected);
 			modsList.RemoveAt(index);
-		};
+		});
 
 		manageModsBox.Append(openModsFolderButton);
 		manageModsBox.Append(refreshButton);
@@ -191,33 +192,15 @@ public partial class MainWindow {
 		page.Append(modNameLabel);
 		page.Append(modInfoWindow);
 	}
-
-	private bool running = false;
-	private async void ParseModsAndUpdateMenu() {
-		// all calls are from the UI thread so it should be fine to do it like this
-		if (running)
-			return;
-		running = true;
-		
+	
+	private async Task ParseModsAndUpdateMenu() {
 		Game? game = UI.GetGame();
 		Profile? profile = UI.GetProfile();
 		
-		
-		
-		
 		Debug.Assert(game is not null);
 		Debug.Assert(profile is not null);
-
-		for (int i = 0; i < modsList.Count; i++) {
-			ListBoxRow? row = modsListBox.GetRowAtIndex(i);
-			if (row is null)
-				break;
-			// TODO this is jank
-			row.Child!.SetOpacity(0);
-		}
 		
-		List<Mod> g3manMods = await Task.Run(() => 
-			Mod.ParseAll(game.GetProfileFolderPath(profile), (e, path) 
+		List<Mod> g3manMods = await Task.Run(() => Mod.ParseAll(game.GetProfileFolderPath(profile), (e, path) 
 				=> UI.Logger.Error($"Error reading mod at {path}:\n{e.Message}")));
 		
 		List<XdeltaMod> xdeltaMods = await Task.Run(() => XdeltaMod.ParseAll(game.GetProfileFolderPath(profile)));
@@ -235,10 +218,11 @@ public partial class MainWindow {
 
 		enabledMods = new Dictionary<IMod, bool>();
 		List<string> disabledIds = profile.ModsDisabled.ToList();
-
+		
 		foreach (IMod mod in modsList) {
 			ListBoxRow row = ListBoxRow.New();
 			CheckButton modEnabled = CheckButton.New();
+			modEnabled.SetMarginEnd(4);
 
 			if (!disabledIds.Contains(mod.ModId)) {
 				modEnabled.SetActive(true);
@@ -263,6 +247,5 @@ public partial class MainWindow {
 		}
 
 		ResetModInfo();
-		running = false;
 	}
 }

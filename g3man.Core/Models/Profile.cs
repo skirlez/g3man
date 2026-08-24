@@ -59,7 +59,7 @@ public class Profile {
 	
 	
 	public static List<Profile> ParseAll(string directory, Action<Exception, string> errorHandler) {
-		ConcurrentBag<Profile> profiles = new ConcurrentBag<Profile>();
+		ConcurrentBag<Profile> profiles = new();
 		string[] profileFolders;
 		try {
 			profileFolders = Directory.GetDirectories(directory);
@@ -67,10 +67,8 @@ public class Profile {
 		catch {
 			return [];
 		}
-
-
+		
 		Parallel.ForEach(profileFolders, profileFolder => {
-
 			try {
 				Profile profile = ParseFolder(profileFolder);
 				profiles.Add(profile);

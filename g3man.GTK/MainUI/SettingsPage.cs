@@ -79,7 +79,7 @@ public partial class MainWindow {
 		};
 		Button scriptInfoDialog = Button.NewWithLabel("!");
 		scriptInfoDialog.OnClicked += (sender, args) => {
-			PopupWindow popup = new PopupWindow(this, "Info", 
+			PopupWindow popup = new(this, "Info", 
 				"This option allows mods to run C# scripts."
 					+ "\nSome mods need them, but remember that these scripts could"
 					+ "\npotentially do anything to your computer!",
@@ -136,10 +136,10 @@ public partial class MainWindow {
 		saveSettingsButton.SetHalign(Align.End);
 		saveSettingsButton.SetValign(Align.End);
 		saveSettingsButton.SetVexpand(true);
-		saveSettingsButton.OnClicked += (sender, args) => {
-			UI.TryWriteConfig();
+		saveSettingsButton.OnClicked += UI.LockedOrQueue<Button>(async (_, _) => {
+			await UI.TryWriteConfig();
 			saveSettingsButton.SetLabel(saveSettingsLabel);
-		};
+		});
 		
 		page.Append(initializerBox);
 		page.Append(themeBox);

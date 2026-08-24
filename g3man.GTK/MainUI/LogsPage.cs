@@ -65,10 +65,11 @@ public partial class MainWindow {
 		Button openLogsFolderButton = Button.NewWithLabel("Open logs folder");
 		openLogsFolderButton.SetMargin(10);
 		openLogsFolderButton.SetHalign(Align.Center);
-		openLogsFolderButton.OnClicked += (_, _) => {
-			TryUtil.TryOpeningFileExplorer(this, Path.Combine(ProgramPaths.GetDataDirectory(), "logs"));
-		};
-		
+		openLogsFolderButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+			await TryUtil.TryOpeningFileExplorer(this, Path.Combine(ProgramPaths.GetDataDirectory(), "logs"));
+		});
+
+
 		page.Append(logsLabel);
 		page.Append(logWindow);
 		page.Append(openLogsFolderButton);

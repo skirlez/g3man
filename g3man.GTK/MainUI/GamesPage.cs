@@ -43,7 +43,7 @@ public partial class MainWindow {
 		
 		Button autoDetectButton = Button.NewWithLabel("Auto-detect games");
 		autoDetectButton.OnClicked += (_, _) => {
-			GameAutoDetectWindow window = new GameAutoDetectWindow(this, gamesList);
+			GameAutoDetectWindow window = new(this, gamesList);
 			window.Dialog();
 		};
 		autoDetectButton.SetHalign(Align.Center);
@@ -95,10 +95,10 @@ public partial class MainWindow {
 		Button addGameButton = Button.NewWithLabel("Add game");
 		addGameButton.SetMarginBottom(10);
 		addGameButton.SetHalign(Align.Center);
-		addGameButton.OnClicked += (sender, args) => {
-			GameAdderWindow adderWindow = new GameAdderWindow(gameDirectoryEntry.GetText(), this);
+		addGameButton.OnClicked += UI.LockedOrCancel<Button>((_, _) => {
+			GameAdderWindow adderWindow = new(gameDirectoryEntry.GetText(), this);
 			adderWindow.Dialog(this);
-		};
+		});
 		
 		gameDirectoryEntry.GetBuffer().OnDeletedText += (buffer, args) => {
 			string text = buffer.GetText();
@@ -140,9 +140,9 @@ public partial class MainWindow {
 		spacer.SetHexpand(true);
 		
 		Button selectGameButton = Button.NewWithLabel("Select");
-		selectGameButton.OnClicked += (button, _) => {
-			SelectGame(game, button);
-		};
+		selectGameButton.OnClicked += UI.LockedOrQueue<Button>(async (button, _) => {
+			await SelectGame(game, button);
+		});
 		selectGameButton.SetSensitive(!selected);
 		selectGameButtons.Add(selectGameButton);
 
@@ -244,9 +244,9 @@ public partial class MainWindow {
 		}
 	}
 	*/
-	private void SelectGame(Game game, Button buttonPressed) {
+	private async Task SelectGame(Game game, Button buttonPressed) {
 		if (game.FormatVersion == 1) {
-			GameUpgraderWindow window = new GameUpgraderWindow(this, game);
+			GameUpgraderWindow window = new(this, game);
 			window.Dialog(this);
 			return;
 		}
@@ -259,7 +259,7 @@ public partial class MainWindow {
 
 		//TryLoadExecutableImage(game, currentGameIcon);
 
-		ParseProfilesAndUpdateMenu();
+		await ParseProfilesAndUpdateMenu();
 		if (UI.GetProfile() is not null) {
 			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(
 				modsList.Where(m => enabledMods.ContainsKey(m)), 
