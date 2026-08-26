@@ -111,13 +111,11 @@ public static class IO {
 		}
 		
 		foreach (IGrouping<int, AudioGroupTransfer> mergeTransfers in audioGroupTransfers.Where(t => t.Merge)
-					.GroupBy(t => t.NewIndex))
-		{
+					.GroupBy(t => t.NewIndex)) {
 			string audioGroupName = $"audiogroup{mergeTransfers.Key}.dat";
+			string tempOutPath = Path.Combine(tempFolder, audioGroupName);
 			string targetDatPath = Path.Combine(game.Directory, audioGroupName);
 			UndertaleData audiogroupDat = MergeAudioGroups(targetDatPath, mergeTransfers, modsFolder, createRecord: game.OverwriteGameFiles);
-
-			string tempOutPath = Path.Combine(tempFolder, audioGroupName);
 			{
 				using FileStream output = new(tempOutPath, FileMode.Create, FileAccess.Write);
 				UndertaleIO.Write(output, audiogroupDat);
@@ -171,7 +169,7 @@ public static class IO {
 		byte[] vanillaHash = record.OriginalHash;
 		byte[] restoredHash = AudioRecord.Hash(audio);
 		if (!vanillaHash.SequenceEqual(restoredHash))
-			throw new Gexception($"Something is wrong with the audio group file {filename}.\nPlease validate the game files.");
+			throw new Exception($"Something is wrong with the audio group file {filename}.\nPlease validate the game files.");
 		return restoredHash;
 	}
 	

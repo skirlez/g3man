@@ -108,7 +108,6 @@ public class ManageGameWindow : G3manWindow {
 		Button cleanToInput = Button.NewWithLabel($"(1) Copy {game.GetCleanDatafileRelativePath()} -> {game.GetInputDatafileRelativePath()}");
 		cleanToInput.OnClicked += UI.OpenWindowButton(async (_, _) => {
 			await DoFileOperation("Failed to restore clean datafile", () => {
-				Thread.Sleep(3000);
 				IO.Deapply(game);
 				return (true, null);
 			});

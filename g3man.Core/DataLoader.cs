@@ -72,7 +72,7 @@ public class DataLoader {
 					dataMemory = new MemoryStream();
 					try {
 						if (xdeltas.Count == 0) {
-							using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+							using FileStream stream = new(path, FileMode.Open, FileAccess.Read);
 							stream.CopyTo(dataMemory);
 						}
 						else {

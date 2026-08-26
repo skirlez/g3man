@@ -50,7 +50,7 @@ public readonly struct SemVer() {
 		return $"{Major}.{Minor}.{Patch}";
 	}
 }
-public class InvalidSemVerException(string message) : Gexception(message);
+public class InvalidSemVerException(string message) : Exception(message);
 
 public readonly struct SemVerRequirements {
 	private readonly (SemVer, SemVerComparison)[] Conditions;
@@ -172,4 +172,4 @@ public enum SemVerComparison {
 	RoughlyEquals,
 	Equals
 }
-public class InvalidSemVerRequirementException(string message) : Gexception(message);
+public class InvalidSemVerRequirementException(string message) : Exception(message);

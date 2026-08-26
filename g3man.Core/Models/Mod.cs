@@ -205,7 +205,7 @@ public class Mod : IMod {
 		return $"\"{DisplayName}\" (ID \"{ModId}\")";
 	} 
 }
-public class InvalidModException(string message) : Gexception(message);
+public class InvalidModException(string message) : Exception(message);
 
 public class PatchLocation {
 	public string Path;

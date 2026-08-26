@@ -11,7 +11,7 @@ using Xdelta = g3man.Core.Util.Xdelta;
 namespace g3man.GTK;
 
 public class PatcherWindow : G3manWindow {
-	private volatile bool canClose = false;
+	private bool canClose = false;
 	
 	private Label statusLabel;
 	private Button closeButton;
@@ -207,9 +207,10 @@ public class PatcherWindow : G3manWindow {
 			}
 			catch (Exception e) {
 				UI.Logger.Error(e);
-				setStatus("Failed to write output datafile! Check the log.");
+				setStatus("Failed to write output files! Check the log for more information.");
 				return false;
 			}
+			
 			
 			bool createOldSymlink = mods.Any(m => m.CreateOldProfileSymlink);
 			if (createOldSymlink)

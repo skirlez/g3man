@@ -71,6 +71,6 @@ pop.v.v [stacktop]self.(OUR FUNCTION)
 				return;
 			}
 		}
-		throw new Gexception($"Failed to auto-namespace function {name}. Please report this error!");
+		throw new DatafilePatcher.PatcherException($"Failed to auto-namespace function {name}. Please report this error!");
 	}
 }
