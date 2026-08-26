@@ -25,103 +25,103 @@ public static class UI {
 	private static Profile? profile;
 	
 	public static string LogFilename = null!;
-	
-	public static bool Lock = false;
-	private static Func<Task>? queued = null!;
 
-	// This stuff looks really not thread safe but since it's only ever the UI thread running this code, I think it is
+	public static HashSet<object> Running = new();
 
-	private static async void CheckQueue() {
-		while (true) {
-			if (queued is null) 
-				return;
-			Func<Task> current = queued;
-			queued = null;
-			Lock = true;
-			await current();
-			Lock = false;
-			// we could have went through another await there, so queue could be not null again. so we should go over it again
-		}
+	public enum Operation {
+		TouchingGames,
+		TouchingProfiles,
+		TouchingMods,
+		ChangePage,
+		OpenWindow,
+		CloseWindow,
+		ApplyOrLaunch,
+		SaveConfig,
 	}
 
+	private static List<List<Operation>> mutuallyExclusiveOperations = [
+		[Operation.TouchingGames, Operation.TouchingMods, Operation.TouchingProfiles, Operation.ApplyOrLaunch],
+		[Operation.OpenWindow, Operation.ChangePage],
+		[Operation.OpenWindow, Operation.CloseWindow]
+	];
+
+	private static bool isConflicting(Operation operation1, Operation operation2) {
+		return operation1 == operation2 
+			|| mutuallyExclusiveOperations.Any(x => x.Contains(operation1) && x.Contains(operation2));
+	}
+	public static bool CanDo(Operation operation) {
+		foreach (Operation operation2 in ongoingOperations) {
+			if (isConflicting(operation, operation2))
+				return false;
+		}
+
+		return true;
+	}
+	
+	private static List<Operation> ongoingOperations = new();
+
+
 	/**
-	 * Create a signal that is either ran, or is set to queue after the lock is released.
-	 * There can only be one action queued.
+	 * Return a signal handler that might be cancelled if another mutually exclusive operation is taking place.
+	 * operations is the list of *possible* operations this signal could perform.
 	 */
-	public static SignalHandler<T> LockedOrQueue<T>(Action<T, EventArgs> action) where T : NativeObject {
-		return (t, eventArgs) => {
-			queued = () => {
-				RunSignalAction(t, eventArgs, action);
-				return Task.CompletedTask;
-			};
-			if (Lock)
-				return;
-			CheckQueue();
-		};
-	}
-	/**
-	* Create a signal that is either ran, or is set to queue after the lock is released.
-	* There can only be one action queued.
-	*/
-	public static SignalHandler<T> LockedOrQueue<T>(Func<T, EventArgs, Task> action) where T : NativeObject {
-		return (t, eventArgs) => {
-			queued = async () => {
-				await RunSignalActionAsync(t, eventArgs, action);
-			};
-			if (Lock)
-				return;
-			CheckQueue();
-		};
-	}
-	
-	/**
-	* Create a signal that is either ran or is cancelled if the lock is held.
-	* This is used for irreversible actions (like deletion), and actions that can open windows.
-	*/
-	public static SignalHandler<T> LockedOrCancel<T>(Func<T, EventArgs, Task> action) where T : NativeObject {
+	public static SignalHandler<T> DoOperation<T>(List<Operation> operations, Func<T, EventArgs, Task> action, bool makeInsensitive = true) where T : Widget {
 		return async void (t, eventArgs) => {
-			if (Lock)
+			if (!operations.All(CanDo))
 				return;
-			Lock = true;
-			await RunSignalActionAsync(t, eventArgs, action);
-			Lock = false;
-			CheckQueue();
+			if (makeInsensitive)
+				t.SetSensitive(false);
+			ongoingOperations.AddRange(operations);
+			try {
+				await action(t, eventArgs);
+			}
+			catch (Exception e) {
+				if (t is Button button)
+					Logger.Error($"Error while pressing button \"{button.Label ?? "unnamed"}\":\n{e}");
+				Logger.Error(e);
+			}
+			ongoingOperations.RemoveAll(operations.Contains);
+			if (makeInsensitive)
+				t.SetSensitive(true);
 		};
 	}
-	public static SignalHandler<T> LockedOrCancel<T>(Action<T, EventArgs> action) where T : NativeObject {
-		return (t, eventArgs) => {
-			if (Lock)
-				return;
-			RunSignalAction(t, eventArgs, action);
-		};
+	// useful helpers
+	public static SignalHandler<Button> OpenWindowButton(Func<Button, EventArgs, Task> action, bool makeInsensitive = true) {
+		return DoOperation([Operation.OpenWindow], action);
 	}
-
-
-	private static void RunSignalAction<T>(T t, EventArgs eventArgs, Action<T, EventArgs> action) {
-		try {
-			action(t, eventArgs);
-		}
-		catch (Exception e) {
-			if (t is Button button)
-				Logger.Error($"Error while pressing button \"{button.Label ?? "unnamed"}\":\n{e}");
-			Logger.Error(e);
-		}
+	public static SignalHandler<Button> OpenWindowButton(Action<Button, EventArgs> action) {
+		return DoOperation([Operation.OpenWindow], action);
 	}
-	private static async Task RunSignalActionAsync<T>(T t, EventArgs eventArgs, Func<T, EventArgs, Task> action) {
-		try {
-			await action(t, eventArgs);
-		}
-		catch (Exception e) {
-			if (t is Button button)
-				Logger.Error($"Error while pressing button \"{button.Label ?? "unnamed"}\":\n{e}");
-			Logger.Error(e);
-		}
-		CheckQueue();
+	public static SignalHandler<Button> CloseWindowButton(Action<Button, EventArgs> action) {
+		return DoOperation([Operation.CloseWindow], action);
 	}
 	
+
+	/**
+	* Non-async version of the above
+	*/
+	public static SignalHandler<T> DoOperation<T>(List<Operation> operations, Action<T, EventArgs> action) where T : Widget {
+		return void (t, eventArgs) => {
+			foreach (Operation operation1 in operations) {
+				foreach (Operation operation2 in ongoingOperations) {
+					if (isConflicting(operation1, operation2))
+						return;
+				}
+			}
+			try {
+				action(t, eventArgs);
+			}
+			catch (Exception e) {
+				if (t is Button button)
+					Logger.Error($"Error while pressing button \"{button.Label ?? "unnamed"}\":\n{e}");
+				Logger.Error(e);
+			}
+		};
+	}
 	
 	
 	public static async Task TryWriteConfig() {
+		Logger.Debug("Saving config");
 		try {
 			await Task.Run(() => Config.Write());
 		}
@@ -143,15 +143,28 @@ public static class UI {
 	public static Game? GetGame() {
 		return game;
 	}
+
+	public static readonly string NoGameSelected = "No game selected";
 	public static void SetGame(Game? newGame) {
 		game = newGame;
+		mainWindow.CurrentGameLabel.SetText(game?.DisplayName ?? NoGameSelected);
 	}
 	public static Profile? GetProfile() {
 		return profile;
 	}
-	public static void SetProfile(Profile? newProfile) {
+	public static readonly string NoProfileSelected = "No profile selected";
+	
+	/**
+	 * Sets the current profile of the UI. Returns true if, as a result of this,
+	 * the game entry was updated to a new string ID. (If the new ID is empty (profile is null), this will be false)
+	 */
+	public static bool SetProfile(Profile? newProfile) {
 		profile = newProfile;
-		game!.Entry.ProfileFolderName = profile?.ID ?? "";
+		string oldId = game!.Entry.ProfileFolderName;
+		string newId = profile?.ID ?? "";
+		game!.Entry.ProfileFolderName = newId;
+		mainWindow.CurrentProfileLabel.SetText(profile?.Name ?? NoProfileSelected);
+		return newProfile is not null && oldId != newId;
 	}
 	public static string CurrentProfileFolderPath() {
 		Debug.Assert(game is not null);
@@ -160,6 +173,7 @@ public static class UI {
 	}
 
 	private static Thread MainThread = null!;
+	private static MainWindow mainWindow = null!;
 	public static int Run(Logger logger, Logger.LoggerPipe mainPipe, Config config) {
 		Logger = logger;
 		Config = config;
@@ -216,12 +230,12 @@ public static class UI {
 
 		application.OnActivate += (_, _) => {
 			DataLoader = new DataLoader(mainPipe);
-			MainWindow window = new();
+			mainWindow = new();
 			MainThread = Thread.CurrentThread;
-			application.AddWindow(window);
+			application.AddWindow(mainWindow);
 			ApplyColorScheme(Config.ColorScheme);
 
-			window.Show();
+			mainWindow.Show();
 		};
 		application.OnShutdown += (_, _) => {
 			//Config.Write();
@@ -264,4 +278,5 @@ public static class UI {
 	public static void AssertUI() {
 		Debug.Assert(Thread.CurrentThread == MainThread);
 	}
+
 }

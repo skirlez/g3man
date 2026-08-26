@@ -72,18 +72,16 @@ public partial class MainWindow {
 
 
 		Button openModsFolderButton = Button.NewWithLabel("Open mods folder");
-		openModsFolderButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+		openModsFolderButton.OnClicked += UI.OpenWindowButton(async (_, _) => {
 			await TryUtil.TryOpeningFileExplorer(this, UI.CurrentProfileFolderPath());
 		});
 
 		Button refreshButton = Button.NewWithLabel("Refresh");
-		refreshButton.OnClicked += UI.LockedOrQueue<Button>(async (_, _) => {
-			modsListBox.SetSensitive(false);
+		refreshButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods], async (_, _) => {
 			Profile profile = UI.GetProfile()!;
 			profile.UpdateModsStatus(modsList, enabledMods);
 			await Task.Run(() => profile.Write(UI.GetGame()!));
 			await ParseModsAndUpdateMenu();
-			modsListBox.SetSensitive(true);
 		});
 
 		Button moveModsUp = Button.New();
@@ -91,8 +89,8 @@ public partial class MainWindow {
 		Button moveModsDown = Button.New();
 		moveModsDown.Label = "↓";
 
-		moveModsUp.OnClicked += UI.LockedOrQueue<Button>(reorderMods);
-		moveModsDown.OnClicked += UI.LockedOrQueue<Button>(reorderMods);
+		moveModsUp.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods], reorderMods);
+		moveModsDown.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods], reorderMods);
 
 		void reorderMods(Button sender, EventArgs _) {
 			int direction = (sender == moveModsUp ? -1 : 1);
@@ -123,7 +121,7 @@ public partial class MainWindow {
 		}
 
 		Button importFromZipButton = Button.NewWithLabel("Import");
-		importFromZipButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+		importFromZipButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods, UI.Operation.OpenWindow], async (_, _) => {
 			FileFilter zipFilter = FileFilter.New();
 			zipFilter.SetName("ZIP archives");
 			zipFilter.AddMimeType("application/zip");
@@ -137,19 +135,18 @@ public partial class MainWindow {
 			if (path is null)
 				return;
 			if (Path.GetExtension(path) == ".xdelta") {
-				await Task.Run(() => File.Copy(path, Path.Combine(UI.CurrentProfileFolderPath(), Path.GetFileName(path)), true));
+				await Task.Run(() =>
+					File.Copy(path, Path.Combine(UI.CurrentProfileFolderPath(), Path.GetFileName(path)), true));
 				await ParseModsAndUpdateMenu();
 			}
 			else {
 				UnzipperWindow window = new(UnzipperWindow.ZipType.Mod);
-				window.Dialog(this, file!, async void () => {
-					await ParseModsAndUpdateMenu();
-				});
+				window.Dialog(this, file!, async void () => { await ParseModsAndUpdateMenu(); });
 			}
 		});
 
 		Button deleteModButton = Button.NewWithLabel("Delete selected");
-		deleteModButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+		deleteModButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods, UI.Operation.OpenWindow], async (_, _) => {
 			ListBoxRow? selected = modsListBox.GetSelectedRow();
 			if (selected is null)
 				return;

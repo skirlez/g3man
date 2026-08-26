@@ -78,7 +78,7 @@ public partial class MainWindow {
 			MarkDirty();
 		};
 		Button scriptInfoDialog = Button.NewWithLabel("!");
-		scriptInfoDialog.OnClicked += (sender, args) => {
+		scriptInfoDialog.OnClicked += UI.OpenWindowButton((_, _) => {
 			PopupWindow popup = new(this, "Info", 
 				"This option allows mods to run C# scripts."
 					+ "\nSome mods need them, but remember that these scripts could"
@@ -86,7 +86,7 @@ public partial class MainWindow {
 				"I will be careful");
 			
 			popup.Dialog();
-		};
+		});
 		scriptInfoDialog.SetSizeRequest(20, 20);
 		
 		Box allowModScriptsBox = Box.New(Orientation.Horizontal, 5);
@@ -106,13 +106,13 @@ public partial class MainWindow {
 		steamExecutableEntry.SetTooltipText("The path to Steam's executable/command to launch Steam, for launching games with Steam.");
 		
 		Button steamBrowseButton = Button.NewWithLabel("Browse");
-		steamBrowseButton.OnClicked += async (_, _) => {
+		steamBrowseButton.OnClicked += UI.OpenWindowButton(async (_, _) => {
 			Gio.File? file = await FileDialogWindow.Dialog(this, "Choose an executable", []);
 			string? path = file?.GetPath();
 			if (path is null)
 				return;
 			steamExecutableEntry.SetText(path);
-		};
+		});
 
 		Box steamBox = Box.New(Orientation.Vertical, 10)
 			.With(
@@ -129,14 +129,14 @@ public partial class MainWindow {
 		checkForUpdatesCheck.OnToggled += (sender, _) => {
 			UI.Config.CheckForUpdates = sender.GetActive();
 			MarkDirty();
+			
 		};
 		checkForUpdatesCheck.SetTooltipText("Check the g3man GitHub to see if there's a new release when you open the program. If there is, you'll see a (!) on the \"About\" page.");
-		
 
 		saveSettingsButton.SetHalign(Align.End);
 		saveSettingsButton.SetValign(Align.End);
 		saveSettingsButton.SetVexpand(true);
-		saveSettingsButton.OnClicked += UI.LockedOrQueue<Button>(async (_, _) => {
+		saveSettingsButton.OnClicked += UI.DoOperation<Button>([UI.Operation.SaveConfig], async (_, _) => {
 			await UI.TryWriteConfig();
 			saveSettingsButton.SetLabel(saveSettingsLabel);
 		});

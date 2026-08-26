@@ -7,7 +7,7 @@ using Gtk;
 namespace g3man.GTK;
 
 public class ManageProfileWindow : G3manWindow {
-	public ManageProfileWindow(Profile? profile, Action<Profile, bool> saveCallback, Action? deleteCallback = null) {
+	public ManageProfileWindow(Profile? profile, Func<Profile, bool, Task> saveCallback, Func<Task>? deleteCallback = null) {
 		SetSizeRequest(400, 300);
 		SetTitle(profile is null ? "Create Profile" : "Manage Profile");
 		
@@ -26,7 +26,6 @@ public class ManageProfileWindow : G3manWindow {
 		Entry IDEntry = Entry.New();
 		IDEntry.SetText(profile?.ID ?? "");
 		IDEntry.SetSensitive(profile is not null && profile.ID != ToProfileFolderName(profile.Name));
-		
 		
 		nameEntry.OnChanged += (sender, _) => {
 			bool enabled = IDEntry.GetSensitive();
@@ -125,105 +124,109 @@ public class ManageProfileWindow : G3manWindow {
 		
 		Button doneButton = Button.New();
 		doneButton.SetLabel(profile is null ? "Create" : "Save");
-
-
-
+		
 		Box fateBox = Box.New(Orientation.Horizontal, 5);
 		fateBox.SetHalign(Align.Center);
 		fateBox.SetValign(Align.End);
 		fateBox.Append(doneButton);
 		fateBox.SetVexpand(true);
 		
-		void SaveProfile(bool asNew) {
+		async Task SaveProfile(bool asNew) {
+			
+			
 			// TODO: can't have it be nicer by making it so we stop the insert-text signal so we limit the characters you can type.
 			// until it works with Entry (seems to just not at the moment) OR
 			// when gir.core supports overriding virtual functions (we could subclass EntryBuffer)
 			IDEntry.SetText(ToProfileFolderName(IDEntry.GetText()));
 			
-
-			Profile newProfile = new Profile(nameEntry.GetText(), IDEntry.GetText(), 
+			SetSensitive(false);
+			void makePopupAndSetSensitive(string title, string message, string buttonText) {
+				PopupWindow popup = new(this, title, message, buttonText);
+				popup.Dialog();
+				SetSensitive(true);
+			}
+			
+			Profile newProfile = new(nameEntry.GetText(), IDEntry.GetText(), 
 							moddedSaveCheck.GetActive(), saveNameEntry.GetText(), []);
 			if (newProfile.Name == "") {
-				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your creation a name.", "Okay I'll Name It");
-				popup.Dialog();
+				makePopupAndSetSensitive("Cannot save!", "You must give your creation a name.", "Okay I'll Name It");
 				return;
 			}
 			if (newProfile.ID == "") {
-				PopupWindow popup = new PopupWindow(this,  "Cannot save!" ,"You must give your profile an ID.", "Okay I'll ID It");
-				popup.Dialog();
+				makePopupAndSetSensitive("Cannot save!", "You must give your profile an ID.", "Okay I'll ID It");
 				return;
 			}
 			if (newProfile.SeparateModdedSave && newProfile.ModdedSaveName == "") {
-				PopupWindow popup = new PopupWindow(this, "Issue!",
-					"If \"Separate modded save\" is enabled, \"Modded save name\"\n"
-					+ $"cannot be blank (as it is the game's new save folder name).",
-					"Okay");
-				popup.Dialog();
+				makePopupAndSetSensitive("Issue!",
+				"If \"Separate modded save\" is enabled, \"Modded save name\"\n"
+						+ $"cannot be blank (as it is the game's new save folder name).",
+						"Okay");
 				return;
 			}
-
+			
 			
 			bool oldProfileExistsAndIDChanged = profile is not null && newProfile.ID != profile.ID;
 			string profilesFolder = Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles");
 			try {
 				if (oldProfileExistsAndIDChanged || asNew) {
 					if (newProfile.ID == "") {
-						PopupWindow popup = new PopupWindow(this, "Cannot save!", "ID cannot be blank.",
-							"Okay I'll ID It");
-						popup.Dialog();
+						makePopupAndSetSensitive("Cannot save!", "ID cannot be blank.","Okay I'll ID It");
 						return;
 					}
 					
 					string?[] folders = Directory.GetDirectories(profilesFolder).Select(Path.GetFileName).ToArray();
 					if (folders.Contains(newProfile.ID)) {
-						PopupWindow popup = new PopupWindow(this, "Conflict!",
+						makePopupAndSetSensitive("Conflict!",
 							$"A profile with the ID \"{newProfile.ID}\" already exists, so you'll need to change it.",
 							"Okay");
-						popup.Dialog();
 						return;
 					}
-					
-					Directory.CreateDirectory(Path.Combine(profilesFolder, newProfile.ID));
-					IO.CopyDirectory(Path.Combine(profilesFolder, profile!.ID),
-						Path.Combine(profilesFolder, newProfile.ID), recursive: true);
-					
+
+					await Task.Run(() => {
+						Directory.CreateDirectory(Path.Combine(profilesFolder, newProfile.ID));
+						IO.CopyDirectory(Path.Combine(profilesFolder, profile!.ID),
+							Path.Combine(profilesFolder, newProfile.ID), recursive: true);
+					});
+
 				}
 				
-				newProfile.Write(UI.GetGame()!);
+				await Task.Run(() => newProfile.Write(UI.GetGame()!));
 			}
 			catch (Exception e) {
 				UI.Logger.Error(e);
-				PopupWindow popup = new PopupWindow(this, "Error!", "An error occured trying to save this profile.",
-					"Damn");
 				try {
 					Directory.Delete(Path.Combine(profilesFolder, newProfile.ID), true);
 				}
 				catch {
 					// ignored
 				}
-				popup.Dialog();
+				makePopupAndSetSensitive("Error!", "An error occured trying to save this profile.","Damn");
 				return;
 			}
 
 			if (oldProfileExistsAndIDChanged && !asNew) {
 				try {
-					profile!.Delete(UI.GetGame()!);
+					await Task.Run(() => profile!.Delete(UI.GetGame()!));
 				}
 				catch (Exception e) {
 					UI.Logger.Error(e);
-					PopupWindow popup = new(this,  "Error!" ,"The profile was saved correctly, however, due to an error, the profile has been duplicated.\nWhen you refresh, the older version of this profile will reappear.", "Damn");
-					popup.Dialog();
+					makePopupAndSetSensitive("Error!",
+						"The profile was saved correctly, however, due to an error, the profile has been duplicated.\n" +
+						"When you refresh, the older version of this profile will reappear.",
+						"Damn");
+					return;
 				}
 				
 			}
 
-			saveCallback(newProfile, asNew);
+			await saveCallback(newProfile, asNew);
 			Close();
 		}
 		
 		if (profile is not null) {
 			Button deleteButton = Button.NewWithLabel("Delete");
-			deleteButton.OnClicked += (_, _) => {
+			deleteButton.OnClicked += async (_, _) => {
+				SetSensitive(false);
 				try {
 					profile.Delete(UI.GetGame()!);
 				}
@@ -231,18 +234,23 @@ public class ManageProfileWindow : G3manWindow {
 					UI.Logger.Error(e);
 					PopupWindow popup = new(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
 					popup.Dialog();
+					SetSensitive(true);
 					return;
 				}
-				deleteCallback!();
+				await deleteCallback!();
 				Close();
 			};
 			Button saveAsNew = Button.NewWithLabel("Save as New");
-			saveAsNew.OnClicked += (_, _) => SaveProfile(asNew: true);
+			saveAsNew.OnClicked += async (_, _) => {
+				await SaveProfile(asNew: true);
+			};
 			fateBox.Append(saveAsNew);
 			fateBox.Append(deleteButton);
 		}
 		
-		doneButton.OnClicked += (_, _) => SaveProfile(asNew: false);
+		doneButton.OnClicked += async (_, _) => {
+			await SaveProfile(asNew: false);
+		};
 		
 		Box box = Box.New(Orientation.Vertical, 12);
 		box.SetMargin(10);

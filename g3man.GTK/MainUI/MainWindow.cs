@@ -17,27 +17,24 @@ public partial class MainWindow : G3manWindow {
 	private Entry gameDirectoryEntry;
 	private List<Button> selectGameButtons;
 	
-	private ListBox profilesListBox;
-	private List<Button> selectProfileButtons;
-	
 	private ListBox modsListBox;
 	private ScrolledWindow modsListWindow;
 	private List<IMod> modsList = new();
 	private Dictionary<IMod, bool> enabledMods = new();
 	private List<Game> gamesList;
 	
-	
 	private Label noModsLabel;
 	
 	private Label noGamesAddedLabel;
 	
 	private Image currentGameIcon;
-	private Label currentGameLabel;
-	private Label currentProfileLabel;
+	public Label CurrentGameLabel;
+	public Label CurrentProfileLabel;
 	
-
+	
 	private Box actionBox;
-	
+
+	private Box pageSidebar;
 	private ToggleButton[] pageButtons;
 	
 	private const string aboutTitle = "About";
@@ -57,7 +54,7 @@ public partial class MainWindow : G3manWindow {
 		Stack pageStack = Stack.New();
 		pageStack.SetHexpand(true);
 
-		Box pageSidebar = Box.New(Orientation.Vertical, 8);
+		pageSidebar = Box.New(Orientation.Vertical, 8);
 		
 		Box gamesPage = Box.New(Orientation.Vertical, 0);
 		Box profilesPage = Box.New(Orientation.Vertical, 0);
@@ -103,9 +100,9 @@ public partial class MainWindow : G3manWindow {
 			if (i != 0)
 				pageButton.SetGroup(pageButtons[i - 1]);
 			
-			pageButton.OnClicked += UI.LockedOrQueue<Button>((_, _) => {
+			pageButton.OnClicked += (_, _) => {
 				pageStack.SetVisibleChild(page);
-			});
+			};
 			
 			
 			pageSidebar.Append(pageButton);
@@ -135,11 +132,11 @@ public partial class MainWindow : G3manWindow {
 		SetupLogsPage(logsPage);
 		SetupAboutPage(aboutPage);
 		
-		currentGameLabel = Label.New("No game selected");
-		currentGameLabel.SetEllipsize(EllipsizeMode.Start);
+		CurrentGameLabel = Label.New(UI.NoGameSelected);
+		CurrentGameLabel.SetEllipsize(EllipsizeMode.Start);
 		Label slash = Label.New("/");
-		currentProfileLabel = Label.New("No profile selected");
-		currentProfileLabel.SetEllipsize(EllipsizeMode.End);
+		CurrentProfileLabel = Label.New(UI.NoProfileSelected);
+		CurrentProfileLabel.SetEllipsize(EllipsizeMode.End);
 		
 		async Task ApplyModsDialog(bool launch) {
 			UI.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
@@ -149,15 +146,15 @@ public partial class MainWindow : G3manWindow {
 		}
 		
 		Button applyButton = Button.NewWithLabel("Apply");
-		applyButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+		applyButton.OnClicked += UI.DoOperation<Button>([UI.Operation.ApplyOrLaunch, UI.Operation.OpenWindow], async (_, _) => {
 			await ApplyModsDialog(launch: false);
 		});
 		
 		Button launchButton = Button.NewWithLabel("Launch");
-		launchButton.OnClicked += UI.LockedOrCancel<Button>((_, _) => new PatcherWindow(this).LaunchDialog());
+		launchButton.OnClicked +=  UI.DoOperation<Button>([UI.Operation.ApplyOrLaunch, UI.Operation.OpenWindow], (_, _) => new PatcherWindow(this).LaunchDialog());
 		
 		Button applyAndLaunchButton = Button.NewWithLabel("Apply and Launch!");
-		applyAndLaunchButton.OnClicked += UI.LockedOrCancel<Button>(async (_, _) => {
+		applyAndLaunchButton.OnClicked += UI.DoOperation<Button>([UI.Operation.ApplyOrLaunch, UI.Operation.OpenWindow], async (_, _) => {
 			await ApplyModsDialog(launch: true);
 		});
 		
@@ -168,9 +165,9 @@ public partial class MainWindow : G3manWindow {
 		actionBox.SetMargin(10);
 		
 		Box currentSetupBox = Box.New(Orientation.Horizontal, 5);
-		currentSetupBox.Append(currentGameLabel);
+		currentSetupBox.Append(CurrentGameLabel);
 		currentSetupBox.Append(slash);
-		currentSetupBox.Append(currentProfileLabel);
+		currentSetupBox.Append(CurrentProfileLabel);
 		currentSetupBox.SetMargin(10);
 		currentSetupBox.SetHexpand(true);
 

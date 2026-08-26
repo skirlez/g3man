@@ -42,10 +42,10 @@ public partial class MainWindow {
 		autoDetectedLabel.SetMarginStart(10);
 		
 		Button autoDetectButton = Button.NewWithLabel("Auto-detect games");
-		autoDetectButton.OnClicked += (_, _) => {
+		autoDetectButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], (_, _) => {
 			GameAutoDetectWindow window = new(this, gamesList);
 			window.Dialog();
-		};
+		});
 		autoDetectButton.SetHalign(Align.Center);
 		autoDetectButton.SetMargin(10);
 		
@@ -58,17 +58,12 @@ public partial class MainWindow {
 
 		gameDirectoryEntry.SetMaxWidthChars(75);
 		Button browseButton = Button.NewWithLabel("Browse");
-		browseButton.OnClicked += (_, _) => {
+		browseButton.OnClicked += UI.OpenWindowButton(async (_, _) => {
 			FileDialog dialog = FileDialog.New();
 			dialog.Title = "Select a GameMaker game's folder";
-			Task<Gio.File?> task = dialog.SelectFolderAsync(this);
-			task.GetAwaiter().OnCompleted(() => {
-				if (!task.IsCompletedSuccessfully)
-					return;
-				Gio.File file = task.Result!;
-				gameDirectoryEntry.SetText(file.GetPath() ?? "");
-			});
-		};
+			Gio.File? file = await dialog.SelectFolderAsync(this);
+			gameDirectoryEntry.SetText(file?.GetPath() ?? "");
+		});
 		
 		Box gameDirectoryEntryBox = Box.New(Orientation.Horizontal, 10);
 		gameDirectoryEntryBox.Append(browseButton);
@@ -95,7 +90,7 @@ public partial class MainWindow {
 		Button addGameButton = Button.NewWithLabel("Add game");
 		addGameButton.SetMarginBottom(10);
 		addGameButton.SetHalign(Align.Center);
-		addGameButton.OnClicked += UI.LockedOrCancel<Button>((_, _) => {
+		addGameButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], (_, _) => {
 			GameAdderWindow adderWindow = new(gameDirectoryEntry.GetText(), this);
 			adderWindow.Dialog(this);
 		});
@@ -140,14 +135,16 @@ public partial class MainWindow {
 		spacer.SetHexpand(true);
 		
 		Button selectGameButton = Button.NewWithLabel("Select");
-		selectGameButton.OnClicked += UI.LockedOrQueue<Button>(async (button, _) => {
+		selectGameButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], async (button, _) => {
+			EnableExtraCategories(ExtraCategories.None);
 			await SelectGame(game, button);
-		});
+		}, makeInsensitive: false);
+		
 		selectGameButton.SetSensitive(!selected);
 		selectGameButtons.Add(selectGameButton);
 
 		Button manageGameButton = Button.NewWithLabel("Manage");
-		manageGameButton.OnClicked += (_, _) => {
+		manageGameButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], (_,_) => {
 			if (game.FormatVersion == 1) {
 				GameUpgraderWindow upgraderWindow = new GameUpgraderWindow(this, game);
 				upgraderWindow.Dialog(this);
@@ -178,7 +175,7 @@ public partial class MainWindow {
 					return true;
 				});
 			window.Dialog();
-		};
+		});
 
 		
 		Box box = Box.New(Orientation.Horizontal, 10);
@@ -255,12 +252,11 @@ public partial class MainWindow {
 		}
 		buttonPressed.SetSensitive(false);
 		UI.SetGame(game);
-		currentGameLabel.SetText(game.DisplayName);
-
+		EnableExtraCategories(ExtraCategories.None);
 		//TryLoadExecutableImage(game, currentGameIcon);
-
 		await ParseProfilesAndUpdateMenu();
 		if (UI.GetProfile() is not null) {
+			// TODO: this should be done when you select a profile too
 			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(
 				modsList.Where(m => enabledMods.ContainsKey(m)), 
 				UI.CurrentProfileFolderPath(), 
@@ -268,5 +264,4 @@ public partial class MainWindow {
 			UI.DataLoader.LoadAsync(game, xdeltas);
 		}
 	}
-	
 }

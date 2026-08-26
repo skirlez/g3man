@@ -14,7 +14,6 @@ public class ManageGameWindow : G3manWindow {
 		SetSizeRequest(400, 300);
 		SetTitle("Manage Game");
 		
-		
 		Label nameLabel = Label.New("Name");
 		nameLabel.SetHalign(Align.Start);
 		
@@ -46,7 +45,7 @@ public class ManageGameWindow : G3manWindow {
 		fileExeEntry.SetHexpand(true);
 		
 		Button fileExeBrowse = Button.NewWithLabel("Browse");
-		fileExeBrowse.OnClicked += async (_, _) => {
+		fileExeBrowse.OnClicked += UI.OpenWindowButton(async (_, _) => {
 			Gio.File? file = await FileDialogWindow.Dialog(this, "Choose an executable", [], game.Directory);
 			string? path = file?.GetPath();
 			if (path is null)
@@ -58,8 +57,7 @@ public class ManageGameWindow : G3manWindow {
 			}
 			else
 				fileExeEntry.SetText(relativePath);
-	
-		};
+		});
 		
 		Box fileExeEntryBox = Box.New(Orientation.Horizontal, 5);
 		fileExeEntryBox.Append(fileExeBrowse);
@@ -102,64 +100,46 @@ public class ManageGameWindow : G3manWindow {
 
 		
 		Button openGameFolderButton = Button.NewWithLabel("Open game folder");
-		openGameFolderButton.OnClicked += UI.LockedOrQueue<Button>(async (_, _) => {
+		openGameFolderButton.OnClicked += UI.OpenWindowButton(async (_, _) => {
 			await TryUtil.TryOpeningFileExplorer(this, game.Directory);
 		});
 		openGameFolderButton.SetHalign(Align.Start);
 		
 		Button cleanToInput = Button.NewWithLabel($"(1) Copy {game.GetCleanDatafileRelativePath()} -> {game.GetInputDatafileRelativePath()}");
-		cleanToInput.OnClicked += (_, _) => {
-			DoFileOperation(() => {
-				try {
-					IO.Deapply(game);
-					return (true, null);
-				}
-				catch (Exception e) {
-					UI.Logger.Error($"Failed to restore clean datafile: {e}");
-					return (false, null);
-				}
+		cleanToInput.OnClicked += UI.OpenWindowButton(async (_, _) => {
+			await DoFileOperation("Failed to restore clean datafile", () => {
+				Thread.Sleep(3000);
+				IO.Deapply(game);
+				return (true, null);
 			});
-		};
+		});
 		cleanToInput.SetHalign(Align.Start);
 		
 		Button inputToClean = Button.NewWithLabel($"(2) Copy {game.GetInputDatafileRelativePath()} -> {game.GetCleanDatafileRelativePath()}");
-		inputToClean.OnClicked += (_, _) => {
-			DoFileOperation(() => {
-				try {
-					File.Copy(game.GetCleanDatafilePath(), game.GetBackupDatafilePath(), true);
-					File.Copy(game.GetInputDatafilePath(), game.GetCleanDatafilePath(), true);
-					UI.DataLoader.ReloadAsync();
-					return (true, null);
-				}
-				catch (Exception e) {
-					UI.Logger.Error($"Failed to copy input datafile to clean datafile: {e}");
-					return (false, null);
-				}
+		inputToClean.OnClicked += UI.OpenWindowButton(async (_, _) => {
+			await DoFileOperation("Failed to copy input datafile to clean datafile", () => {
+				File.Copy(game.GetCleanDatafilePath(), game.GetBackupDatafilePath(), true);
+				File.Copy(game.GetInputDatafilePath(), game.GetCleanDatafilePath(), true);
+				UI.DataLoader.ReloadAsync();
+				return (true, null);
 			});
-		};
+		});
 		inputToClean.SetHalign(Align.Start);
 		Button restoreCleanBackup = Button.NewWithLabel($"(3) Restore last backup of clean datafile");
-		restoreCleanBackup.OnClicked += (_, _) => {
-			DoFileOperation(() => {
-				try {
-					if (!File.Exists(game.GetBackupDatafilePath()))
-						return (false, "No clean datafile backup found...");
-					File.Copy(game.GetBackupDatafilePath(), game.GetCleanDatafilePath(), true);
-					UI.DataLoader.ReloadAsync();
-
-					return (true, null);
-				}
-				catch (Exception e) {
-					UI.Logger.Error($"Failed to copy input datafile to clean datafile: {e}");
-					return (false, null);
-				}
+		restoreCleanBackup.OnClicked += UI.OpenWindowButton(async (_, _) => {
+			await DoFileOperation("Failed to restore last backup of clean datafile", () => {
+				if (!File.Exists(game.GetBackupDatafilePath()))
+					return (false, "No clean datafile backup found...");
+				File.Copy(game.GetBackupDatafilePath(), game.GetCleanDatafilePath(), true);
+				UI.DataLoader.ReloadAsync();
+				return (true, null);
 			});
-		};
+		});
 		restoreCleanBackup.SetHalign(Align.Start);
 		
 		
 		Button saveButton = Button.NewWithLabel("Save");
-		saveButton.OnClicked += (_, _) => {
+		saveButton.OnClicked += UI.CloseWindowButton((_, _) => {
 			int newAppId;
 			try {
 				newAppId = int.Parse(steamAppIdEntry.GetText());
@@ -167,20 +147,17 @@ public class ManageGameWindow : G3manWindow {
 			catch {
 				newAppId = -1;
 			}
-
-
-
 			Game newGame = new(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafilePath, launchMethod.Active, fileExeEntry.GetText(), newAppId, writeDirectlyCheck.Active);
 			if (saveCallback(newGame)) {
 				Close();
 			}
-		};
+		});
 		Button removeButton = Button.NewWithLabel("Remove entry");
-		removeButton.OnClicked += (_, _) => {
+		removeButton.OnClicked += UI.CloseWindowButton((_, _) => {
 			if (removeCallback()) {
 				Close();
 			}
-		};
+		});
 		
 		Box fateBox = Box.New(Orientation.Horizontal, 10);
 		fateBox.SetHalign(Align.Center);
@@ -225,27 +202,25 @@ public class ManageGameWindow : G3manWindow {
 	}
 
 
-	private void DoFileOperation(Func<(bool, string?)> action) {
-		Thread thread = new(() => {
-			(bool success, string? message) = action();
-			UI.RunOnMainThreadEventually(() => {
-				PopupWindow window;
-				if (success) {
-					window = new PopupWindow(this,
-						"Success", message ?? "Operation completed successfully", "Thanks");
-				}
-				else {
-					window = new PopupWindow(this,
-						"Error!", message ?? "An error occurred trying to do this operation", "Damn");
-				}
-				window.Dialog();
-				SetSensitive(true);
-			});
-		});
-		//TODO: make sure this prevents you from closing the window
-		SetSensitive(false);
-		thread.Start();
-		
+	private async Task DoFileOperation(string errorMessage, Func<(bool, string?)> action) {
+		bool success = false;
+		string? message = null;
+		try {
+			await Task.Run(() => (success, message) = action());
+		}
+		catch (Exception e) {
+			UI.Logger.Error($"{errorMessage}: {e}");
+		}
+		PopupWindow window;
+		if (success) {
+			window = new PopupWindow(this,
+				"Success", message ?? "Operation completed successfully", "Thanks");
+		}
+		else {
+			window = new PopupWindow(this,
+				"Error!", message ?? $"{errorMessage}.", "Damn");
+		}
+		window.Dialog();
 	}
 }
 
