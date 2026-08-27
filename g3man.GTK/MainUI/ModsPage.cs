@@ -172,6 +172,8 @@ public partial class MainWindow {
 				modsListBox.SelectRow(next);
 			modsListBox.Remove(selected);
 			modsList.RemoveAt(index);
+			enabledMods.Remove(mod);
+	
 		});
 
 		manageModsBox.Append(openModsFolderButton);

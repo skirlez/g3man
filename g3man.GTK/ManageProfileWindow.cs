@@ -182,8 +182,10 @@ public class ManageProfileWindow : G3manWindow {
 
 					await Task.Run(() => {
 						Directory.CreateDirectory(Path.Combine(profilesFolder, newProfile.ID));
-						IO.CopyDirectory(Path.Combine(profilesFolder, profile!.ID),
-							Path.Combine(profilesFolder, newProfile.ID), recursive: true);
+						if (profile is not null) {
+							IO.CopyDirectory(Path.Combine(profilesFolder, profile.ID),
+								Path.Combine(profilesFolder, newProfile.ID), recursive: true);
+						}
 					});
 
 				}
