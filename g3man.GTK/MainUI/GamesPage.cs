@@ -120,7 +120,6 @@ public partial class MainWindow {
 	
 	private async Task ParseGamesAndUpdateMenu() {
 		List<Game> games = await Task.Run(() => {
-			UI.ThreadAssert();
 			List<Game> list = Game.ParseAll(UI.Config.GameEntries,
 				(e, entry) => { UI.Logger.Error($"Error reading game at {entry.Path}:\n{e.Message}"); });
 			list.Sort((game1, game2) => string.Compare(game1.DisplayName, game2.DisplayName, StringComparison.Ordinal));
