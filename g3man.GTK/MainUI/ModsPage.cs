@@ -89,8 +89,8 @@ public partial class MainWindow {
 		Button moveModsDown = Button.New();
 		moveModsDown.Label = "↓";
 
-		moveModsUp.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods], reorderMods);
-		moveModsDown.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods], reorderMods);
+		moveModsUp.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods, UI.Operation.OpenWindow], reorderMods);
+		moveModsDown.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods, UI.Operation.OpenWindow], reorderMods);
 
 		void reorderMods(Button sender, EventArgs _) {
 			int direction = (sender == moveModsUp ? -1 : 1);
@@ -105,9 +105,9 @@ public partial class MainWindow {
 			IMod mod = modsList[index];
 			if (direction == 1 && mod is XdeltaMod && modsList[index + direction] is not XdeltaMod ||
 				direction == -1 && mod is not XdeltaMod && modsList[index + direction] is XdeltaMod) {
-				PopupWindow popup = new PopupWindow(this, "Stop!",
+				PopupWindow popup = new("Stop!",
 					"An xdelta mod cannot have lower priority than non-xdelta mods.", "Ohhh");
-				popup.Dialog();
+				popup.Dialog(this);
 				return;
 			}
 
@@ -160,9 +160,9 @@ public partial class MainWindow {
 			}
 			catch (Exception e) {
 				UI.Logger.Error(e);
-				PopupWindow popup = new(this, "Error!",
+				PopupWindow popup = new("Error!",
 					"Failed to delete this mod. Please report this as a bug!", "Damn");
-				popup.Dialog();
+				popup.Dialog(this);
 				selected.SetSensitive(true);
 				return;
 			}

@@ -7,7 +7,7 @@ namespace g3man.GTK;
 
 public class GameUpgraderWindow : G3manWindow  {
 	
-	public GameUpgraderWindow(MainWindow mainWindow, Game game) {
+	public GameUpgraderWindow(Game game) {
 		SetSizeRequest(500, 300);
 		Box box = Box.New(Orientation.Vertical, 5);
 		Label text = Label.New("Your g3man setup for this game must be converted to a new format.\nOlder g3man versions will not be able to parse this game correctly.");
@@ -49,10 +49,10 @@ public class GameUpgraderWindow : G3manWindow  {
 			catch (Exception e) {
 				game.FormatVersion = 1;
 				UI.Logger.Error($"Error while converting game {game.DisplayName}: {e}");
-				PopupWindow window = new PopupWindow(this, "Error!",
+				PopupWindow window = new("Error!",
 					"An error occured while converting this game.\nPlease report this as a bug, and revert to an earlier g3man version for now.",
 					"Close");
-				window.Dialog();
+				window.Dialog(this);
 			}
 		};
 		Button cancel = Button.NewWithLabel("Cancel");

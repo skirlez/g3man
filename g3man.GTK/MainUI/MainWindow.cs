@@ -13,19 +13,13 @@ namespace g3man.GTK.MainUI;
 #pragma warning disable CS8618
 
 public partial class MainWindow : G3manWindow {
-	private ListBox gamesListBox;
-	private Entry gameDirectoryEntry;
-	private List<Button> selectGameButtons;
-	
+
 	private ListBox modsListBox;
 	private ScrolledWindow modsListWindow;
 	private List<IMod> modsList = new();
 	private Dictionary<IMod, bool> enabledMods = new();
-	private List<Game> gamesList;
 	
 	private Label noModsLabel;
-	
-	private Label noGamesAddedLabel;
 	
 	private Image currentGameIcon;
 	public Label CurrentGameLabel;
@@ -44,10 +38,6 @@ public partial class MainWindow : G3manWindow {
 	private Stack aboutButtonLabelStack;
 	private Label aboutButtonLabelWithUpdate;
 	
-	private ExtraCategories currentExtraCategories;
-	
-
-
 	public MainWindow() {
 		Title = "g3man";
 		SetDefaultSize(700, 600);
@@ -195,8 +185,6 @@ public partial class MainWindow : G3manWindow {
 	* Turns on extra categories (Profiles and Mods) depending on the parameter.
 	*/
 	private void EnableExtraCategories(ExtraCategories extra) {
-		currentExtraCategories = extra;
-
 		Button modsButton = pageButtons[2];
 		Button profilesButton = pageButtons[1];
 		if (extra < ExtraCategories.Profiles) {

@@ -7,18 +7,15 @@ public class PopupWindow : G3manWindow {
     public static Action<PopupWindow> CloseWindowAction = (window => {
         window.Close();
     });
-    private Window owner;
-    public PopupWindow(Window owner, string title, string message, string buttonText) 
-        : this(owner, title, message, [buttonText], [CloseWindowAction]) {}
+    public PopupWindow(string title, string message, string buttonText) 
+        : this(title, message, [buttonText], [CloseWindowAction]) {}
 
-    public PopupWindow(Window owner, string title, string message, 
+    public PopupWindow(string title, string message, 
             string[] buttonTexts, Action<PopupWindow>[] actions, Action<PopupWindow>? beforeClose = null) {
         SetTitle(title);
         SetResizable(false);
         SetSizeRequest(400, 200);
-        
-        this.owner = owner;
-        
+
         Label messageLabel = Label.New(message);
         messageLabel.SetJustify(Justification.Center);
         messageLabel.SetHalign(Align.Center);
@@ -52,18 +49,22 @@ public class PopupWindow : G3manWindow {
         }
     }
     
-    public static async Task PopupIfError(Window window, Func<Task> action) {
+    public static async Task<bool> PopupIfError(Window window, Func<Task> action) {
         try {
            await action();
         }
         catch (Exception e) {
-            PopupWindow popup = new(window,  "Error!" ,e.Message, "Close");
-            popup.Dialog();
+            UI.Logger.Error(e);
+            PopupWindow popup = new("Error!" ,e.Message, "Close");
+            popup.Dialog(window);
+            return true;
         }
+
+        return false;
     }
 
-    public void Dialog() {
-        SetTransientFor(owner);
+    public void Dialog(Window window) {
+        SetTransientFor(window);
         SetModal(true);
         Present();
     }

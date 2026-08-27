@@ -9,16 +9,16 @@ using Pango;
 namespace g3man.GTK.MainUI;
 
 public partial class MainWindow {
-
-	private ListBox profilesListBox;
-	private Dictionary<string, Button> selectProfileButtons = new();
+	
+	private UIList<Profile> profilesList;
 	private Label noProfilesLabel;
 	
 	private void SetupProfilesPage(Box box) {
-		profilesListBox = ListBox.New();
+		ListBox profilesListBox = ListBox.New();
 		profilesListBox.SetSelectionMode(SelectionMode.None);
 		noProfilesLabel = Label.New("No profiles found.");
 		noProfilesLabel.SetMargin(30);
+		profilesList = new UIList<Profile>([], profilesListBox, MakeProfileRow, noProfilesLabel);
 		
 		Button openProfilesFolder = Button.NewWithLabel("Open profiles folder");
 		openProfilesFolder.OnClicked += UI.OpenWindowButton(async (_, _) => {
@@ -27,8 +27,8 @@ public partial class MainWindow {
 		
 		Button addNewProfile = Button.NewWithLabel("Add new profile");
 		addNewProfile.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingProfiles, UI.Operation.OpenWindow], (_, _) => {
-			ManageProfileWindow window = new(null, (newProfile, _) => {
-				AddToProfilesList(newProfile);
+			ManageProfileWindow window = new(null, (newProfile) => {
+				profilesList.Add(newProfile);
 				return Task.CompletedTask;
 			});
 			window.Dialog(this);
@@ -69,42 +69,21 @@ public partial class MainWindow {
 	
 	
 	private async Task ParseProfilesAndUpdateMenu() {
-		List<Profile> profiles = await Task.Run(() => Profile.ParseAll(Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"), (e, path) => {
-			UI.Logger.Error($"Profile at {path} failed to parse:\n{e.Message}");
-		}));
-		profiles = profiles.OrderBy(profile => profile.Name).ToList();
+		List<Profile> profiles = await Task.Run(() => {
+			return Profile.ParseAll(Path.Combine(UI.GetGame()!.Directory, "g3man", "profiles"), 
+				(e, path) => UI.Logger.Error($"Profile at {path} failed to parse:\n{e.Message}"))
+				.OrderBy(profile => profile.Name).ToList();
+		});
 		
+		profilesList.Clear();
+		foreach (Profile profile in profiles)
+			profilesList.Add(profile);
 		Profile? selected = profiles.FirstOrDefault(p => p!.ID == UI.GetGame()!.Entry.ProfileFolderName, null);
-		PopulateProfilesList(profiles);
 		await SelectProfile(selected);
 	}
-
 	
-	private void PopulateProfilesList(List<Profile> profiles) {
-		profilesListBox.RemoveAll();
-		profilesListBox.SetPlaceholder(noProfilesLabel);
-		selectProfileButtons.Clear();
-		foreach (Profile profile in profiles) {
-			AddToProfilesList(profile);
-		}
-	}
-
-	private void AddToProfilesList(Profile profile) {
-		int newIndex = 0;
-		while (profilesListBox.GetRowAtIndex(newIndex) is not null)
-			newIndex++;
-		profilesListBox.Append(createProfileWidgets(profile, newIndex));
-	}
-
-	private void UpdateProfilesList(Profile? profile, int index) {
-		ListBoxRow old = profilesListBox.GetRowAtIndex(index)!;
-		profilesListBox.Remove(old);
-		if (profile is not null) {
-			profilesListBox.Insert(createProfileWidgets(profile, index), index);
-		}
-	}
 	
-	private ListBoxRow createProfileWidgets(Profile profile, int index) {
+	private (ListBoxRow, Button) MakeProfileRow(Profile profile) {
 		Label profileName = Label.New(profile.Name);
 		profileName.SetEllipsize(EllipsizeMode.End);
 		Box spacer = Box.New(Orientation.Horizontal, 0);
@@ -113,27 +92,20 @@ public partial class MainWindow {
 		Button manageProfileButton = Button.NewWithLabel("Manage");
 		manageProfileButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingProfiles, UI.Operation.OpenWindow], (_, _) => {
 			ManageProfileWindow window = new(profile,
-				saveCallback: async Task (newProfile, createdNew) => {
-					if (createdNew) {
-						AddToProfilesList(newProfile);
-						return;
-					}
-					bool prevSelected = UI.GetProfile() == profile;
-					UpdateProfilesList(newProfile, index);
-					if (prevSelected) {
-						await SelectProfile(newProfile);
-					}
-				}, deleteCallback: async Task () => {
-					selectProfileButtons.Remove(profile.ID);
-					UpdateProfilesList(null, index);
+				saveAsNewCallback: newProfile => {
+					profilesList.Add(newProfile);
+					return Task.CompletedTask;
+				},
+				changeCallback: async newProfile => {
+					int index = profilesList.IndexOf(profile);
+					profilesList.SetOrRemoveAt(newProfile, index);
 					bool prevSelected = UI.GetProfile() == profile;
 					if (prevSelected)
-						await SelectProfile(null);
+						await SelectProfile(newProfile);
 				});
 			window.Dialog(this);
 		});
 		Button selectButton = Button.NewWithLabel("Select");
-		selectProfileButtons[profile.ID] = selectButton;
 		selectButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingProfiles], async (_, _) => {
 			await SelectProfile(profile);
 		}, makeInsensitive: false);
@@ -149,22 +121,18 @@ public partial class MainWindow {
 		row.SetChild(box);
 		row.SetActivatable(false);
 		row.SetMargin(10);
-		return row;
+		return (row, selectButton);
 	}
 	
 
 
 	private async Task SelectProfile(Profile? profile) {
 		bool shouldSave = UI.SetProfile(profile);
-		foreach (Button selectProfileButton in selectProfileButtons.Values)
-			selectProfileButton.SetSensitive(true);
+		profilesList.UpdateButtonStates(profile);
 		if (profile is null) {
 			EnableExtraCategories(ExtraCategories.Profiles);
 			return;
 		}
-		Button button = selectProfileButtons[profile.ID];
-		button.SetSensitive(false);
-		
 		await ParseModsAndUpdateMenu();
 		EnableExtraCategories(ExtraCategories.ProfilesAndMods);
 		if (shouldSave)

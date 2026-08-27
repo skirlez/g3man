@@ -94,7 +94,7 @@ public class GameAdderWindow : G3manWindow {
 		}
 		UI.RunOnMainThreadEventually(() => {
 			UI.AddGameEntry(game.Entry);
-			mainWindow.AddToGamesList(game, false);	
+			mainWindow.AddToGamesList(game);	
 			Close();
 		});
 	}

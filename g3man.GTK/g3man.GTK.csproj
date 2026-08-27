@@ -31,4 +31,5 @@
     <ItemGroup Condition="'$(IsWindows)'=='true'">
         <PackageReference Include="GirCore.GdkWin32-4.0" Version="0.8.1" />
     </ItemGroup>
+    
 </Project>

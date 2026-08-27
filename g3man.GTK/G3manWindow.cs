@@ -15,8 +15,6 @@ using Gtk;
 namespace g3man.GTK;
 public class G3manWindow : Window {
     protected G3manWindow() {
-        OnCloseRequest += (_, _) => !UI.CanDo(UI.Operation.CloseWindow);
-        
         #if THEMABLE_TITLEBAR
             OnRealize += (_, _) => ApplyCurrentThemeToTitlebar();
         #endif

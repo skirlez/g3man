@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using g3man.Core.Models;
 using g3man.Core.Util;
 using g3man.GTK.Util;
@@ -8,29 +9,29 @@ using Xdelta = g3man.Core.Util.Xdelta;
 namespace g3man.GTK.MainUI;
 
 public partial class MainWindow {
+	private Entry gameDirectoryEntry;
+	
+	private UIList<Game> gamesList;
+	
+	private Label noGamesAddedLabel;
+
+
 	private void SetupGamesPage(Box box) {
 		Label gamesLabel = Label.New("Games");
 		gamesLabel.SetHalign(Align.Start);
 		gamesLabel.SetMarginStart(10);
 		gamesLabel.SetMarginTop(10);
-
-
 		
 		noGamesAddedLabel = Label.New("There are no games added");
 		noGamesAddedLabel.SetMargin(10);
 		
-		gamesListBox = ListBox.New();
+		ListBox gamesListBox = ListBox.New();
 		gamesListBox.SetSelectionMode(SelectionMode.None);
 		gamesListBox.SetPlaceholder(noGamesAddedLabel);
-		selectGameButtons = [];
-		gamesList = new List<Game>();
+		gamesList = new UIList<Game>([], gamesListBox, makeGameRow, noGamesAddedLabel);
 		
-		
-		List<Game> games = Game.ParseAll(UI.Config.GameEntries, (e, entry) => {
-			UI.Logger.Error($"Error reading game at {entry.Path}:\n{e.Message}");
-		});
-		games.Sort((game1, game2) => string.Compare(game1.DisplayName, game2.DisplayName, StringComparison.Ordinal));
-		PopulateGamesList(games);
+		// TODO: Weird
+		_ = ParseGamesAndUpdateMenu();
 		
 		ScrolledWindow gamesListWindow = ScrolledWindow.New();
 		gamesListWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
@@ -43,7 +44,7 @@ public partial class MainWindow {
 		
 		Button autoDetectButton = Button.NewWithLabel("Auto-detect games");
 		autoDetectButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], (_, _) => {
-			GameAutoDetectWindow window = new(this, gamesList);
+			GameAutoDetectWindow window = new(this);
 			window.Dialog();
 		});
 		autoDetectButton.SetHalign(Align.Center);
@@ -116,65 +117,49 @@ public partial class MainWindow {
 		box.Append(addGameButton);
 	}
 	
-	private void PopulateGamesList(List<Game> games, Game? selectedGame = null) {
-		selectGameButtons.Clear();
-		
-		gamesListBox.RemoveAll();
-		gamesListBox.SetPlaceholder(noGamesAddedLabel);
-
+	
+	private async Task ParseGamesAndUpdateMenu() {
+		List<Game> games = await Task.Run(() => {
+			UI.ThreadAssert();
+			List<Game> list = Game.ParseAll(UI.Config.GameEntries,
+				(e, entry) => { UI.Logger.Error($"Error reading game at {entry.Path}:\n{e.Message}"); });
+			list.Sort((game1, game2) => string.Compare(game1.DisplayName, game2.DisplayName, StringComparison.Ordinal));
+			return list;
+		});
+		UI.ThreadAssert();
 		gamesList.Clear();
-		foreach (Game game in games) {
-			AddToGamesList(game, selectedGame == game);
-		}
+		foreach (Game game in games)
+			gamesList.Add(game);
 	}
+	
 
-	private ListBoxRow MakeGameRow(Game game, bool selected) {
+	private (ListBoxRow, Button) makeGameRow(Game game) {
 		Label gameNameLabel = Label.New(game.DisplayName);
 		
 		Box spacer = Box.New(Orientation.Horizontal, 0);
 		spacer.SetHexpand(true);
 		
 		Button selectGameButton = Button.NewWithLabel("Select");
-		selectGameButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], async (button, _) => {
-			EnableExtraCategories(ExtraCategories.None);
-			await SelectGame(game, button);
+		selectGameButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], async (_, _) => {
+			await SelectGame(game);
 		}, makeInsensitive: false);
 		
-		selectGameButton.SetSensitive(!selected);
-		selectGameButtons.Add(selectGameButton);
-
 		Button manageGameButton = Button.NewWithLabel("Manage");
 		manageGameButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], (_,_) => {
 			if (game.FormatVersion == 1) {
-				GameUpgraderWindow upgraderWindow = new GameUpgraderWindow(this, game);
+				GameUpgraderWindow upgraderWindow = new(game);
 				upgraderWindow.Dialog(this);
 				return;
 			}
-			ManageGameWindow window = new ManageGameWindow(game, this, 
-				saveCallback: (Game newGame) => {
-					newGame.Write();
+
+			ManageGameWindow window = new(game,
+				callback: async (newGame) => {
 					int index = gamesList.IndexOf(game);
-					ListBoxRow oldRow = gamesListBox.GetRowAtIndex(index)!;
-					ListBoxRow newRow = MakeGameRow(newGame, (UI.GetGame() == game));
-					gamesListBox.Remove(oldRow);
-					gamesList.RemoveAt(index);
-					gamesListBox.Insert(newRow, index);
-					gamesList.Insert(index, newGame);
-					UI.SetGame(newGame);
-					return true;
-				}, 
-				removeCallback: () => {
-					int index = gamesList.IndexOf(game);
+					gamesList.SetOrRemoveAt(newGame, index);
 					if (game == UI.GetGame())
-						EnableExtraCategories(ExtraCategories.None);
-					UI.RemoveGameEntry(game.Entry);
-					ListBoxRow row = gamesListBox.GetRowAtIndex(index)!;
-					gamesListBox.Remove(row);
-					gamesList.RemoveAt(index);
-					UI.SetGame(null);
-					return true;
+						await SelectGame(newGame);
 				});
-			window.Dialog();
+			window.Dialog(this);
 		});
 
 		
@@ -183,7 +168,6 @@ public partial class MainWindow {
 		box.Append(spacer);
 		box.Append(manageGameButton);
 		box.Append(selectGameButton);
-	
 		box.SetValign(Align.Center);
 		
 		
@@ -192,12 +176,10 @@ public partial class MainWindow {
 		row.SetChild(box);
 		row.SetActivatable(false);
 		row.SetMargin(10);
-		return row;
+		return (row, selectGameButton);
 	}
 	
-	public void AddToGamesList(Game game, bool selected) {
-		ListBoxRow row = MakeGameRow(game, selected);
-		gamesListBox.Append(row);
+	public void AddToGamesList(Game game) {
 		gamesList.Add(game);
 	}
 	/*
@@ -241,18 +223,17 @@ public partial class MainWindow {
 		}
 	}
 	*/
-	private async Task SelectGame(Game game, Button buttonPressed) {
-		if (game.FormatVersion == 1) {
-			GameUpgraderWindow window = new(this, game);
+	private async Task SelectGame(Game? game) {
+		if (game is not null && game.FormatVersion == 1) {
+			GameUpgraderWindow window = new(game);
 			window.Dialog(this);
 			return;
 		}
-		foreach (Button button in selectGameButtons) {
-			button.SetSensitive(true);
-		}
-		buttonPressed.SetSensitive(false);
 		UI.SetGame(game);
 		EnableExtraCategories(ExtraCategories.None);
+		gamesList.UpdateButtonStates(game);
+		if (game is null)
+			return;
 		//TryLoadExecutableImage(game, currentGameIcon);
 		await ParseProfilesAndUpdateMenu();
 		if (UI.GetProfile() is not null) {

@@ -34,7 +34,6 @@ public static class UI {
 		TouchingMods,
 		ChangePage,
 		OpenWindow,
-		CloseWindow,
 		ApplyOrLaunch,
 		SaveConfig,
 	}
@@ -42,7 +41,6 @@ public static class UI {
 	private static List<List<Operation>> mutuallyExclusiveOperations = [
 		[Operation.TouchingGames, Operation.TouchingMods, Operation.TouchingProfiles, Operation.ApplyOrLaunch],
 		[Operation.OpenWindow, Operation.ChangePage],
-		[Operation.OpenWindow, Operation.CloseWindow]
 	];
 
 	private static bool isConflicting(Operation operation1, Operation operation2) {
@@ -91,9 +89,6 @@ public static class UI {
 	}
 	public static SignalHandler<Button> OpenWindowButton(Action<Button, EventArgs> action) {
 		return DoOperation([Operation.OpenWindow], action);
-	}
-	public static SignalHandler<Button> CloseWindowButton(Action<Button, EventArgs> action) {
-		return DoOperation([Operation.CloseWindow], action);
 	}
 	
 
@@ -148,6 +143,7 @@ public static class UI {
 	public static void SetGame(Game? newGame) {
 		game = newGame;
 		mainWindow.CurrentGameLabel.SetText(game?.DisplayName ?? NoGameSelected);
+		SetProfile(null);
 	}
 	public static Profile? GetProfile() {
 		return profile;
@@ -160,11 +156,15 @@ public static class UI {
 	 */
 	public static bool SetProfile(Profile? newProfile) {
 		profile = newProfile;
-		string oldId = game!.Entry.ProfileFolderName;
-		string newId = profile?.ID ?? "";
-		game!.Entry.ProfileFolderName = newId;
 		mainWindow.CurrentProfileLabel.SetText(profile?.Name ?? NoProfileSelected);
-		return newProfile is not null && oldId != newId;
+		if (newProfile is null)
+			return false;
+		
+		Debug.Assert(game is not null);
+		string oldId = game.Entry.ProfileFolderName;
+		string newId = newProfile.ID ?? "";
+		game.Entry.ProfileFolderName = newId;
+		return oldId != newId;
 	}
 	public static string CurrentProfileFolderPath() {
 		Debug.Assert(game is not null);
@@ -275,7 +275,7 @@ public static class UI {
 		});
 	}
 
-	public static void AssertUI() {
+	public static void ThreadAssert() {
 		Debug.Assert(Thread.CurrentThread == MainThread);
 	}
 

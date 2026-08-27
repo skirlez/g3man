@@ -7,7 +7,7 @@ using Gtk;
 namespace g3man.GTK;
 
 public class ManageProfileWindow : G3manWindow {
-	public ManageProfileWindow(Profile? profile, Func<Profile, bool, Task> saveCallback, Func<Task>? deleteCallback = null) {
+	public ManageProfileWindow(Profile? profile, Func<Profile, Task> saveAsNewCallback, Func<Profile?, Task>? changeCallback = null) {
 		SetSizeRequest(400, 300);
 		SetTitle(profile is null ? "Create Profile" : "Manage Profile");
 		
@@ -132,8 +132,6 @@ public class ManageProfileWindow : G3manWindow {
 		fateBox.SetVexpand(true);
 		
 		async Task SaveProfile(bool asNew) {
-			
-			
 			// TODO: can't have it be nicer by making it so we stop the insert-text signal so we limit the characters you can type.
 			// until it works with Entry (seems to just not at the moment) OR
 			// when gir.core supports overriding virtual functions (we could subclass EntryBuffer)
@@ -141,8 +139,8 @@ public class ManageProfileWindow : G3manWindow {
 			
 			SetSensitive(false);
 			void makePopupAndSetSensitive(string title, string message, string buttonText) {
-				PopupWindow popup = new(this, title, message, buttonText);
-				popup.Dialog();
+				PopupWindow popup = new(title, message, buttonText);
+				popup.Dialog(this);
 				SetSensitive(true);
 			}
 			
@@ -219,9 +217,16 @@ public class ManageProfileWindow : G3manWindow {
 				
 			}
 
-			await saveCallback(newProfile, asNew);
+			if (asNew)
+				await saveAsNewCallback(newProfile);
+			else 
+				await changeCallback!(newProfile);
 			Close();
 		}
+		
+		doneButton.OnClicked += async (_, _) => {
+			await SaveProfile(asNew: profile is null);
+		};
 		
 		if (profile is not null) {
 			Button deleteButton = Button.NewWithLabel("Delete");
@@ -232,12 +237,12 @@ public class ManageProfileWindow : G3manWindow {
 				}
 				catch (Exception e) {
 					UI.Logger.Error(e);
-					PopupWindow popup = new(this,  "Error!" ,"An error occured trying to delete this profile", "Damn");
-					popup.Dialog();
+					PopupWindow popup = new("Error!" ,"An error occured trying to delete this profile", "Damn");
+					popup.Dialog(this);
 					SetSensitive(true);
 					return;
 				}
-				await deleteCallback!();
+				await changeCallback!(null);
 				Close();
 			};
 			Button saveAsNew = Button.NewWithLabel("Save as New");
@@ -248,9 +253,7 @@ public class ManageProfileWindow : G3manWindow {
 			fateBox.Append(deleteButton);
 		}
 		
-		doneButton.OnClicked += async (_, _) => {
-			await SaveProfile(asNew: false);
-		};
+
 		
 		Box box = Box.New(Orientation.Vertical, 12);
 		box.SetMargin(10);

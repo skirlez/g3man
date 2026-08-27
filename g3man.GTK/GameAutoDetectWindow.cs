@@ -10,7 +10,7 @@ namespace g3man.GTK;
 
 public class GameAutoDetectWindow : G3manWindow {
 	private MainWindow owner;
-	public GameAutoDetectWindow(MainWindow owner, List<Game> existingGames) {
+	public GameAutoDetectWindow(MainWindow owner) {
 		SetSizeRequest(350, 300);
 		this.owner = owner;
 		

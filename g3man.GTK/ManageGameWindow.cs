@@ -7,10 +7,7 @@ using Gtk;
 namespace g3man.GTK;
 
 public class ManageGameWindow : G3manWindow {
-	private MainWindow mainWindow;
-	
-	public ManageGameWindow(Game game, MainWindow mainWindow, Func<Game, bool> saveCallback, Func<bool> removeCallback) {
-		this.mainWindow = mainWindow;
+	public ManageGameWindow(Game game, Func<Game?, Task> callback) {
 		SetSizeRequest(400, 300);
 		SetTitle("Manage Game");
 		
@@ -138,7 +135,8 @@ public class ManageGameWindow : G3manWindow {
 		
 		
 		Button saveButton = Button.NewWithLabel("Save");
-		saveButton.OnClicked += UI.CloseWindowButton((_, _) => {
+		saveButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], async (_, _) => {
+			SetSensitive(false);
 			int newAppId;
 			try {
 				newAppId = int.Parse(steamAppIdEntry.GetText());
@@ -147,15 +145,18 @@ public class ManageGameWindow : G3manWindow {
 				newAppId = -1;
 			}
 			Game newGame = new(game.Entry, nameEntry.GetText(), game.InternalName, game.DatafilePath, launchMethod.Active, fileExeEntry.GetText(), newAppId, writeDirectlyCheck.Active);
-			if (saveCallback(newGame)) {
-				Close();
+			if (await PopupWindow.PopupIfError(this, async () => await Task.Run(newGame.Write))) {
+				SetSensitive(true);
+				return;
 			}
+			await callback(newGame);
+			Close();
 		});
 		Button removeButton = Button.NewWithLabel("Remove entry");
-		removeButton.OnClicked += UI.CloseWindowButton((_, _) => {
-			if (removeCallback()) {
-				Close();
-			}
+		removeButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingGames, UI.Operation.OpenWindow], async (_, _) => {
+			SetSensitive(false);
+			await callback(null);
+			Close();
 		});
 		
 		Box fateBox = Box.New(Orientation.Horizontal, 10);
@@ -194,8 +195,8 @@ public class ManageGameWindow : G3manWindow {
 		SetChild(box);
 	}
 	
-	public void Dialog() {
-		SetTransientFor(mainWindow);
+	public void Dialog(Window window) {
+		SetTransientFor(window);
 		SetModal(true);
 		Present();
 	}
@@ -212,14 +213,12 @@ public class ManageGameWindow : G3manWindow {
 		}
 		PopupWindow window;
 		if (success) {
-			window = new PopupWindow(this,
-				"Success", message ?? "Operation completed successfully", "Thanks");
+			window = new PopupWindow("Success", message ?? "Operation completed successfully", "Thanks");
 		}
 		else {
-			window = new PopupWindow(this,
-				"Error!", message ?? $"{errorMessage}.", "Damn");
+			window = new PopupWindow("Error!", message ?? $"{errorMessage}.", "Damn");
 		}
-		window.Dialog();
+		window.Dialog(this);
 	}
 }
 

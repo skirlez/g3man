@@ -79,13 +79,13 @@ public partial class MainWindow {
 		};
 		Button scriptInfoDialog = Button.NewWithLabel("!");
 		scriptInfoDialog.OnClicked += UI.OpenWindowButton((_, _) => {
-			PopupWindow popup = new(this, "Info", 
+			PopupWindow popup = new("Info", 
 				"This option allows mods to run C# scripts."
 					+ "\nSome mods need them, but remember that these scripts could"
 					+ "\npotentially do anything to your computer!",
 				"I will be careful");
 			
-			popup.Dialog();
+			popup.Dialog(this);
 		});
 		scriptInfoDialog.SetSizeRequest(20, 20);
 		
