@@ -10,7 +10,7 @@ namespace g3man.GTK.MainUI;
 
 public partial class MainWindow {
 	
-	private UIList<Profile> profilesList;
+	private SelectableUIList<Profile> profilesList;
 	private Label noProfilesLabel;
 	
 	private void SetupProfilesPage(Box box) {
@@ -18,7 +18,7 @@ public partial class MainWindow {
 		profilesListBox.SetSelectionMode(SelectionMode.None);
 		noProfilesLabel = Label.New("No profiles found.");
 		noProfilesLabel.SetMargin(30);
-		profilesList = new UIList<Profile>([], profilesListBox, MakeProfileRow, noProfilesLabel);
+		profilesList = new SelectableUIList<Profile>([], profilesListBox, MakeProfileRow, noProfilesLabel);
 		
 		Button openProfilesFolder = Button.NewWithLabel("Open profiles folder");
 		openProfilesFolder.OnClicked += UI.OpenWindowButton(async (_, _) => {
@@ -135,8 +135,14 @@ public partial class MainWindow {
 		}
 		await ParseModsAndUpdateMenu();
 		EnableExtraCategories(ExtraCategories.ProfilesAndMods);
+		Game game = UI.GetGame()!;
+		
+		List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(modsList.GetEnabledModsList(), game.GetProfileFolderPath(profile),game.DatafilePath);
+		UI.DataLoader.LoadAsync(game, xdeltas);
+		
 		if (shouldSave)
 			await UI.TryWriteConfig();
+		
 	}
 	
 }

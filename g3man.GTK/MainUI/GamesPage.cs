@@ -11,7 +11,7 @@ namespace g3man.GTK.MainUI;
 public partial class MainWindow {
 	private Entry gameDirectoryEntry;
 	
-	private UIList<Game> gamesList;
+	private SelectableUIList<Game> gamesList;
 	
 	private Label noGamesAddedLabel;
 
@@ -28,7 +28,7 @@ public partial class MainWindow {
 		ListBox gamesListBox = ListBox.New();
 		gamesListBox.SetSelectionMode(SelectionMode.None);
 		gamesListBox.SetPlaceholder(noGamesAddedLabel);
-		gamesList = new UIList<Game>([], gamesListBox, makeGameRow, noGamesAddedLabel);
+		gamesList = new SelectableUIList<Game>([], gamesListBox, makeGameRow, noGamesAddedLabel);
 		
 		// TODO: Weird
 		_ = ParseGamesAndUpdateMenu();
@@ -235,13 +235,5 @@ public partial class MainWindow {
 			return;
 		//TryLoadExecutableImage(game, currentGameIcon);
 		await ParseProfilesAndUpdateMenu();
-		if (UI.GetProfile() is not null) {
-			// TODO: this should be done when you select a profile too
-			List<Xdelta> xdeltas = Xdelta.GetDatafileXdeltaPatches(
-				modsList.Where(m => enabledMods.ContainsKey(m)), 
-				UI.CurrentProfileFolderPath(), 
-				game.DatafilePath);
-			UI.DataLoader.LoadAsync(game, xdeltas);
-		}
 	}
 }

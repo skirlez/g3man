@@ -8,6 +8,11 @@ using Gtk;
 namespace g3man.GTK.MainUI;
 
 public partial class MainWindow {
+	private ModsList modsList;
+	private ListBox modsListBox;
+	private ScrolledWindow modsListWindow;
+
+	
 	private Label modNameLabel;
 	private Label modDescriptionLabel;
 
@@ -16,8 +21,6 @@ public partial class MainWindow {
 		modDescriptionLabel.SetText("Click on a mod to view information about it!");
 	}
 	private void SetupModsPage(Box page) {
-		noModsLabel = Label.New("No mods found.");
-		noModsLabel.SetMargin(30);
 		
 		modNameLabel = Label.New("");
 		modNameLabel.SetMarginTop(10);
@@ -33,17 +36,18 @@ public partial class MainWindow {
 		modInfoWindow.SetChild(modDescriptionLabel);
 		modInfoWindow.SetPropagateNaturalHeight(true);
 
+		Label noModsLabel = Label.New("No mods found.");
+		noModsLabel.SetMargin(30);
+		
 		modsListBox = ListBox.New();
 		modsListBox.SetHexpand(true);
 		modsListBox.SetPlaceholder(noModsLabel);
-		modsListBox.OnRowSelected += (sender, args) => {
-			if (args.Row is null) {
+		modsListBox.OnRowSelected += (_, args) => {
+			if (args.Row is null)
 				return;
-			}
-
 			int index = args.Row.GetIndex();
+			
 			IMod mod = modsList[index];
-
 			if (mod.MaybeVersion is null)
 				modNameLabel.SetText($"{mod.DisplayName}");
 			else
@@ -60,6 +64,7 @@ public partial class MainWindow {
 
 			modDescriptionLabel.SetText(mod.Description + "\n" + credits);
 		};
+		modsList = new ModsList([], modsListBox, makeModRow, noModsLabel);
 
 		modsListWindow = ScrolledWindow.New();
 		modsListWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
@@ -79,7 +84,7 @@ public partial class MainWindow {
 		Button refreshButton = Button.NewWithLabel("Refresh");
 		refreshButton.OnClicked += UI.DoOperation<Button>([UI.Operation.TouchingMods], async (_, _) => {
 			Profile profile = UI.GetProfile()!;
-			profile.UpdateModsStatus(modsList, enabledMods);
+			profile.UpdateModsStatus(modsList, modsList.GetEnabledMods());
 			await Task.Run(() => profile.Write(UI.GetGame()!));
 			await ParseModsAndUpdateMenu();
 		});
@@ -110,13 +115,10 @@ public partial class MainWindow {
 				popup.Dialog(this);
 				return;
 			}
-
-			modsList.RemoveAt(index);
-			modsList.Insert(index + direction, mod);
+			
+			modsList.Move(index, index + direction);
 
 			modsListBox.UnselectAll();
-			modsListBox.Remove(selected);
-			modsListBox.Insert(selected, index + direction);
 			modsListBox.SelectRow(selected);
 		}
 
@@ -170,10 +172,7 @@ public partial class MainWindow {
 			ListBoxRow? next = modsListBox.GetRowAtIndex(index + 1);
 			if (next is not null)
 				modsListBox.SelectRow(next);
-			modsListBox.Remove(selected);
 			modsList.RemoveAt(index);
-			enabledMods.Remove(mod);
-	
 		});
 
 		manageModsBox.Append(openModsFolderButton);
@@ -204,47 +203,47 @@ public partial class MainWindow {
 		
 		List<XdeltaMod> xdeltaMods = await Task.Run(() => XdeltaMod.ParseAll(game.GetProfileFolderPath(profile)));
 		
-		modsList = new List<IMod>();
-		modsList.AddRange(g3manMods);
-		modsList.AddRange(xdeltaMods);
-		modsListBox.RemoveAll();
-		modsListBox.SetPlaceholder(noModsLabel);
+		modsList.Clear();
 
+		List<IMod> mods = [];
+		mods.AddRange(xdeltaMods);
+		mods.AddRange(g3manMods);
+		
 		List<string> modOrder = profile.ModOrder.ToList();
+		
 		List<string> missingXdeltas = xdeltaMods.Select(m => m.ModId).Where(id => !modOrder.Contains(id)).ToList();
 		modOrder.InsertRange(0, missingXdeltas);
-		modsList.Sort((mod1, mod2) => int.Sign(modOrder.IndexOf(mod1.ModId) - modOrder.IndexOf(mod2.ModId)));
-
-		enabledMods = new Dictionary<IMod, bool>();
-		List<string> disabledIds = profile.ModsDisabled.ToList();
 		
-		foreach (IMod mod in modsList) {
-			ListBoxRow row = ListBoxRow.New();
-			CheckButton modEnabled = CheckButton.New();
-			modEnabled.SetMarginEnd(4);
+		List<string> missingMods = mods.Select(m => m.ModId).Where(id => !modOrder.Contains(id)).ToList();
+		modOrder.AddRange(missingMods);
+		
+		mods.Sort((mod1, mod2) => int.Sign(modOrder.IndexOf(mod1.ModId) - modOrder.IndexOf(mod2.ModId)));
 
-			if (!disabledIds.Contains(mod.ModId)) {
-				modEnabled.SetActive(true);
-				enabledMods.Add(mod, true);
-			}
-			else {
-				enabledMods.Add(mod, false);
-			}
-
-			modEnabled.OnToggled += (sender, _) => {
-				enabledMods.Remove(mod);
-				enabledMods.Add(mod, sender.Active);
-			};
-
-			Label modName = Label.New(mod.DisplayName);
-			Box modBox = Box.New(Orientation.Horizontal, 5);
-			modBox.Append(modEnabled);
-			modBox.Append(modName);
-			modBox.SetMargin(10);
-			row.SetChild(modBox);
-			modsListBox.Append(row);
+		foreach (IMod mod in mods) {
+			modsList.Add(mod);
+			modsList.SetEnabled(mod, !profile.ModsDisabled.Contains(mod.ModId));
 		}
 
 		ResetModInfo();
+	}
+
+
+	private (ListBoxRow, CheckButton) makeModRow(IMod mod) {
+		ListBoxRow row = ListBoxRow.New();
+		CheckButton modEnabled = CheckButton.New();
+		modEnabled.SetActive(true);
+		modEnabled.SetMarginEnd(4);
+		
+		modEnabled.OnToggled += (sender, _) => {
+			modsList.SetEnabled(mod, sender.GetActive());
+		};
+
+		Label modName = Label.New(mod.DisplayName);
+		Box modBox = Box.New(Orientation.Horizontal, 5);
+		modBox.Append(modEnabled);
+		modBox.Append(modName);
+		modBox.SetMargin(10);
+		row.SetChild(modBox);
+		return (row, modEnabled);
 	}
 }

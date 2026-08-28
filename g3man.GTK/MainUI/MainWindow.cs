@@ -13,13 +13,6 @@ namespace g3man.GTK.MainUI;
 #pragma warning disable CS8618
 
 public partial class MainWindow : G3manWindow {
-
-	private ListBox modsListBox;
-	private ScrolledWindow modsListWindow;
-	private List<IMod> modsList = new();
-	private Dictionary<IMod, bool> enabledMods = new();
-	
-	private Label noModsLabel;
 	
 	private Image currentGameIcon;
 	public Label CurrentGameLabel;
@@ -129,6 +122,8 @@ public partial class MainWindow : G3manWindow {
 		CurrentProfileLabel.SetEllipsize(EllipsizeMode.End);
 		
 		async Task ApplyModsDialog(bool launch) {
+			Debug.Assert(modsList is not null);
+			Dictionary<IMod, bool> enabledMods = modsList.GetEnabledMods();
 			UI.GetProfile()!.UpdateModsStatus(modsList, enabledMods);
 			await Task.Run(() => UI.GetProfile()!.Write(UI.GetGame()!));
 			List<IMod> enabledModsList = modsList.Where(mod => enabledMods.GetValueOrDefault(mod, false)).ToList();

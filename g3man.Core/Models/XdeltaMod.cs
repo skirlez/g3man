@@ -21,7 +21,7 @@ public class XdeltaMod : IMod {
 	public XdeltaMod(string path) {
 		Filename = Path.GetFileName(path);
 		DisplayName = Filename;
-		ModId = Path.GetFileNameWithoutExtension(path).ToLower();
+		ModId = Path.GetFileNameWithoutExtension(path).ToLower().Replace(" ", "_");
 	}
 	
 	public static List<XdeltaMod> ParseAll(string directory) {

@@ -138,10 +138,10 @@ public class Profile {
 
 	}
 
-	public void UpdateModsStatus(List<IMod> modsList, Dictionary<IMod, bool> enabledMods) {
+	public void UpdateModsStatus(IList<IMod> modsList, Dictionary<IMod, bool> enabledMods) {
 		ModOrder = modsList.Select(mod => mod.ModId).ToArray();
 		List<string> disabledIds = [];
-		foreach (var kvp in enabledMods) {
+		foreach (KeyValuePair<IMod, bool> kvp in enabledMods) {
 			if (!kvp.Value)
 				disabledIds.Add(kvp.Key.ModId);
 		}
