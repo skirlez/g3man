@@ -18,7 +18,7 @@ public class CodeFixer {
 						&& instruction.ExtKind == IGMInstruction.ExtendedOpcode.PushReference
 						&& instruction.ResolvedFunction == null) 
 				{
-					//Console.WriteLine(instruction.ValueLong);
+					//Console.WriteLine(instruction.AssetReferenceId);
 				}
 			}
 		}

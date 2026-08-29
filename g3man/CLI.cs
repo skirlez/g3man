@@ -2,10 +2,14 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.Text;
 using g3man.Core;
+using g3man.Core.Git;
 using g3man.Core.Models;
 using g3man.Core.Patching;
 using g3man.Core.Util;
+using Underanalyzer.Decompiler;
 using UndertaleModLib;
+using UndertaleModLib.Compiler;
+using UndertaleModLib.Decompiler;
 using UndertaleModLib.Models;
 
 namespace g3man;
@@ -14,11 +18,15 @@ public static class CLI {
 	public static int Invoke(string[] args, Logger.LoggerPipe pipe) {
 		Logger logger = Logger.Make("", pipe);
 		
-		RootCommand root = new("This program can apply g3man mods or g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
+		RootCommand root = new("This program can apply g3man profiles without using the graphical interface. It is mostly made for build system purposes.");
 		Command applyCommand = new("apply") {
 			Description = "Apply a g3man profile to a game"
 		};
+		Command diffCommand = new("diff") {
+			Description = "Create git diffs for every code file between two data files"
+		};
 		root.Subcommands.Add(applyCommand);
+		root.Subcommands.Add(diffCommand);
 		
 		{
 			Option<bool> launch = new("--launch", "-l") {
@@ -209,6 +217,84 @@ public static class CLI {
 				
 				return 0;
 			}); 
+		}
+		{
+			Option<FileInfo> cleanDataLocation = new("--clean_data") {
+				Description = "Path to the clean datafile of the game",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			Option<FileInfo> modifiedDataLocation = new("--modified_data") {
+				Description = "Path to a modified datafile",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			Option<DirectoryInfo> outputLocation = new("--out") {
+				Description = "Path to write diffs to",
+				Required = true,
+				Arity = ArgumentArity.ExactlyOne
+			};
+			diffCommand.Add(cleanDataLocation);
+			diffCommand.Add(modifiedDataLocation);
+			diffCommand.Add(outputLocation);
+			diffCommand.SetAction(parseResult => {
+				UndertaleData read(string path) {
+					using FileStream stream = new(path, FileMode.Open, FileAccess.Read);
+					return UndertaleIO.Read(stream);
+				}
+				UndertaleData clean = read(parseResult.GetRequiredValue(cleanDataLocation).FullName);
+				UndertaleData modified = read(parseResult.GetRequiredValue(modifiedDataLocation).FullName);
+				string output = parseResult.GetRequiredValue(outputLocation).FullName;
+				GlobalDecompileContext vanillaContext = new(clean);
+				GlobalDecompileContext modifiedContext = new(modified);
+				DecompileSettings settings = new();
+				foreach (UndertaleCode codeVanilla in clean.Code) {
+					if (codeVanilla.ParentEntry is not null)
+						continue;
+					UndertaleCode codeModified = modified.Code.ByName(codeVanilla.Name.Content);
+
+					string textVanilla = new DecompileContext(vanillaContext, codeVanilla, settings).DecompileToString();
+					string textModified = new DecompileContext(modifiedContext, codeModified, settings).DecompileToString();
+					string diff = GitPatch.CreateDiff(codeVanilla.Name.Content, textVanilla, textModified);
+					if (diff == "")
+						continue;
+					File.WriteAllText(Path.Combine(output, $"{codeVanilla.Name.Content}.patch"), diff);
+				}
+				/*
+				string diff = GitPatch.CreateDiff("test",
+"""
+a
+b
+c
+""",
+"""
+a
+b
+d
+""");
+				string applied = GitPatch.ApplyDiff("a\nb\nc", diff);
+				Console.WriteLine(applied);
+				Console.WriteLine(diff);
+				Console.WriteLine(GitPatch.GetTargetFilename(diff));
+				
+
+
+				string? result = GitPatch.ThreeWayMerge(
+"""
+cccc
+""",
+"""
+aaaa
+
+""", 
+"""
+bbb
+"""
+);
+				Console.WriteLine($"Three Way Merge:\n{result}");
+				*/
+				return 0;
+			});
 		}
 
 		ParseResult result = root.Parse(args);

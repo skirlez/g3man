@@ -2,47 +2,33 @@
   description = "";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
+  inputs.self.submodules = true;
   outputs =
     { self, nixpkgs, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
 
-      mkG3manLib =
-        {
-          pname,
-          version,
-          buildInputs ? [ ],
-          soname,
-          flags,
-        }:
-        pkgs.stdenv.mkDerivation {
-          inherit pname version buildInputs;
-          src = ./c;
-          nativeBuildInputs = with pkgs; [
-            cmake
-          ];
-          installPhase = ''
-            mkdir -p $out/lib
-            cp ${soname} $out/lib
-          '';
-          cmakeFlags = flags;
-        };
-
-      libxdelta = mkG3manLib {
-        pname = "libxdelta";
-        version = "3.2.0";
-        soname = "libxdelta3.so";
-        flags = [ "-DG3MAN_SKIP_LIBG3MAN=ON" ];
-      };
-
-      libg3man = mkG3manLib {
-        pname = "libg3man";
-        version = "1.0.0";
-        buildInputs = [ libxdelta ];
-        soname = "libg3man.so";
-        flags = [ "-DG3MAN_SKIP_LIBXDELTA=ON" ];
+      libg3man = pkgs.stdenv.mkDerivation {
+        src = ./c;
+        name = "libg3man";
+        nativeBuildInputs = with pkgs; [
+          cmake
+          patchelf
+        ];
+        installPhase = ''
+        	runHook preInstall
+          mkdir -p $out/lib
+          cp libg3man.so $out/lib
+          cp libxdelta3.so $out/lib
+          cp libgit2.so $out/lib
+          runHook postInstall
+        '';
+        postInstall = ''
+          patchelf --set-rpath "$out/lib" $out/lib/libg3man.so       
+        '';
+        strictDeps = true;
+        __structuredAttrs = true;
       };
 
       g3man = pkgs.buildDotnetModule {
@@ -69,7 +55,6 @@
         runtimeDeps = with pkgs; [
           gtk4
           libadwaita
-          libxdelta
           libg3man
         ];
 
@@ -79,10 +64,10 @@
         ];
 
         dotnetFlags = [
-        	# We build the c libraries the Nix way
-	        "/p:DontHandleCLibs=true" 
-					# consistently getting a "used by another process" error unless i set this (weird)
-	        "-m:1" 
+          # We build the c libraries the Nix way
+          "/p:DontHandleCLibs=true"
+          # consistently getting a "used by another process" error unless i set this (weird)
+          "-m:1"
         ];
 
         strictDeps = true;
@@ -97,6 +82,7 @@
           glib # for GSETTINGS_SCHEMAS_PATH
 
           llvmPackages.clang-tools
+
           cmake
           bear
         ];
@@ -136,8 +122,9 @@
     {
       devShells.x86_64-linux.default = devshell;
       packages.x86_64-linux = {
-      	default = g3man;
-       	inherit update-nuget-lockfile;
+        default = g3man;
+        inherit libg3man;
+        inherit update-nuget-lockfile;
       };
       formatter.x86_64-linux = nixpkgs.legacyPackages.${system}.nixfmt-tree;
     };

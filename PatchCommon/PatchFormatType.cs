@@ -2,5 +2,6 @@ namespace PatchCommon;
 
 public enum PatchFormatType {
 	GMLP,
-	GMLPv2
+	GMLPv2,
+	Git
 }

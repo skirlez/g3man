@@ -32,6 +32,7 @@ public static class Program {
 			AttachConsole(ATTACH_PARENT_PROCESS);
 		#endif
 		MainThread = Thread.CurrentThread;
+		C.Initialize();
 		string logFilename = $"log-{DateTime.Now.Year:D4}-{DateTime.Now.Month:D2}-{DateTime.Now.Day:D2}-{DateTime.Now.Hour:D2}-{DateTime.Now.Minute:D2}-{DateTime.Now.Second:D2}.txt";
 		Logger.LoggerPipe pipe = new(InfoWriters, ErrorWriters);
 		if (args.Length == 0) {

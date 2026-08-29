@@ -25,8 +25,6 @@ public class PatchIntentionAggregate<T>() where T : new() {
 		Dictionary<string, List<PatchInfo>> blameMap = new();
 		foreach (PatchIntention<T> intention in intentions) {
 			string target = intention.Target;
-			
-
 			if (blameMap.ContainsKey(target))
 				blameMap[target].Add(intention.Info);
 			else

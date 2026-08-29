@@ -216,6 +216,7 @@ public class PatchLocation {
 			return Type switch {
 				PatchFormatType.GMLP => "gmlp",
 				PatchFormatType.GMLPv2 => "lua",
+				PatchFormatType.Git => "patch",
 				_ => throw new UnreachableException()
 			};
 		}
@@ -228,8 +229,9 @@ public class PatchLocation {
 		Type = typeString switch {
 			"gmlp" => PatchFormatType.GMLP,
 			"gmlpv2" => PatchFormatType.GMLPv2,
+			"git_diff" => PatchFormatType.Git,
 			_ => throw new InvalidPatchTypeException("Invalid patch format type: " + typeString
-				+ "\nSupported types: \"gmlp, gmlpv2\".)")
+				+ "\nSupported types: \"gmlp, gmlpv2, git_diff\".)")
 		};
 	}
 }

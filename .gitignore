@@ -1,11 +1,8 @@
 # g3man Artifacts
 g3man/Publishing/package
 g3man/Publishing/g3man*.zip
-c/build
-c/.cache/clangd
-c/compile_commands.json
 
-# Some file this library generates
+# Some file this UTML generates
 UndertaleModLib/gitversion.txt
 
 # Nix result symlink

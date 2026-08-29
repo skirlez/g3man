@@ -196,7 +196,6 @@ public static class Language {
 
 	public static PatchResults Apply(RecordAggregate<FileRecord> aggregate, CodeSource source) {
 		PatchResults results = new PatchResults();
-
 		foreach (KeyValuePair<string, FileRecord> kvp in aggregate.GetChanges()) {
 			string targetName = kvp.Key;
 			FileRecord record = kvp.Value;

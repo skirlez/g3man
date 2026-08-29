@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
+using g3man.Core.Git;
 using g3man.Core.Models;
 using g3man.Core.Util;
 using gmlp;
@@ -582,6 +583,7 @@ public class DatafilePatcher(Action<string> setStatus) {
 			
 			PatchIntentionAggregate<UnitOperations> gmlpIntentionAggregate = new();
 			PatchIntentionAggregate<FileRecord> gmlpv2IntentionAggregate = new();
+			PatchIntentionAggregate<GitRecord> gitIntentionAggregate = new();
 			
 			foreach (PatchLocation patchLocation in mod.Patches) {
 				string modFolder = Path.Combine(modsFolder, mod.ModId);
@@ -610,6 +612,10 @@ public class DatafilePatcher(Action<string> setStatus) {
 							gmlpv2.Language.FindIntentions(patchText, Path.GetDirectoryName(patchPath), relativePath, gmlpv2IntentionAggregate);
 							return;
 						}
+						if (patchLocation.Type == PatchFormatType.Git) {
+							GitPatch.FindIntentions(patchText, Path.GetFileNameWithoutExtension(relativePath), gitIntentionAggregate);
+							return;
+						}
 					}
 					catch (Exception e) {
 						// TODO: aggregate this error
@@ -633,6 +639,7 @@ public class DatafilePatcher(Action<string> setStatus) {
 			
 			gmlpv2IntentionAggregate.AddStepsIfNecessary(firstPatchSteps, lastPatchSteps, source, mod, gmlpv2.Language.Apply);
 			gmlpIntentionAggregate.AddStepsIfNecessary(firstPatchSteps, lastPatchSteps, source, mod, gmlp.Language.Apply);
+			gitIntentionAggregate.AddStepsIfNecessary(firstPatchSteps, lastPatchSteps, source, mod, GitPatch.Apply);
 		}
 
 
@@ -920,7 +927,7 @@ public class DatafilePatcher(Action<string> setStatus) {
 					if (num != -1) {
 						for (int i = -RADIUS; i < RADIUS; i++) {
 							int l = num + i;
-							if (l < lines.Length && l >= 0)
+							if (l <= lines.Length && l > 0)
 								relevantLines.Add(l);
 						}
 					}
