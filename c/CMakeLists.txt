@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.1)
+cmake_minimum_required(VERSION 3.31)
 project(libg3man VERSION 1.0.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -7,8 +7,7 @@ add_subdirectory(xdelta3)
 
 set_target_properties(xdelta3 PROPERTIES
 		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-		
-set(CMAKE_C_VISIBILITY_PRESET default)
+
 set(USE_HTTP OFF CACHE BOOL "" FORCE)
 set(USE_HTTPS OFF CACHE BOOL "" FORCE)
 set(USE_SSH OFF CACHE BOOL "" FORCE)
@@ -16,9 +15,10 @@ set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_CLI OFF CACHE BOOL "" FORCE)
 set(USE_NTLMCLIENT OFF CACHE BOOL "" FORCE)
 set(SONAME OFF CACHE BOOL "" FORCE)
+# we need some internal libgit2 functions
+set(CMAKE_C_VISIBILITY_PRESET default)
 add_subdirectory(libgit2)
-
-set(CMAKE_C_VISIBILITY_PRESET ON)
+unset(CMAKE_C_VISIBILITY_PRESET)
 
 set_target_properties(libgit2package PROPERTIES
 		LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
