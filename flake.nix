@@ -21,7 +21,6 @@
           mkdir -p $out/lib
           cp libg3man.so $out/lib
           cp libxdelta3.so $out/lib
-          cp libgit2.so $out/lib
           runHook postInstall
         '';
         postInstall = ''

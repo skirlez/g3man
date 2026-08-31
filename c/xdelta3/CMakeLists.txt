@@ -40,6 +40,9 @@ target_compile_definitions(xdelta3 PUBLIC XD3_USE_LARGESIZET=1)
 if(WIN32)
 	target_compile_definitions(xdelta3 PUBLIC XD3_WIN32=1) #this forces using the win32 io library
 	target_compile_definitions(xdelta3 PUBLIC WIN32=1)
+
+	# I don't know if this is correct and I hate cmake and windows
+	target_compile_definitions(xdelta3 PUBLIC WINVER=0x0601) 
 else()
 	target_compile_definitions(xdelta3 PUBLIC XD3_WIN32=0)
 	target_compile_definitions(xdelta3 PUBLIC WIN32=0)

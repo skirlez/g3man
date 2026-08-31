@@ -9,11 +9,11 @@ The libxdelta here is based off of https://github.com/marco-calautti/xdelta, mod
 
 g3man uses this library to apply .xdelta patches.
 
-If packaging: it will likely work if linked against any other version.
+If you're packaging g3man, it will likely work if dynamically linked against the system's version of the library.
 
 ### libgit2
 Libgit2 is a submodule that points to the main repo. 
 
 g3man uses this library to create and apply git diffs, as well as perform three-way merges.
 
-If packaging: will likely NOT work if linked against another version, as in this CMake project, the visiblity preset is changed to expose internal libgit2 functions.
+Due to the fact it also uses some internal functions, and that Windows was being annoying regarding their visiblity, I've opted to link it statically.

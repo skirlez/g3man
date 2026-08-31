@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "g3man.h"
+#define GIT_STATIC
 
 #include "git2/apply.h"
 #include "git2/buffer.h"
@@ -15,6 +16,12 @@
 #include "xdelta3/xdelta3.h"
 
 #define LIBGIT2_NO_FEATURES_H
+
+#ifdef _WIN32
+// I think this being necessary is a consequence of the features file being missing
+#define GIT_IO_WSAPOLL 1
+#endif
+
 #include "libgit2/apply.h"
 #include "libgit2/patch.h"
 #include "libgit2/patch_parse.h"
