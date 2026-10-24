@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
@@ -331,7 +332,7 @@ public class DatafilePatcher(Action<string> setStatus) {
 		MergeLists(data.Scripts, modData.Scripts, canMimic: false);
 		
 		Dictionary<string, UndertaleGameObject> gameObjectNameMap = data.GameObjects.Where(t => t is not null).ToDictionary(t => t!.Name.Content)!;
-
+		
 		MergeLists(data.GameObjects,  modData.GameObjects, canMimic: true, (gameObject, nameMap) => {
 			UndertaleGameObject parent = gameObject.ParentId;
 			if (parent is not null) {
@@ -403,8 +404,63 @@ public class DatafilePatcher(Action<string> setStatus) {
 			data.Strings.Add(str);
 		
 		data.GeneralInfo.FunctionClassifications |= modData.GeneralInfo.FunctionClassifications;
-
+		
+		MergeTags(data, modData);
+		
 		return new MergeProduct(groupsToUpdate, groupsToCopy);
+	}
+
+	private void MergeTags(UndertaleData data, UndertaleData modData) {
+		if (modData.Tags is not null) {
+			// todo i don't know if this is the best way to initialize
+			if (data.Tags is null ) {
+				UndertaleChunkTAGS chunk = new();
+				chunk.Object = new UndertaleTags();
+				chunk.Object.Tags = new UndertaleSimpleListString();
+				chunk.Object.AssetTags = new();
+				data.FORM.Chunks["TAGS"] = chunk;
+			}
+
+			foreach (UndertaleString tag in modData.Tags.Tags) {
+				data.Tags!.Tags.Add(tag);
+			}
+			foreach (KeyValuePair<int, UndertaleSimpleListString> kvp in modData.Tags.AssetTags) {
+				int code = kvp.Key;
+				int modIndex = code & 0xFFFFFF;
+				int type = code >> 24;
+				IList modList;
+				IList list;
+				if (type == 0) {
+					modList = (IList)modData.GameObjects;
+					list = (IList)data.GameObjects;
+				}
+				else if (type == 1) {
+					modList = (IList)modData.Sprites;
+					list = (IList)data.Sprites;
+				}
+				else {
+					throw new Exception($"TODO: other types for tags. need to Research this. sorry");
+				}
+				
+			
+				
+				UndertaleNamedResource res = (UndertaleNamedResource)modList[modIndex]!;
+				// TODO: support mimiced assets
+				
+				int newIndex = list.IndexOf(res);
+				if (newIndex == -1)
+					continue;
+				int tagIndex = UndertaleTags.GetAssetTagID(data, res);
+
+				if (data.Tags!.AssetTags.ContainsKey(tagIndex)) {
+					UndertaleSimpleListString tagsList = data.Tags!.AssetTags[tagIndex];
+					foreach (UndertaleString tag in kvp.Value)
+						tagsList.Add(tag);
+				}
+				else
+					data.Tags!.AssetTags.Add(tagIndex, kvp.Value);
+			}
+		}
 	}
 
 
