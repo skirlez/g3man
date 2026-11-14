@@ -391,7 +391,7 @@ public class DatafilePatcher(Action<string> setStatus) {
 		
 		// TODO: test these
 		MergeLists(data.ParticleSystems, modData.ParticleSystems);
-		MergeLists(data.ParticleSystemEmitters, modData.ParticleSystemEmitters);
+		MergeLists(data.ParticleSystemEmitters, modData.ParticleSystemEmitters, canMimic: false);
 		MergeLists(data.Sequences, modData.Sequences);
 		MergeLists(data.Timelines, modData.Timelines);
 		MergeLists(data.Paths, modData.Paths);
