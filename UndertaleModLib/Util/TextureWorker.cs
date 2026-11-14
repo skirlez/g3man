@@ -120,7 +120,7 @@ namespace UndertaleModLib.Util
                 ColorSpace = ColorSpace.sRGB,
             };
             MagickImage image = new(filePath, settings);
-            image.Alpha(AlphaOption.Set);
+            image.Alpha(AlphaAction.Set);
             image.Format = MagickFormat.Bgra;
             image.Depth = 8;
             image.SetCompression(CompressionMethod.NoCompression);

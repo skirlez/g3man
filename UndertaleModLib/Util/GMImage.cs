@@ -660,7 +660,7 @@ public class GMImage
                 {
                     // Create image using ImageMagick, and save it as PNG format
                     using var image = new MagickImage(_data, GetMagickRawToPngSettings());
-                    image.Alpha(AlphaOption.Set);
+                    image.Alpha(AlphaAction.Set);
                     image.Format = MagickFormat.Png32;
                     image.Write(stream);
                     break;
@@ -703,7 +703,7 @@ public class GMImage
                 {
                     // Create image using ImageMagick, and save it as PNG format
                     using var image = new MagickImage(_data, GetMagickDdsToPngSettings());
-                    image.Alpha(AlphaOption.Set);
+                    image.Alpha(AlphaAction.Set);
                     image.Format = MagickFormat.Png32;
                     image.Write(stream);
                     break;
@@ -751,7 +751,7 @@ public class GMImage
                 {
                     // Convert image to raw byte array
                     var image = new MagickImage(_data);
-                    image.Alpha(AlphaOption.Set);
+                    image.Alpha(AlphaAction.Set);
                     image.Format = MagickFormat.Bgra;
                     image.Depth = 8;
                     image.SetCompression(CompressionMethod.NoCompression);
@@ -795,7 +795,7 @@ public class GMImage
                 {
                     // Create image using ImageMagick, and convert it to PNG format
                     using var image = new MagickImage(_data, GetMagickRawToPngSettings());
-                    image.Alpha(AlphaOption.Set);
+                    image.Alpha(AlphaAction.Set);
                     image.Format = MagickFormat.Png32;
                     return new GMImage(ImageFormat.Png, Width, Height, image.ToByteArray());
                 }
@@ -834,7 +834,7 @@ public class GMImage
                 {
                     // Create image using ImageMagick, and convert it to PNG format
                     using var image = new MagickImage(_data, GetMagickDdsToPngSettings());
-                    image.Alpha(AlphaOption.Set);
+                    image.Alpha(AlphaAction.Set);
                     image.Format = MagickFormat.Png32;
                     return new GMImage(ImageFormat.Png, Width, Height, image.ToByteArray());
                 }
@@ -1047,7 +1047,7 @@ public class GMImage
                         Format = MagickFormat.Png
                     };
                     MagickImage image = new(_data, settings);
-                    image.Alpha(AlphaOption.Set);
+                    image.Alpha(AlphaAction.Set);
                     image.Format = MagickFormat.Bgra;
                     image.Depth = 8;
                     image.SetCompression(CompressionMethod.NoCompression);
@@ -1065,7 +1065,7 @@ public class GMImage
                         Compression = CompressionMethod.NoCompression
                     };
                     MagickImage image = new(_data, settings);
-                    image.Alpha(AlphaOption.Set);
+                    image.Alpha(AlphaAction.Set);
                     return image;
                 }
             case ImageFormat.Qoi:

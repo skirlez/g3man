@@ -93,7 +93,7 @@ public sealed class TextureGroupPacker
         image.Format = MagickFormat.Rgba;
         image.SetBitDepth(8);
         image.SetCompression(CompressionMethod.NoCompression);
-        image.Alpha(AlphaOption.Set);
+        image.Alpha(AlphaAction.Set);
 
         // Crop the image, if allowed
         int minX = 0, minY = 0;
@@ -126,7 +126,7 @@ public sealed class TextureGroupPacker
                 image.Format = MagickFormat.Rgba;
                 image.SetBitDepth(8);
                 image.SetCompression(CompressionMethod.NoCompression);
-                image.Alpha(AlphaOption.Set);
+                image.Alpha(AlphaAction.Set);
             }
             else
             {
@@ -312,7 +312,7 @@ public sealed class TextureGroupPacker
             Format = MagickFormat.Rgba
         };
         textureImage.SetCompression(CompressionMethod.NoCompression);
-        textureImage.Alpha(AlphaOption.Set);
+        textureImage.Alpha(AlphaAction.Set);
         foreach (PackImage image in currentPageImages)
         {
             int x = image.TextureItem.SourceX, y = image.TextureItem.SourceY;
