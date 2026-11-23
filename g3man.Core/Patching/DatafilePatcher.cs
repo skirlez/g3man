@@ -363,7 +363,13 @@ public class DatafilePatcher(Action<string> setStatus) {
 				}
 			}
 		}
-
+		Dictionary<string, UndertaleBackground> backgroundsNameMap = new();
+		foreach (UndertaleBackground bg in data.Backgrounds) {
+			backgroundsNameMap[bg.Name.Content] = bg;
+		}
+		MergeLists(data.Backgrounds, modData.Backgrounds);
+		
+		
 		if (!(modData.Rooms.Count == 1 && modData.Rooms[0].Name.Content == "g3man_must_exist")) {
 			{
 				Dictionary<string, UndertaleRoom> nameMap = data.Rooms.ToDictionary(t => t.Name.Content);
@@ -376,10 +382,22 @@ public class DatafilePatcher(Action<string> setStatus) {
 			}
 			MergeLists(data.Rooms, modData.Rooms, canMimic: true, (room, _) => {
 				foreach (UndertaleRoom.Layer layer in room.Layers) {
-					if (layer.LayerType != UndertaleRoom.LayerType.Instances)
-						continue;
-					foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances)
-						gameObject.InstanceID += addInstanceId;
+					if (layer.LayerType == UndertaleRoom.LayerType.Instances) {
+						foreach (UndertaleRoom.GameObject gameObject in layer.InstancesData.Instances) {
+							gameObject.InstanceID += addInstanceId;
+							UndertaleGameObject? mimic = GetMimicedResource(gameObjectNameMap, gameObject.ObjectDefinition);
+							if (mimic is not null)
+								gameObject.ObjectDefinition = mimic;
+						}
+					}
+
+					if (layer.LayerType == UndertaleRoom.LayerType.Tiles) {
+						if (layer.TilesData.Background == null)
+							continue;
+						UndertaleBackground? mimic = GetMimicedResource(backgroundsNameMap, layer.TilesData.Background);
+						if (mimic is not null)
+							layer.TilesData.Background = mimic;
+					}
 				}
 
 				return true;
@@ -387,6 +405,7 @@ public class DatafilePatcher(Action<string> setStatus) {
 		}
 
 		MergeLists(data.AnimationCurves, modData.AnimationCurves);
+		
 
 		
 		// TODO: test these
@@ -396,6 +415,8 @@ public class DatafilePatcher(Action<string> setStatus) {
 		MergeLists(data.Timelines, modData.Timelines);
 		MergeLists(data.Paths, modData.Paths);
 		MergeLists(data.Shaders, modData.Shaders);
+		
+
 		
 		foreach (UndertaleGlobalInit script in modData.GlobalInitScripts)
 			data.GlobalInitScripts.Add(script);
