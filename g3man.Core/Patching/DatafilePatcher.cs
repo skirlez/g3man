@@ -236,6 +236,7 @@ public class DatafilePatcher(Action<string> setStatus) {
 		int lastTexturePage = data.EmbeddedTextures.Count - 1;
 		int lastTexturePageItem = data.TexturePageItems.Count - 1;
 
+		
 		Dictionary<UndertaleEmbeddedTexture, int> dict = new Dictionary<UndertaleEmbeddedTexture, int>();
 		foreach (UndertaleEmbeddedTexture embeddedTexture in modData.EmbeddedTextures) {
 			if (embeddedTexture.TextureInfo.Name.Content == "__YY__0fallbacktexture.png_YYG_AUTO_GEN_TEX_GROUP_NAME_")
@@ -248,6 +249,9 @@ public class DatafilePatcher(Action<string> setStatus) {
 			dict.Add(embeddedTexture, lastTexturePage);
 		}
 		
+		// TODO: I think instead of adding texture entries per sprite and texture entries per bg,
+		// all texture entries could maybe just be added together
+		
 		MergeLists(data.Sprites, modData.Sprites, canMimic: true, (sprite, _) => {
 			foreach (UndertaleSprite.TextureEntry textureEntry in sprite.Textures) {
 				int newIndex = dict[textureEntry.Texture.TexturePage];
@@ -255,6 +259,24 @@ public class DatafilePatcher(Action<string> setStatus) {
 				lastTexturePageItem++;
 				textureEntry.Texture.Name = new UndertaleString("PageItem " + lastTexturePageItem);
 				data.TexturePageItems.Add(textureEntry.Texture);
+			}
+			return true;
+		});
+		Dictionary<string, UndertaleBackground> backgroundsNameMap = new();
+		foreach (UndertaleBackground bg in data.Backgrounds) {
+			if (bg is null)
+				continue;
+			backgroundsNameMap[bg.Name.Content] = bg;
+		}
+
+
+		MergeLists(data.Backgrounds, modData.Backgrounds, canMimic: true, (bg, _) => {
+			if (bg.Texture is not null) {
+				int newIndex = dict[bg.Texture.TexturePage];
+				bg.Texture.TexturePage = data.EmbeddedTextures[newIndex];
+				lastTexturePageItem++;
+				bg.Texture.Name = new UndertaleString("PageItem " + lastTexturePageItem);
+				data.TexturePageItems.Add(bg.Texture);
 			}
 			return true;
 		});
@@ -363,13 +385,8 @@ public class DatafilePatcher(Action<string> setStatus) {
 				}
 			}
 		}
-		Dictionary<string, UndertaleBackground> backgroundsNameMap = new();
-		foreach (UndertaleBackground bg in data.Backgrounds) {
-			backgroundsNameMap[bg.Name.Content] = bg;
-		}
-		MergeLists(data.Backgrounds, modData.Backgrounds);
-		
-		
+
+
 		if (!(modData.Rooms.Count == 1 && modData.Rooms[0].Name.Content == "g3man_must_exist")) {
 			{
 				Dictionary<string, UndertaleRoom> nameMap = data.Rooms.ToDictionary(t => t.Name.Content);
